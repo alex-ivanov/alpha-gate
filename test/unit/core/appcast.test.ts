@@ -1,0 +1,134 @@
+import { describe, expect, it } from "vitest";
+import {
+  INFORMATIONAL_SENTINEL_VERSION,
+  renderAppcast,
+  renderInformationalItem,
+  renderUpdateItem,
+  xmlEscape,
+} from "../../../src/core/appcast";
+import { aBuild } from "../../support/factories";
+
+// §8/§14/§15 appcast generation. The out-of-scope Sparkle client parses this, so the output is
+// asserted byte-exact (golden) and every interpolated value is XML-escaped (injection guard).
+
+const ENCLOSURE = "https://app.example/download?token=ABC&via=update";
+
+describe("xmlEscape", () => {
+  it("escapes the five XML metacharacters, ampersand first", () => {
+    expect(xmlEscape(`&<>"'`)).toBe("&amp;&lt;&gt;&quot;&apos;");
+  });
+});
+
+describe("renderUpdateItem", () => {
+  it("renders a normal update item (golden)", () => {
+    const build = aBuild({
+      buildNumber: 1500,
+      shortVersion: "1.4.0",
+      length: 5242880,
+      edSignature: "EdSigBase64==",
+      minOs: null,
+      critical: false,
+    });
+
+    expect(renderUpdateItem(build, ENCLOSURE)).toBe(
+      [
+        "    <item>",
+        "      <title>1.4.0</title>",
+        "      <sparkle:version>1500</sparkle:version>",
+        "      <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>",
+        '      <enclosure url="https://app.example/download?token=ABC&amp;via=update" length="5242880" type="application/octet-stream" sparkle:edSignature="EdSigBase64==" />',
+        "    </item>",
+      ].join("\n"),
+    );
+  });
+
+  it("includes minimumSystemVersion and an empty criticalUpdate element when set (golden)", () => {
+    const build = aBuild({
+      buildNumber: 1600,
+      shortVersion: "1.5.0",
+      length: 100,
+      edSignature: "Sig",
+      minOs: "12.0",
+      critical: true,
+    });
+
+    expect(renderUpdateItem(build, ENCLOSURE)).toBe(
+      [
+        "    <item>",
+        "      <title>1.5.0</title>",
+        "      <sparkle:version>1600</sparkle:version>",
+        "      <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>",
+        "      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>",
+        "      <sparkle:criticalUpdate></sparkle:criticalUpdate>",
+        '      <enclosure url="https://app.example/download?token=ABC&amp;via=update" length="100" type="application/octet-stream" sparkle:edSignature="Sig" />',
+        "    </item>",
+      ].join("\n"),
+    );
+  });
+
+  it("omits criticalUpdate entirely for a non-critical build", () => {
+    const xml = renderUpdateItem(aBuild({ critical: false }), ENCLOSURE);
+    expect(xml).not.toContain("criticalUpdate");
+  });
+
+  it("XML-escapes hostile version/signature/URL values rather than emitting them raw", () => {
+    const build = aBuild({ shortVersion: `1 <b>&"'`, edSignature: `a&b"c` });
+    const xml = renderUpdateItem(build, "https://x/d?token=A&via=update");
+
+    expect(xml).toContain("<title>1 &lt;b&gt;&amp;&quot;&apos;</title>");
+    expect(xml).not.toContain("<b>");
+    expect(xml).toContain('sparkle:edSignature="a&amp;b&quot;c"');
+    expect(xml).toContain('url="https://x/d?token=A&amp;via=update"');
+  });
+});
+
+describe("renderInformationalItem", () => {
+  it("renders a no-enclosure notice with the sentinel version and a link (golden, §15)", () => {
+    expect(renderInformationalItem("https://app.example/access")).toBe(
+      [
+        "    <item>",
+        "      <title>Reactivate your access</title>",
+        "      <sparkle:version>999000000</sparkle:version>",
+        "      <link>https://app.example/access</link>",
+        "    </item>",
+      ].join("\n"),
+    );
+  });
+
+  it("never contains an enclosure (so Sparkle shows a notice with no Install button)", () => {
+    expect(renderInformationalItem("https://app.example/access")).not.toContain("<enclosure");
+  });
+
+  it("uses a fixed sentinel comfortably below INT32 max", () => {
+    expect(INFORMATIONAL_SENTINEL_VERSION).toBe(999000000);
+    expect(INFORMATIONAL_SENTINEL_VERSION).toBeLessThan(2 ** 31 - 1);
+  });
+});
+
+describe("renderAppcast", () => {
+  it("wraps items in an rss/channel with the sparkle namespace declared (golden)", () => {
+    const build = aBuild({
+      buildNumber: 1500,
+      shortVersion: "1.4.0",
+      length: 5242880,
+      edSignature: "EdSigBase64==",
+    });
+
+    expect(renderAppcast({ title: "MyApp", items: [renderUpdateItem(build, ENCLOSURE)] })).toBe(
+      `${[
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">',
+        "  <channel>",
+        "    <title>MyApp</title>",
+        "    <item>",
+        "      <title>1.4.0</title>",
+        "      <sparkle:version>1500</sparkle:version>",
+        "      <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>",
+        '      <enclosure url="https://app.example/download?token=ABC&amp;via=update" length="5242880" type="application/octet-stream" sparkle:edSignature="EdSigBase64==" />',
+        "    </item>",
+        "  </channel>",
+        "</rss>",
+      ].join("\n")}\n`,
+    );
+  });
+});
