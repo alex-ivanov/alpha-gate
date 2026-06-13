@@ -1,0 +1,7 @@
+// The single sanctioned source of wall-clock time. Everything that records or compares time takes a
+// Clock so tests can seed it; no other module may call `new Date()` / `Date.now()` (Biome enforces
+// this — see biome.json). D1's own `datetime('now')` defaults are fine for columns no test asserts on.
+
+export type Clock = () => string; // ISO-8601 UTC, e.g. "2026-06-13T12:00:00.000Z"
+
+export const systemClock: Clock = () => new Date().toISOString();

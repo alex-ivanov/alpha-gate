@@ -31,3 +31,14 @@ declare global {
 }
 
 export type Env = Cloudflare.Env;
+
+/**
+ * Defensive read of the runtime env: fails fast on a misconfigured Worker (e.g. a ROLE that isn't
+ * "app"/"admin") rather than mis-routing silently. Returns the same object, narrowed.
+ */
+export function readEnv(env: Env): Env {
+  if (env.ROLE !== "app" && env.ROLE !== "admin") {
+    throw new Error(`Invalid ROLE: ${String(env.ROLE)} (expected "app" or "admin")`);
+  }
+  return env;
+}
