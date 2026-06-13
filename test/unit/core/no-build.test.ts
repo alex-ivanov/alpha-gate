@@ -88,6 +88,38 @@ describe("noBuildState", () => {
     });
     expect(noBuildState(world, client, null)).toBe("empty");
   });
+
+  it("empty — pinned to a withdrawn build stays empty even when installed on that same build (§11)", () => {
+    // §11 files "pinned to a now-withdrawn build" under the EMPTY bullet — the pin is the cause, so
+    // the label must not flip to "stranded" just because the installed build happens to be withdrawn.
+    const client = aClient({ id: 1, pinnedBuildId: 1500 });
+    const world = aWorld({
+      clients: [client],
+      builds: [aBuild({ id: 1500, buildNumber: 1500, status: "withdrawn" })],
+      buildStreams: [{ buildId: 1500, streamId: STABLE }],
+      userStreams: [{ clientId: 1, streamId: STABLE }],
+    });
+    expect(noBuildState(world, client, 1500)).toBe("empty");
+  });
+
+  it("empty — pinned to a withdrawn build even when a higher available build exists in the stream", () => {
+    // The pin overrides stream resolution, so the higher stream build is irrelevant: still "empty",
+    // never "stranded" (whose defining condition is the no-downgrade stream dead-end).
+    const client = aClient({ id: 1, pinnedBuildId: 1500 });
+    const world = aWorld({
+      clients: [client],
+      builds: [
+        aBuild({ id: 1500, buildNumber: 1500, status: "withdrawn" }),
+        aBuild({ id: 1600, buildNumber: 1600, status: "available" }),
+      ],
+      buildStreams: [
+        { buildId: 1500, streamId: STABLE },
+        { buildId: 1600, streamId: STABLE },
+      ],
+      userStreams: [{ clientId: 1, streamId: STABLE }],
+    });
+    expect(noBuildState(world, client, 1500)).toBe("empty");
+  });
 });
 
 describe("computeAffectedUsers (§11 confirmation preview)", () => {

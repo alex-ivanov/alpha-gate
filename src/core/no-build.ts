@@ -61,6 +61,13 @@ export function noBuildState(
     (installedBuildNumber === null || target.buildNumber >= installedBuildNumber);
   if (servable) return "servable";
 
+  // §11 files "pinned to a now-withdrawn build" under EMPTY — the pin is the cause, so classify as
+  // empty regardless of the installed build. Must precede the stranded (stream no-downgrade) check.
+  if (client.pinnedBuildId !== null) {
+    const pinned = world.builds.find((build) => build.id === client.pinnedBuildId);
+    if (pinned === undefined || pinned.status !== "available") return "empty";
+  }
+
   const onWithdrawnBuild =
     installedBuildNumber !== null &&
     world.builds.some(
