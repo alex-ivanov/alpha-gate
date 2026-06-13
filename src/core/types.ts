@@ -43,11 +43,21 @@ export interface Stream {
   name: string;
 }
 
+/** A build_streams row: which stream a build belongs to. */
+export interface BuildStreamLink {
+  buildId: number;
+  streamId: number;
+}
+
 /**
  * Outcome of resolving what a client should be served (§8). The single source of truth behind the
  * appcast, the /download target, and the §11 no-build preview.
+ *
+ * `none` means "no build to serve" — the empty-vs-stranded distinction (§11) is a separate
+ * classification (core/no-build) because it needs the client's last-reported installed build, which
+ * §8 resolution never uses.
  */
 export type ResolverResult =
   | { kind: "target"; build: Build }
   | { kind: "informational"; reason: "revoked" | "unknown" }
-  | { kind: "none"; reason: "empty" | "stranded" };
+  | { kind: "none" };
