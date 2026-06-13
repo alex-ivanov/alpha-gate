@@ -1,0 +1,43 @@
+name: Publish
+
+# Sample publish workflow (§13/§20). Builds + signs + notarizes on a macOS runner, then uploads to
+# the gated admin Worker via ci-publish.sh using a Cloudflare Access SERVICE TOKEN (no interactive
+# login). The build/sign steps are app-specific — fill them in for your project. Secrets to set:
+#   APPLE_DEVELOPER_ID_CERT, APPLE_DEVELOPER_ID_CERT_PASSWORD, NOTARY_API_KEY,
+#   SPARKLE_ED_PRIVATE_KEY, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, ADMIN_URL
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # ─── APP-SPECIFIC: build → sign → notarize → staple → archive → sign_update ─────────────────
+      # Produce the signed/notarized archive and its Sparkle EdDSA signature here, exporting:
+      #   ARCHIVE, SHORT_VERSION, BUILD_NUMBER, ED_SIGNATURE  (into $GITHUB_ENV).
+      # See publish.sh for the canonical command shapes.
+      - name: Build, sign, notarize (placeholder)
+        run: |
+          echo "TODO: build + codesign + notarytool + stapler + sign_update for your app" >&2
+          echo "ARCHIVE=dist/MyApp.zip" >> "$GITHUB_ENV"
+          echo "SHORT_VERSION=0.0.0" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=1" >> "$GITHUB_ENV"
+          echo "ED_SIGNATURE=PLACEHOLDER" >> "$GITHUB_ENV"
+
+      - name: Upload + register
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          ./ci-publish.sh \
+            --admin-url "${{ secrets.ADMIN_URL }}" \
+            --archive "$ARCHIVE" \
+            --short-version "$SHORT_VERSION" \
+            --build-number "$BUILD_NUMBER" \
+            --ed-signature "$ED_SIGNATURE" \
+            --stream-id 1
