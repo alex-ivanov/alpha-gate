@@ -5,3 +5,6 @@
 export type Clock = () => string; // ISO-8601 UTC, e.g. "2026-06-13T12:00:00.000Z"
 
 export const systemClock: Clock = () => new Date().toISOString();
+
+/** Current Unix time in whole seconds — for JWT exp/nbf checks. The only other sanctioned Date use. */
+export const nowSeconds = (): number => Math.floor(Date.now() / 1000);
