@@ -1,6 +1,7 @@
 import { type AccessVerifier, createAccessVerifier, defaultFetchJwks } from "./auth/access-jwt";
 import type { Env } from "./env";
 import { type Clock, nowSeconds, systemClock } from "./lib/clock";
+import { type EmailSender, selectEmailSender } from "./services/email";
 
 // The dependency-injection container (CANONICAL-LAYOUT rule 1). Handlers and services receive `Deps`
 // and never import bindings or seams directly, so tests swap each seam. It grows as consumers land:
@@ -11,6 +12,7 @@ export interface Deps {
   r2: R2Bucket;
   clock: Clock;
   access: AccessVerifier;
+  email: EmailSender;
 }
 
 /** Production wiring, built once at the worker entry from the runtime env. */
@@ -25,5 +27,6 @@ export function buildDeps(env: Env): Deps {
       fetchJwks: defaultFetchJwks,
       now: nowSeconds,
     }),
+    email: selectEmailSender(env.EMAIL_PROVIDER),
   };
 }

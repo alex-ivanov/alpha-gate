@@ -61,3 +61,20 @@ export async function execute(
     throw new DbError(sql, cause);
   }
 }
+
+/** Like execute, but returns the number of rows changed — for conditional/optimistic writes. */
+export async function executeWithChanges(
+  db: D1Database,
+  sql: string,
+  params: readonly unknown[] = [],
+): Promise<number> {
+  try {
+    const result = await db
+      .prepare(sql)
+      .bind(...params)
+      .run();
+    return result.meta.changes ?? 0;
+  } catch (cause) {
+    throw new DbError(sql, cause);
+  }
+}

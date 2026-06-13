@@ -1,5 +1,5 @@
 import type { AccessEvent } from "../core/types";
-import { execute, queryOne } from "./client";
+import { execute, queryAll, queryOne } from "./client";
 
 // §5/§16 — the access log: the source of truth for distribution stats (download/update counts,
 // per-user last activity, current version). `created_at` is supplied by the caller's Clock so
@@ -78,4 +78,41 @@ export async function currentBuild(db: D1Database, clientId: number): Promise<nu
 /** §16 retention prune: delete rows older than `before` (an ISO timestamp). */
 export async function prune(db: D1Database, before: string): Promise<void> {
   await execute(db, "DELETE FROM access_log WHERE created_at < ?", [before]);
+}
+
+export interface AccessLogEntry {
+  id: number;
+  clientId: number | null;
+  email: string | null;
+  event: AccessEvent;
+  shortVersion: string | null;
+  buildNumber: number | null;
+  createdAt: string;
+}
+
+/** The most recent events, newest first — the §13 activity feed. */
+export async function recent(db: D1Database, limit = 100): Promise<AccessLogEntry[]> {
+  const rows = await queryAll<{
+    id: number;
+    client_id: number | null;
+    email: string | null;
+    event: string;
+    short_version: string | null;
+    build_number: number | null;
+    created_at: string;
+  }>(
+    db,
+    `SELECT id, client_id, email, event, short_version, build_number, created_at
+     FROM access_log ORDER BY id DESC LIMIT ?`,
+    [limit],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    clientId: row.client_id,
+    email: row.email,
+    event: row.event as AccessEvent,
+    shortVersion: row.short_version,
+    buildNumber: row.build_number,
+    createdAt: row.created_at,
+  }));
 }
