@@ -3,6 +3,14 @@ import { buildDeps, type Deps } from "../../deps";
 import type { Env } from "../../env";
 import type { AdminEnv } from "./admin-context";
 import { adminAuth } from "./middleware";
+import {
+  activityView,
+  auditView,
+  buildsView,
+  dashboardView,
+  streamsView,
+  usersView,
+} from "./views";
 
 // The gated Admin Worker surface (ROLE=admin). EVERY request passes through adminAuth from one mount,
 // so no route can forget verification. Public paths (/get, /appcast, …) aren't mounted → 404. Read
@@ -16,8 +24,12 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   });
   app.use("*", adminAuth);
 
-  // Placeholder authenticated route; replaced by the real dashboard/read views in M12.
-  app.get("/admin", (c) => c.text("admin ok"));
+  app.get("/admin", dashboardView);
+  app.get("/admin/users", usersView);
+  app.get("/admin/builds", buildsView);
+  app.get("/admin/streams", streamsView);
+  app.get("/admin/activity", activityView);
+  app.get("/admin/audit", auditView);
 
   app.notFound((c) => c.text("Not found", 404));
   return app;
