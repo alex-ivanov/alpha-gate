@@ -38,23 +38,23 @@ else
   : "${CF_ACCESS_CLIENT_SECRET:?CF_ACCESS_CLIENT_SECRET env var is required}"
 fi
 
-# Common Access service-token + metadata args.
-set -- \
-  -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
-  -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}"
-
+# post: the real curl adds the Access service-token headers; dry-run echoes the args WITHOUT the
+# secret (the credentials are never expanded into the printed command).
 post() {
   if [ "${DRY_RUN}" -eq 1 ]; then
-    echo "[dry-run] curl -fsS -X POST $* (CF-Access creds redacted)" >&2
+    echo "[dry-run] curl -fsS -X POST -H 'CF-Access-Client-Id: <redacted>' -H 'CF-Access-Client-Secret: <redacted>' $*" >&2
     return 0
   fi
-  curl -fsS -X POST "$@"
+  curl -fsS -X POST \
+    -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
+    -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}" \
+    "$@"
 }
 
 if [ -n "${OBJECT_KEY}" ]; then
   # Register path: the archive is already in R2; send metadata only.
   [ -n "${SIZE}" ] || { echo "--size is required with --object-key" >&2; exit 1; }
-  post "$@" \
+  post \
     --data-urlencode "object_key=${OBJECT_KEY}" \
     --data-urlencode "size=${SIZE}" \
     --data-urlencode "short_version=${SHORT_VERSION}" \
@@ -68,7 +68,7 @@ else
   # Full upload path: stream the archive as multipart form data.
   [ -n "${ARCHIVE}" ] || { echo "--archive (or --object-key) is required" >&2; exit 1; }
   [ "${DRY_RUN}" -eq 1 ] || [ -f "${ARCHIVE}" ] || { echo "archive not found: ${ARCHIVE}" >&2; exit 1; }
-  post "$@" \
+  post \
     -F "archive=@${ARCHIVE}" \
     -F "short_version=${SHORT_VERSION}" \
     -F "build_number=${BUILD_NUMBER}" \

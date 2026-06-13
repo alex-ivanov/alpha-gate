@@ -47,9 +47,11 @@ CEILING=$((90 * 1024 * 1024))
 SIZE=0
 [ -f "${ARCHIVE}" ] && SIZE="$(wc -c < "${ARCHIVE}" | tr -d ' ')"
 
-PUBLISH_ARGS="--admin-url ${ADMIN_URL} --short-version ${SHORT_VERSION} --build-number ${BUILD_NUMBER} --ed-signature ${ED_SIGNATURE} ${CRITICAL_FLAG}"
-[ -n "${STREAM_ID}" ] && PUBLISH_ARGS="${PUBLISH_ARGS} --stream-id ${STREAM_ID}"
-[ "${DRY_RUN}" -eq 1 ] && PUBLISH_ARGS="${PUBLISH_ARGS} --dry-run"
+PUBLISH_ARGS=(--admin-url "${ADMIN_URL}" --short-version "${SHORT_VERSION}" \
+  --build-number "${BUILD_NUMBER}" --ed-signature "${ED_SIGNATURE}")
+[ -n "${CRITICAL_FLAG}" ] && PUBLISH_ARGS+=("${CRITICAL_FLAG}")
+[ -n "${STREAM_ID}" ] && PUBLISH_ARGS+=(--stream-id "${STREAM_ID}")
+[ "${DRY_RUN}" -eq 1 ] && PUBLISH_ARGS+=(--dry-run)
 
 if [ "${SIZE}" -gt "${CEILING}" ]; then
   echo "Archive is ${SIZE} bytes (> ceiling). PUT it to R2 out of band, then re-run ci-publish.sh" >&2
@@ -57,5 +59,4 @@ if [ "${SIZE}" -gt "${CEILING}" ]; then
   exit 1
 fi
 
-# shellcheck disable=SC2086  # word-split PUBLISH_ARGS into separate flags intentionally
-"${ROOT}/ci-publish.sh" ${PUBLISH_ARGS} --archive "${ARCHIVE}"
+"${ROOT}/ci-publish.sh" "${PUBLISH_ARGS[@]}" --archive "${ARCHIVE}"

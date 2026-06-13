@@ -19,6 +19,13 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 [ -n "${INSTANCE}" ] || { echo "--instance is required" >&2; exit 1; }
+# Validate the slug: it names resources, is interpolated into the rendered TOML, and is part of file
+# paths. Restricting it to the Cloudflare naming charset also prevents config injection / path traversal.
+case "${INSTANCE}" in
+  *[!a-z0-9-]* | -* | *- )
+    echo "invalid --instance: lowercase letters, digits and hyphens only (no leading/trailing hyphen)" >&2
+    exit 1 ;;
+esac
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RES="alpha-gate-${INSTANCE}"

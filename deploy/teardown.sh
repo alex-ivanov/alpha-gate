@@ -17,6 +17,11 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 [ -n "${INSTANCE}" ] || { echo "--instance is required" >&2; exit 1; }
+case "${INSTANCE}" in
+  *[!a-z0-9-]* | -* | *- )
+    echo "invalid --instance: lowercase letters, digits and hyphens only (no leading/trailing hyphen)" >&2
+    exit 1 ;;
+esac
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RES="alpha-gate-${INSTANCE}"
@@ -39,8 +44,11 @@ fi
 wrangler delete --name "${RES}" || true
 wrangler delete --name "${RES}-admin" || true
 
-# Empty the bucket, then delete it.
-wrangler r2 bucket delete "${RES}" || true
+# R2 bucket delete requires the bucket be empty. Surface failure loudly rather than silently
+# orphaning the bucket and its objects (empty it via the dashboard / `wrangler r2 object delete`).
+if ! wrangler r2 bucket delete "${RES}"; then
+  echo "WARN: R2 bucket ${RES} was NOT deleted (likely non-empty). Empty it, then delete it manually." >&2
+fi
 
 wrangler d1 delete "${RES}" --skip-confirmation || true
 
