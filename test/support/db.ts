@@ -19,3 +19,16 @@ export async function cleanDb(): Promise<void> {
     await env.DB.prepare(`DELETE FROM ${table}`).run();
   }
 }
+
+export async function cleanR2(): Promise<void> {
+  const { objects } = await env.BUILDS.list();
+  for (const object of objects) {
+    await env.BUILDS.delete(object.key);
+  }
+}
+
+/** Full reset for route/CUJ tests that touch both D1 and R2. */
+export async function resetAll(): Promise<void> {
+  await cleanDb();
+  await cleanR2();
+}
