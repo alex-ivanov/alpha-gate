@@ -66,24 +66,24 @@ Legend: ☐ todo · ◐ in progress · ☑ done
   (get+download), CUJ-3 (get+download), CUJ-6; Referrer-Policy + nosniff; /admin/* → 404. 136 tests.
 - ☑ **M10 — App route: /appcast.** Resolver → appcast XML → log `check` with `&installed=` (decision
   0004). **Gate met:** CUJ-1 (complete), CUJ-2, CUJ-3 (complete), CUJ-7, CUJ-8 (resolve half). 143 tests.
-- ☐ **M11 — Access JWT + admin middleware + ROLE gating.** `auth/access-jwt.ts` (fail-closed, RS256
+- ☑ **M11 — Access JWT + admin middleware + ROLE gating.** `auth/access-jwt.ts` (fail-closed, RS256
   pinned, aud/iss, JWKS-with-TTL behind a seam, service-token vs email — decision 0006), single
   middleware mount. **Gate:** CUJ-12 + verifier truth-table.
-- ☐ **M12 — Audit + email + admin read views.** `services/audit.ts` (atomic chain write),
+- ☑ **M12 — Audit + email + admin read views.** `services/audit.ts` (atomic chain write),
   `services/email.ts` (sender seam), `routes/admin/views.ts`. **Gate:** chain doesn't fork under
   concurrent append; read views render.
-- ☐ **M13 — Admin client mutations.** create/revoke/reissue/pin/assign, each with §11 validation +
+- ☑ **M13 — Admin client mutations.** create/revoke/reissue/pin/assign, each with §11 validation +
   audit. **Gate:** CUJ-4, CUJ-5, CUJ-8 (complete), CUJ-9.
-- ☐ **M14 — Admin build mutations + §11 confirm.** withdraw/restore/link/critical/rollback-designate.
+- ☑ **M14 — Admin build mutations + §11 confirm.** withdraw/restore/link/critical/rollback-designate.
   **Gate:** CUJ-10, CUJ-11.
-- ☐ **M15 — Upload/register + branding + the 100 MB boundary.** Full upload (≤~90 MB ceiling) +
+- ☑ **M15 — Upload/register + branding + the 100 MB boundary.** Full upload (≤~90 MB ceiling) +
   metadata-only register (HEAD R2, assert size==declared — decision 0007); service-token accepted
   *only* here. **Gate:** CUJ-17 (Worker side), CUJ-18, size-ceiling + length-mismatch tests.
-- ☐ **M16 — Cron + final worker.ts.** `services/self-update.ts`, `services/anchor.ts`, `cron.ts`,
+- ☑ **M16 — Cron + final worker.ts.** `services/self-update.ts`, `services/anchor.ts`, `cron.ts`,
   finalized `worker.ts`. **Gate:** CUJ-15, CUJ-19, CUJ-20 (prune).
-- ☐ **M17 — Deploy + teardown scripts.** `deploy/deploy.sh`, `deploy/teardown.sh`, offline `--dry-run`
+- ☑ **M17 — Deploy + teardown scripts.** `deploy/deploy.sh`, `deploy/teardown.sh`, offline `--dry-run`
   + shellcheck. **Gate:** CUJ-13, CUJ-14, CUJ-16.
-- ☐ **M18 — Publish scripts + GitHub Actions.** `publish.sh`, `ci-publish.sh`, `.github/workflows/publish.yml`.
+- ☑ **M18 — Publish scripts + GitHub Actions.** `publish.sh`, `ci-publish.sh`, `.github/workflows/publish.yml`.
   **Gate:** CUJ-17 (CI plumbing complete), shellcheck.
 
 ## CUJ → milestone map
