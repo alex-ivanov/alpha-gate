@@ -88,3 +88,15 @@ export function adminWorker(access: TestAccess, overrides: Partial<Deps> = {}) {
 export function withToken(token: string): RequestInit {
   return { headers: { "Cf-Access-Jwt-Assertion": token } };
 }
+
+/** A form POST carrying the Access assertion header (the admin's plain <form> POSTs). */
+export function withTokenForm(token: string, fields: Record<string, string>): RequestInit {
+  return {
+    method: "POST",
+    headers: {
+      "Cf-Access-Jwt-Assertion": token,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams(fields).toString(),
+  };
+}

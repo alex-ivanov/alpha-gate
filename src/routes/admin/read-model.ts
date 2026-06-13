@@ -112,6 +112,19 @@ export async function loadDashboard(deps: Deps): Promise<Dashboard> {
   };
 }
 
+/** The World + per-client installed-build map that §11 validation (core/validation) operates on. */
+export async function loadValidationWorld(
+  deps: Deps,
+): Promise<{ world: World; installed: Map<number, number> }> {
+  const { world } = await loadWorld(deps);
+  const installed = new Map<number, number>();
+  for (const client of world.clients) {
+    const build = await currentBuild(deps.db, client.id);
+    if (build !== null) installed.set(client.id, build);
+  }
+  return { world, installed };
+}
+
 export function loadActivity(deps: Deps): Promise<AccessLogEntry[]> {
   return recent(deps.db, 100);
 }
