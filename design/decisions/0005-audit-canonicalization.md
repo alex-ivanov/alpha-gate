@@ -24,3 +24,11 @@ depends on this being deterministic and reproducible (including offline, in anot
 - Reproducible offline verification is a stated goal of the breach-detection story (§16).
 - Tests: round-trip build/verify, single-row edit detected at the right index, mid-chain deletion
   detected, byte-stable canonicalization across runs, and a concurrency test proving no fork.
+
+## Reconciliation (2026-06-13)
+DESIGN §5/§16 originally wrote the formula literally as `SHA-256(prev_hash ‖ canonical(entry))`. The
+implemented form is `SHA-256(canonical(entry))` where `canonical` already includes `prev_hash` as its
+trailing length-prefixed field — equivalent for tamper-evidence and free of the concatenation-boundary
+ambiguity the literal `‖` form has. DESIGN §5 (schema comment) and §16 were updated to match this
+record, which is authoritative for canonicalization. An adversarial review of the pure core surfaced
+the stale prose.
