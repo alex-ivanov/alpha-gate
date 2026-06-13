@@ -17,7 +17,9 @@ export async function appcastRoute(c: AppContext): Promise<Response> {
   const gate = await gateToken(deps, c.req.query("token"));
 
   let item: string;
-  if (gate.kind === "unknown") {
+  if (gate.kind !== "active") {
+    // Revoked AND unknown take the identical path — same item, same (no) resolve/log work — so the
+    // response can't reveal whether a token exists (§6/§16): no DB write is gated on token existence.
     item = renderInformationalItem(accessUrl);
   } else {
     const client = gate.client;

@@ -15,11 +15,23 @@ export async function runScheduled(env: Env, deps: Deps = buildDeps(env)): Promi
 
   const ownerEmail = env.EMAIL_FROM.length > 0 ? env.EMAIL_FROM : null;
 
-  await checkSelfUpdate(deps, {
-    toolVersion: env.TOOL_VERSION,
-    manifestUrl: env.UPDATE_MANIFEST_URL,
-    ownerEmail,
-  });
-  await anchorAudit(deps, { now: deps.clock(), ownerEmail });
-  await prune(deps.db, isoDaysAgo(LOG_RETENTION_DAYS));
+  // Each step runs independently — a failure in one (e.g. a transient email/manifest error) must not
+  // skip the others (notably the audit anchor and the retention prune).
+  await safely("self-update", () =>
+    checkSelfUpdate(deps, {
+      toolVersion: env.TOOL_VERSION,
+      manifestUrl: env.UPDATE_MANIFEST_URL,
+      ownerEmail,
+    }),
+  );
+  await safely("audit-anchor", () => anchorAudit(deps, { now: deps.clock(), ownerEmail }));
+  await safely("prune", () => prune(deps.db, isoDaysAgo(LOG_RETENTION_DAYS)));
+}
+
+async function safely(step: string, fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    console.error(`cron step "${step}" failed`, error);
+  }
 }

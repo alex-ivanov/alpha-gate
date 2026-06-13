@@ -73,11 +73,16 @@ export async function verifyAccessJwt(token: string, opts: VerifyOptions): Promi
   if (payload.iss !== opts.issuer) return reject("issuer mismatch");
   const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
   if (!audiences.includes(opts.aud)) return reject("audience mismatch");
-  if (typeof payload.exp === "number" && opts.now > payload.exp + SKEW_SECONDS) {
-    return reject("expired");
-  }
+
+  // exp is REQUIRED and must be numeric: a missing/garbled exp must fail closed (decision 0006), not
+  // be treated as never-expiring. nbf/iat are optional but enforced (with skew) when present.
+  if (typeof payload.exp !== "number") return reject("missing or invalid exp");
+  if (opts.now > payload.exp + SKEW_SECONDS) return reject("expired");
   if (typeof payload.nbf === "number" && opts.now < payload.nbf - SKEW_SECONDS) {
     return reject("not yet valid");
+  }
+  if (typeof payload.iat === "number" && opts.now < payload.iat - SKEW_SECONDS) {
+    return reject("issued in the future");
   }
 
   if (typeof payload.email === "string" && payload.email.length > 0) {

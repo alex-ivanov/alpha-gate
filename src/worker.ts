@@ -18,6 +18,6 @@ export default {
   },
 
   scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): void {
-    ctx.waitUntil(runScheduled(env));
+    ctx.waitUntil(runScheduled(env).catch((error) => console.error("scheduled run failed", error)));
   },
 };

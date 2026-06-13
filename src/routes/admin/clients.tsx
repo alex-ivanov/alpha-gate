@@ -10,7 +10,7 @@ import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
 import { guardStranding } from "./confirm";
-import { field, toId } from "./form";
+import { field, isEmail, toId } from "./form";
 import { requireUser } from "./middleware";
 
 // §10/§13 — client mutations. Every handler requires a human actor (service tokens are refused),
@@ -26,8 +26,9 @@ export async function createClient(c: AdminContext): Promise<Response> {
   const deps = c.get("deps");
   const body = await c.req.parseBody();
 
-  const email = field(body, "email");
-  if (email === null || !email.includes("@")) return c.text("A valid email is required", 400);
+  const emailRaw = field(body, "email");
+  const email = emailRaw === null ? null : emailRaw.trim();
+  if (email === null || !isEmail(email)) return c.text("A valid email is required", 400);
   const label = field(body, "label");
   const streamId = toId(field(body, "streamId"));
 
@@ -143,10 +144,22 @@ export async function pinClient(c: AdminContext): Promise<Response> {
 export async function unpinClient(c: AdminContext): Promise<Response> {
   if (requireUser(c) === null) return c.text("Forbidden", 403);
   const deps = c.get("deps");
+  const body = await c.req.parseBody();
   const id = toId(c.req.param("id"));
   if (id === null) return c.text("Bad request", 400);
 
-  await clients.setPinnedBuild(deps.db, id, null); // removing a pin never strands
+  // Unpinning can strand a user whose pinned build was their only servable target → §11 confirm.
+  const action: AdminAction = { type: "unpin-client", clientId: id };
+  const blocked = await guardStranding(
+    c,
+    action,
+    field(body, "confirm") === "true",
+    `/admin/clients/${id}/unpin`,
+    {},
+  );
+  if (blocked !== null) return blocked;
+
+  await clients.setPinnedBuild(deps.db, id, null);
   await recordAudit(deps, auditFields(c, "client.unpin", String(id)));
   return c.redirect("/admin/users", 303);
 }

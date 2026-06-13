@@ -39,6 +39,26 @@ describe("verifyAccessJwt", () => {
     expect((await verifyAccessJwt(token, opts())).kind).toBe("reject");
   });
 
+  it("rejects a token with no exp claim (fail closed, not never-expiring)", async () => {
+    const token = await access.sign({
+      iss: TEST_ISSUER,
+      aud: TEST_AUD,
+      iat: TEST_NOW,
+      email: "x@y",
+    });
+    expect((await verifyAccessJwt(token, opts())).kind).toBe("reject");
+  });
+
+  it("rejects a token with a non-numeric exp", async () => {
+    const token = await access.sign(access.validUserClaims({ exp: "soon" }));
+    expect((await verifyAccessJwt(token, opts())).kind).toBe("reject");
+  });
+
+  it("rejects a token issued in the future (iat skew)", async () => {
+    const token = await access.sign(access.validUserClaims({ iat: TEST_NOW + 4000 }));
+    expect((await verifyAccessJwt(token, opts())).kind).toBe("reject");
+  });
+
   it("rejects a not-yet-valid token", async () => {
     const token = await access.sign(access.validUserClaims({ nbf: TEST_NOW + 4000 }));
     expect((await verifyAccessJwt(token, opts())).kind).toBe("reject");

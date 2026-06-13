@@ -30,9 +30,18 @@ export async function anchorAudit(
   const head = buildHead(rows);
 
   let intact = verified;
+  let prior: AnchoredHead | null = null;
   const priorRaw = await meta.get(deps.db, "audit_anchor_head");
   if (priorRaw !== null) {
-    const prior = JSON.parse(priorRaw) as AnchoredHead;
+    try {
+      const parsed = JSON.parse(priorRaw) as AnchoredHead;
+      if (typeof parsed.hash === "string" && typeof parsed.count === "number") prior = parsed;
+      else intact = false; // corrupted anchor record — treat as suspicious
+    } catch {
+      intact = false;
+    }
+  }
+  if (prior !== null) {
     if (head.count < prior.count) {
       intact = false; // truncation — newest rows removed
     } else if (prior.count > 0 && rows[prior.count - 1]?.hash !== prior.hash) {
@@ -42,11 +51,17 @@ export async function anchorAudit(
 
   const anchor = { hash: head.hash, count: head.count, at: opts.now, intact };
   await putAuditAnchor(deps.r2, auditAnchorKey(opts.now), JSON.stringify(anchor));
-  await meta.set(
-    deps.db,
-    "audit_anchor_head",
-    JSON.stringify({ hash: head.hash, count: head.count }),
-  );
+
+  // Ratchet: only advance the trusted head when the chain is intact and no shorter than the last
+  // anchor. On any mismatch the prior head stays sticky, so a truncate-then-regrow can't launder
+  // itself back to "intact" on a later run.
+  if (intact && (prior === null || head.count >= prior.count)) {
+    await meta.set(
+      deps.db,
+      "audit_anchor_head",
+      JSON.stringify({ hash: head.hash, count: head.count }),
+    );
+  }
 
   if (opts.ownerEmail !== null) {
     await deps.email.send({
