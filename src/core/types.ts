@@ -49,6 +49,12 @@ export interface BuildStreamLink {
   streamId: number;
 }
 
+/** A user_streams row: which stream a client is assigned to. */
+export interface UserStreamLink {
+  clientId: number;
+  streamId: number;
+}
+
 /**
  * Outcome of resolving what a client should be served (§8). The single source of truth behind the
  * appcast, the /download target, and the §11 no-build preview.

@@ -1,3 +1,4 @@
+import type { World } from "../../src/core/no-build";
 import type { Build, Client, Stream } from "../../src/core/types";
 
 // Plain-data builders for the pure-core tests. Sensible defaults, override what the case is about —
@@ -40,4 +41,8 @@ export function aBuild(overrides: Partial<Build> = {}): Build {
 
 export function aStream(overrides: Partial<Stream> = {}): Stream {
   return { id: 1, name: "stable", ...overrides };
+}
+
+export function aWorld(overrides: Partial<World> = {}): World {
+  return { clients: [], builds: [], buildStreams: [], userStreams: [], ...overrides };
 }
