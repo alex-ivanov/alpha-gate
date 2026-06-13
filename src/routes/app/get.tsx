@@ -1,5 +1,5 @@
 import { gateToken } from "../../auth/token-gate";
-import { resolveBranding } from "../../core/invite-template";
+import { loadBranding } from "../../services/branding";
 import { NotFoundPage } from "../../views/access-page";
 import { GetPage } from "../../views/get-page";
 import { renderPage } from "../../views/layout";
@@ -18,7 +18,7 @@ export async function getRoute(c: AppContext): Promise<Response> {
   }
 
   const { token } = gate.client;
-  const branding = resolveBranding({}); // meta-backed branding is wired in M15
+  const branding = await loadBranding(deps);
   const downloadUrl = `/download?token=${encodeURIComponent(token)}&via=install`;
   const activateUrl = `${ACTIVATE_SCHEME}://activate?token=${encodeURIComponent(token)}`;
 

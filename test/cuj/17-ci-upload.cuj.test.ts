@@ -1,0 +1,111 @@
+import { env } from "cloudflare:test";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { listInOrder } from "../../src/db/admin-audit";
+import { getByBuildNumber, listBuildStreams } from "../../src/db/builds";
+import * as streams from "../../src/db/streams";
+import { buildDeps } from "../../src/deps";
+import { getObject, putArchive } from "../../src/r2/builds-bucket";
+import { adminWorker, setupTestAccess, type TestAccess } from "../support/access";
+import { resetAll } from "../support/db";
+
+// CUJ-17 (§20) — Publish via CI. A Cloudflare Access service token uploads + registers a build (no
+// interactive login). The Worker stores the bytes + the supplied EdDSA signature and the build row.
+const deps = buildDeps(env);
+let access: TestAccess;
+beforeAll(async () => {
+  access = await setupTestAccess();
+});
+beforeEach(resetAll);
+
+function tokenHeaders(token: string): HeadersInit {
+  return { "Cf-Access-Jwt-Assertion": token };
+}
+
+describe("CUJ-17 publish via CI", () => {
+  it("a service token uploads an archive and registers the build", async () => {
+    const stable = await streams.create(deps.db, "stable");
+
+    const form = new FormData();
+    form.set("archive", new File(["ZIPBYTES!"], "App.zip", { type: "application/zip" }));
+    form.set("short_version", "1.4.0");
+    form.set("build_number", "1500");
+    form.set("ed_signature", "ed-sig");
+    form.set("stream_id", String(stable.id));
+
+    const res = await adminWorker(access).request("/admin/builds/upload", {
+      method: "POST",
+      headers: tokenHeaders(await access.signValidService("ci-bot")),
+      body: form,
+    });
+    expect(res.status).toBe(201);
+
+    const build = await getByBuildNumber(deps.db, 1500);
+    expect(build?.objectKey).toBe("build/1500/App.zip");
+    expect(build?.length).toBe(9);
+    expect(await (await getObject(deps.r2, "build/1500/App.zip"))?.text()).toBe("ZIPBYTES!");
+    expect(
+      (await listBuildStreams(deps.db)).some(
+        (l) => l.buildId === build?.id && l.streamId === stable.id,
+      ),
+    ).toBe(true);
+    // attributed to the service token's common name
+    expect(
+      (await listInOrder(deps.db)).some(
+        (r) => r.action === "build.upload" && r.actorEmail === "ci-bot",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects an upload with no Access token", async () => {
+    const form = new FormData();
+    form.set("archive", new File(["x"], "App.zip"));
+    form.set("short_version", "1.4.0");
+    form.set("build_number", "1500");
+    form.set("ed_signature", "s");
+    const res = await adminWorker(access).request("/admin/builds/upload", {
+      method: "POST",
+      body: form,
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("register asserts the stored object's size matches the declared length", async () => {
+    await putArchive(deps.r2, 1600, "App.zip", "TEN_BYTES!"); // 10 bytes
+
+    const wrong = new URLSearchParams({
+      object_key: "build/1600/App.zip",
+      size: "999",
+      short_version: "1.5.0",
+      build_number: "1600",
+      ed_signature: "s",
+    });
+    const bad = await adminWorker(access).request("/admin/builds/register", {
+      method: "POST",
+      headers: {
+        ...tokenHeaders(await access.signValidService()),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: wrong.toString(),
+    });
+    expect(bad.status).toBe(400);
+    expect(await getByBuildNumber(deps.db, 1600)).toBeNull(); // no row inserted
+
+    const right = new URLSearchParams({
+      object_key: "build/1600/App.zip",
+      size: "10",
+      short_version: "1.5.0",
+      build_number: "1600",
+      ed_signature: "s",
+    });
+    const ok = await adminWorker(access).request("/admin/builds/register", {
+      method: "POST",
+      headers: {
+        ...tokenHeaders(await access.signValidService()),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: right.toString(),
+    });
+    expect(ok.status).toBe(201);
+    expect((await getByBuildNumber(deps.db, 1600))?.length).toBe(10);
+  });
+});

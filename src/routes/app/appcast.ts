@@ -1,7 +1,7 @@
 import { gateToken } from "../../auth/token-gate";
 import { renderAppcast, renderInformationalItem, renderUpdateItem } from "../../core/appcast";
-import { resolveBranding } from "../../core/invite-template";
 import { insertEvent } from "../../db/access-log";
+import { loadBranding } from "../../services/branding";
 import type { AppContext } from "./app-context";
 import { resolveServed } from "./resolve";
 
@@ -12,7 +12,7 @@ export async function appcastRoute(c: AppContext): Promise<Response> {
   const deps = c.get("deps");
   const origin = new URL(c.req.url).origin;
   const accessUrl = `${origin}/access`;
-  const title = resolveBranding({}).appName; // meta-backed branding wired in M15
+  const title = (await loadBranding(deps)).appName;
 
   const gate = await gateToken(deps, c.req.query("token"));
 

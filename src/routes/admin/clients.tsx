@@ -1,9 +1,10 @@
-import { DEFAULT_INVITE_TEMPLATE, renderInvite, resolveBranding } from "../../core/invite-template";
+import { renderInvite } from "../../core/invite-template";
 import type { AdminAction } from "../../core/no-build";
 import { generateToken } from "../../core/tokens";
 import * as clients from "../../db/clients";
 import * as streams from "../../db/streams";
 import { recordAudit } from "../../services/audit";
+import { loadBranding, loadInviteTemplate } from "../../services/branding";
 import { InvitePage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
@@ -36,12 +37,9 @@ export async function createClient(c: AdminContext): Promise<Response> {
   await recordAudit(deps, auditFields(c, "client.create", email, JSON.stringify({ streamId })));
 
   const url = getUrl(c, token);
-  const branding = resolveBranding({}); // meta-backed in M15
-  const invite = renderInvite(DEFAULT_INVITE_TEMPLATE, {
-    appName: branding.appName,
-    getUrl: url,
-    token,
-  });
+  const branding = await loadBranding(deps);
+  const template = await loadInviteTemplate(deps);
+  const invite = renderInvite(template, { appName: branding.appName, getUrl: url, token });
   await deps.email.send({ to: email, subject: invite.subject, body: invite.body });
 
   return c.html(renderPage(<InvitePage email={email} getUrl={url} />));

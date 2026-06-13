@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { buildDeps, type Deps } from "../../deps";
 import type { Env } from "../../env";
 import type { AdminEnv } from "./admin-context";
+import { saveBranding } from "./branding";
 import {
   linkBuildStream,
   markCritical,
@@ -19,6 +20,7 @@ import {
   unpinClient,
 } from "./clients";
 import { adminAuth } from "./middleware";
+import { registerBuild, uploadBuild } from "./upload";
 import {
   activityView,
   auditView,
@@ -55,6 +57,12 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.post("/admin/clients/:id/unpin", unpinClient);
   app.post("/admin/clients/:id/streams/assign", assignStream);
   app.post("/admin/clients/:id/streams/unassign", unassignStream);
+
+  // Publish (§20) — service tokens accepted here only (decision 0006)
+  app.post("/admin/builds/upload", uploadBuild);
+  app.post("/admin/builds/register", registerBuild);
+  // Branding + invite template (§13) — human only
+  app.post("/admin/branding", saveBranding);
 
   // Build mutations (§9/§10/§11)
   app.post("/admin/builds/:id/withdraw", withdrawBuild);
