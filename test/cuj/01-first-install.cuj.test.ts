@@ -42,4 +42,16 @@ describe("CUJ-1 first install", () => {
     const res = await appWorker().request(`/download?token=${token}&via=install`);
     expect(await res.text()).toBe("DMG-BYTES");
   });
+
+  it("the appcast offers the current top build with a via=update enclosure", async () => {
+    const { token, build } = await seedServableClient(deps);
+
+    const res = await appWorker().request(`/appcast?token=${token}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toContain("xml");
+
+    const xml = await res.text();
+    expect(xml).toContain(`<sparkle:version>${build.buildNumber}</sparkle:version>`);
+    expect(xml).toContain(`token=${token}&amp;via=update`); // & escaped in XML
+  });
 });

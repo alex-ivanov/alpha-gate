@@ -27,37 +27,45 @@ M4 (appcast golden), M5 (audit chain), M11 (Access JWT), M15 (upload boundary).
 
 Legend: ☐ todo · ◐ in progress · ☑ done
 
-- ☐ **M0 — Scaffold.** npm + strict TS + Biome + vitest-pool-workers (offline). Migrations
+- ☑ **M0 — Scaffold.** npm + strict TS + Biome + vitest-pool-workers (offline). Migrations
   `0001`–`0006` (0006 = DMG columns, see decision 0003) transcribed from §5. `wrangler.template.toml`
-  from §18. Empty typed `src/` skeleton. **Gate:** `npm test` green offline (smoke test + migrations
-  apply), `tsc --noEmit` clean, `biome check` clean. CUJ: none (foundational).
-- ☐ **M1 — Pure core: types + tokens + version.** `core/types.ts`, `core/tokens.ts` (Crockford
-  base32, ≥160 bits — decision 0002), `core/version.ts`. **Gate:** unit tests for token shape/entropy
-  and version truth-table.
-- ☐ **M2 — Pure core: the resolver.** `core/resolver.ts` — `resolve(client, builds, streams) →
-  target | informational | none` (§8). **Gate:** a single auditable decision-table test covering the
-  whole space (unknown/revoked/pinned/multi-stream/stranded). Proves the core of CUJ-2/3/8/9/10/11.
-- ☐ **M3 — Pure core: no-build + §11 validation.** `core/no-build.ts`, `core/validation.ts`. Shares
-  the resolver so preview and runtime can't disagree. **Gate:** affected-set truth tables; cross-check
-  that affected users resolve to `none`.
-- ☐ **M4 — Pure core: appcast XML.** `core/appcast` — update item + §15 informational item (sentinel
-  version, no enclosure), XML-escaping everywhere. **Gate:** byte-exact golden tests + hostile-input
-  escaping test.
-- ☐ **M5 — Pure core: audit hash-chain + invite template.** `core/audit-chain.ts` (versioned
-  canonical form — decision 0005), `core/invite-template.ts`, `templates/invite-email.txt`. **Gate:**
-  chain build/verify + tamper-detection; template render + default branding.
-- ☐ **M6 — Pure views.** `views/layout.tsx`, `views/get-page.tsx`, `views/access-page.tsx`,
-  `views/admin/*.tsx` (split per page from the start). **Gate:** render-with-props markup assertions.
-- ☐ **M7 — env + D1 query layer.** `env.ts`, `lib/clock.ts` (the only time source), `db/client.ts`
-  + one module per aggregate (raw prepared statements, no ORM). **Gate:** integration tests per module
-  against seeded D1; prune + stats with seeded timestamps.
-- ☐ **M8 — R2 + token gate + Deps container.** `r2/keys.ts`, `r2/builds-bucket.ts` (never presigns),
-  `auth/token-gate.ts`, `deps.ts` (the single DI mechanism). **Gate:** R2 round-trip + key layout;
-  token gate no-existence-leak.
-- ☐ **M9 — App routes 1: /get, /download, /assets, /access (ROLE=app).** **Gate:** CUJ-1 (get+download
-  half), CUJ-3 (get+download half), CUJ-6.
-- ☐ **M10 — App route: /appcast.** Resolver → appcast XML → log `check` with `&installed=` (decision
-  0004). **Gate:** CUJ-1 (complete), CUJ-2, CUJ-3 (complete), CUJ-7, CUJ-8 (resolve half).
+  from §18. Typed `src/env.ts`. **Gate met:** `npm test` 4/4 offline (smoke + migrations apply),
+  `tsc --noEmit` clean, `biome check` clean. _Note: vitest-pool-workers 0.16 configures via the
+  `cloudflareTest()` Vite plugin (no `defineWorkersConfig`); Biome no-`Date` rule deferred to M7
+  (its allow-list targets don't exist yet)._
+- ☑ **M1 — Pure core: types + tokens + version.** `core/types.ts`, `core/tokens.ts` (Crockford
+  base32, ≥160 bits — decision 0002), `core/version.ts`. **Gate met:** 30 unit tests (token
+  shape/entropy/normalize, version truth-table + malformed-manifest defensiveness); tsc + Biome clean.
+- ☑ **M2 — Pure core: the resolver.** `core/resolver.ts` — `resolve(input) → target | informational |
+  none` (§8). **Gate met:** 11-row decision table (unknown/revoked/pinned/multi-stream/withdrawn).
+  41 tests; tsc + Biome clean. _`none` carries no sub-reason — empty/stranded is M3's job (needs
+  installed-build context §8 resolution never uses)._
+- ☑ **M3 — Pure core: no-build + §11 validation.** `core/no-build.ts`, `core/validation.ts`. Shares
+  the resolver so preview and runtime can't disagree. **Gate met:** `noBuildState` (servable/empty/
+  stranded, installed-build-aware for no-downgrade), `computeAffectedUsers`, `validateAction` with
+  guards. 63 tests; tsc + Biome clean.
+- ☑ **M4 — Pure core: appcast XML.** `core/appcast.ts` — update item + §15 informational item
+  (sentinel version, no enclosure), XML-escaping everywhere. **Gate met:** byte-exact golden tests
+  (normal/critical/min-os/informational/full-feed) + hostile-input escaping. 72 tests; clean.
+- ☑ **M5 — Pure core: audit hash-chain + invite template.** `core/audit-chain.ts` (versioned
+  canonical form — decision 0005), `core/invite-template.ts`, `templates/invite-email.txt`. **Gate
+  met:** chain build/verify/tamper-detection + canonical determinism; invite fill + branding defaults.
+  86 tests; tsc + Biome clean.
+- ☑ **M6 — Pure views (public).** `views/layout.tsx` (+ `renderPage` doctype helper), `views/get-page.tsx`,
+  `views/access-page.tsx`. **Gate met:** render-with-props markup + escaping; 94 tests. _Admin views
+  (`views/admin/*.tsx`) deferred to their consuming milestones (M12+) so prop shapes follow the real
+  query/handler data rather than being guessed — split per page when they land._
+- ☑ **M7 — env + D1 query layer.** `env.ts` (readEnv), `lib/clock.ts` (only time source; Biome
+  no-`Date` rule now active), `db/client.ts` + clients/builds/streams/access-log (raw, no ORM).
+  **Gate met:** 111 tests — per-module integration against seeded D1; prune + stats with seeded
+  timestamps; FK enforcement confirmed. _`db/admin-audit` + `db/meta` deferred to consumers (M12/M15/M16)._
+- ☑ **M8 — R2 + token gate + Deps container.** `r2/keys.ts`, `r2/builds-bucket.ts` (never presigns),
+  `auth/token-gate.ts`, `deps.ts` (`{db,r2,clock}`, grows with access/email/fetch). **Gate met:** R2
+  round-trip + key path-escape; token gate active/revoked/unknown + case-insensitive. 125 tests.
+- ☑ **M9 — App routes 1: /get, /download, /assets, /access (ROLE=app).** **Gate met:** CUJ-1
+  (get+download), CUJ-3 (get+download), CUJ-6; Referrer-Policy + nosniff; /admin/* → 404. 136 tests.
+- ☑ **M10 — App route: /appcast.** Resolver → appcast XML → log `check` with `&installed=` (decision
+  0004). **Gate met:** CUJ-1 (complete), CUJ-2, CUJ-3 (complete), CUJ-7, CUJ-8 (resolve half). 143 tests.
 - ☐ **M11 — Access JWT + admin middleware + ROLE gating.** `auth/access-jwt.ts` (fail-closed, RS256
   pinned, aud/iss, JWKS-with-TTL behind a seam, service-token vs email — decision 0006), single
   middleware mount. **Gate:** CUJ-12 + verifier truth-table.

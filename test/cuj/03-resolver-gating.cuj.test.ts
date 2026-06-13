@@ -33,4 +33,14 @@ describe("CUJ-3 resolver gating (get + download)", () => {
     const res = await appWorker().request("/get?token=not-a-token");
     expect(res.status).toBe(404);
   });
+
+  it("an unknown token gets an informational appcast item (no enclosure), not a 403", async () => {
+    const res = await appWorker().request(`/appcast?token=${generateToken()}`);
+    expect(res.status).toBe(200); // a 403 would surface nothing on background checks (§15)
+
+    const xml = await res.text();
+    expect(xml).toContain("<sparkle:version>999000000</sparkle:version>");
+    expect(xml).toContain("/access");
+    expect(xml).not.toContain("<enclosure");
+  });
 });

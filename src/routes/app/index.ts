@@ -3,6 +3,7 @@ import { buildDeps, type Deps } from "../../deps";
 import type { Env } from "../../env";
 import { accessRoute } from "./access";
 import type { AppEnv } from "./app-context";
+import { appcastRoute } from "./appcast";
 import { assetsRoute } from "./assets";
 import { downloadRoute } from "./download";
 import { getRoute } from "./get";
@@ -19,6 +20,7 @@ export function createAppApp(depsFor: (env: Env) => Deps = buildDeps) {
   });
 
   app.get("/get", getRoute);
+  app.get("/appcast", appcastRoute);
   app.get("/download", downloadRoute);
   app.get("/assets/:name", assetsRoute);
   app.get("/access", accessRoute);
