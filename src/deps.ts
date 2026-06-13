@@ -13,6 +13,7 @@ export interface Deps {
   clock: Clock;
   access: AccessVerifier;
   email: EmailSender;
+  fetch: typeof fetch; // outbound HTTP for the self-update manifest (§22); mocked in tests
 }
 
 /** Production wiring, built once at the worker entry from the runtime env. */
@@ -28,5 +29,6 @@ export function buildDeps(env: Env): Deps {
       now: nowSeconds,
     }),
     email: selectEmailSender(env.EMAIL_PROVIDER),
+    fetch: globalThis.fetch,
   };
 }

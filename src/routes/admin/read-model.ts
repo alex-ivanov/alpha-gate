@@ -5,6 +5,7 @@ import { type AccessLogEntry, countByBuild, currentBuild, recent } from "../../d
 import { listInOrder } from "../../db/admin-audit";
 import { listAll, listBuildStreams } from "../../db/builds";
 import { list as listClients } from "../../db/clients";
+import { getAll as getAllMeta } from "../../db/meta";
 import { list as listStreams, listUserStreams } from "../../db/streams";
 import type { Deps } from "../../deps";
 
@@ -40,6 +41,7 @@ export interface Dashboard {
   builds: number;
   streams: number;
   noBuild: number;
+  selfUpdate: { available: boolean; latest: string | null };
 }
 
 async function loadWorld(deps: Deps) {
@@ -104,11 +106,13 @@ export async function loadStreams(deps: Deps): Promise<StreamView[]> {
 export async function loadDashboard(deps: Deps): Promise<Dashboard> {
   const users = await loadUsers(deps);
   const { world, streams } = await loadWorld(deps);
+  const m = await getAllMeta(deps.db);
   return {
     users: world.clients.length,
     builds: world.builds.length,
     streams: streams.length,
     noBuild: users.filter((user) => user.noBuild !== "servable").length,
+    selfUpdate: { available: m.selfupdate_available === "1", latest: m.selfupdate_latest ?? null },
   };
 }
 

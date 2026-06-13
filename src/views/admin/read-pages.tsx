@@ -9,6 +9,11 @@ import { AdminLayout, NoBuildBadge } from "./layout";
 
 export const DashboardPage: FC<{ data: Dashboard }> = ({ data }) => (
   <AdminLayout title="Dashboard">
+    {data.selfUpdate.available ? (
+      <p class="badge warn">
+        Alpha Gate {data.selfUpdate.latest} is available — re-run deploy.sh to update.
+      </p>
+    ) : null}
     <div class="cards">
       <div class="card">
         <div class="n">{data.users}</div>

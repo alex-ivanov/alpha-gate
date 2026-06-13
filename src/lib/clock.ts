@@ -8,3 +8,7 @@ export const systemClock: Clock = () => new Date().toISOString();
 
 /** Current Unix time in whole seconds — for JWT exp/nbf checks. The only other sanctioned Date use. */
 export const nowSeconds = (): number => Math.floor(Date.now() / 1000);
+
+/** ISO-8601 UTC for `days` ago — the §16 log-prune cutoff. */
+export const isoDaysAgo = (days: number): string =>
+  new Date(Date.now() - days * 86_400_000).toISOString();
