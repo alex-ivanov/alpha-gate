@@ -1,0 +1,34 @@
+import type { AdminAction } from "../../core/no-build";
+import { validateAction } from "../../core/validation";
+import { ConfirmPage } from "../../views/admin/manage-pages";
+import { renderPage } from "../../views/layout";
+import type { AdminContext } from "./admin-context";
+import { loadValidationWorld } from "./read-model";
+
+// The shared §11 gate for any potentially-stranding mutation (client or build). Returns a Response to
+// short-circuit the handler — a 400 (malformed) or the confirm page (needs confirmation, not yet
+// given) — or null to proceed. The affected set comes from the SAME pure core as runtime resolution.
+export async function guardStranding(
+  c: AdminContext,
+  action: AdminAction,
+  confirmed: boolean,
+  postTo: string,
+  hidden: Record<string, string>,
+): Promise<Response | null> {
+  const { world, installed } = await loadValidationWorld(c.get("deps"));
+  const result = validateAction(world, action, installed);
+  if (!result.ok) return c.text(result.error, 400);
+  if (result.needsConfirm && !confirmed) {
+    return c.html(
+      renderPage(
+        <ConfirmPage
+          action={action.type}
+          affected={result.affectedEmails}
+          postTo={postTo}
+          hidden={{ ...hidden, confirm: "true" }}
+        />,
+      ),
+    );
+  }
+  return null;
+}

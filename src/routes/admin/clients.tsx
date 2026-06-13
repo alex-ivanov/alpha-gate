@@ -1,31 +1,20 @@
 import { DEFAULT_INVITE_TEMPLATE, renderInvite, resolveBranding } from "../../core/invite-template";
 import type { AdminAction } from "../../core/no-build";
 import { generateToken } from "../../core/tokens";
-import { validateAction } from "../../core/validation";
 import * as clients from "../../db/clients";
 import * as streams from "../../db/streams";
 import { recordAudit } from "../../services/audit";
-import { ConfirmPage, InvitePage } from "../../views/admin/manage-pages";
+import { InvitePage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
+import { guardStranding } from "./confirm";
+import { field, toId } from "./form";
 import { requireUser } from "./middleware";
-import { loadValidationWorld } from "./read-model";
 
 // §10/§13 — client mutations. Every handler requires a human actor (service tokens are refused),
 // validates its inputs defensively, runs the §11 confirm flow for stranding actions, and records an
 // audit row. Plain <form> POSTs; success redirects to the users list (or shows the invite link).
-
-function field(body: Record<string, unknown>, name: string): string | null {
-  const value = body[name];
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function toId(raw: string | null | undefined): number | null {
-  if (raw === null || raw === undefined) return null;
-  const n = Number.parseInt(raw, 10);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
 
 function getUrl(c: AdminContext, token: string): string {
   return `${new URL(c.req.url).origin}/get?token=${encodeURIComponent(token)}`;
@@ -111,15 +100,12 @@ export async function unassignStream(c: AdminContext): Promise<Response> {
   if (id === null || streamId === null) return c.text("Bad request", 400);
 
   const action: AdminAction = { type: "unassign-user-stream", clientId: id, streamId };
-  const confirmed = field(body, "confirm") === "true";
   const blocked = await guardStranding(
     c,
     action,
-    confirmed,
+    field(body, "confirm") === "true",
     `/admin/clients/${id}/streams/unassign`,
-    {
-      streamId: String(streamId),
-    },
+    { streamId: String(streamId) },
   );
   if (blocked !== null) return blocked;
 
@@ -140,10 +126,15 @@ export async function pinClient(c: AdminContext): Promise<Response> {
   if (id === null || buildId === null) return c.text("Bad request", 400);
 
   const action: AdminAction = { type: "pin-client", clientId: id, buildId };
-  const confirmed = field(body, "confirm") === "true";
-  const blocked = await guardStranding(c, action, confirmed, `/admin/clients/${id}/pin`, {
-    buildId: String(buildId),
-  });
+  const blocked = await guardStranding(
+    c,
+    action,
+    field(body, "confirm") === "true",
+    `/admin/clients/${id}/pin`,
+    {
+      buildId: String(buildId),
+    },
+  );
   if (blocked !== null) return blocked;
 
   await clients.setPinnedBuild(deps.db, id, buildId);
@@ -160,33 +151,4 @@ export async function unpinClient(c: AdminContext): Promise<Response> {
   await clients.setPinnedBuild(deps.db, id, null); // removing a pin never strands
   await recordAudit(deps, auditFields(c, "client.unpin", String(id)));
   return c.redirect("/admin/users", 303);
-}
-
-/**
- * Runs §11 validation for a potentially-stranding action. Returns a 400 (malformed) or the confirm
- * page (needs confirmation, not yet confirmed) to short-circuit the handler, or null to proceed.
- */
-async function guardStranding(
-  c: AdminContext,
-  action: AdminAction,
-  confirmed: boolean,
-  postTo: string,
-  hidden: Record<string, string>,
-): Promise<Response | null> {
-  const { world, installed } = await loadValidationWorld(c.get("deps"));
-  const result = validateAction(world, action, installed);
-  if (!result.ok) return c.text(result.error, 400);
-  if (result.needsConfirm && !confirmed) {
-    return c.html(
-      renderPage(
-        <ConfirmPage
-          action={action.type}
-          affected={result.affectedEmails}
-          postTo={postTo}
-          hidden={{ ...hidden, confirm: "true" }}
-        />,
-      ),
-    );
-  }
-  return null;
 }

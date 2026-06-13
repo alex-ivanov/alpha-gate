@@ -3,6 +3,13 @@ import { buildDeps, type Deps } from "../../deps";
 import type { Env } from "../../env";
 import type { AdminEnv } from "./admin-context";
 import {
+  linkBuildStream,
+  markCritical,
+  restoreBuild,
+  unlinkBuildStream,
+  withdrawBuild,
+} from "./builds";
+import {
   assignStream,
   createClient,
   pinClient,
@@ -48,6 +55,13 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.post("/admin/clients/:id/unpin", unpinClient);
   app.post("/admin/clients/:id/streams/assign", assignStream);
   app.post("/admin/clients/:id/streams/unassign", unassignStream);
+
+  // Build mutations (§9/§10/§11)
+  app.post("/admin/builds/:id/withdraw", withdrawBuild);
+  app.post("/admin/builds/:id/restore", restoreBuild);
+  app.post("/admin/builds/:id/critical", markCritical);
+  app.post("/admin/builds/:id/streams/link", linkBuildStream);
+  app.post("/admin/builds/:id/streams/unlink", unlinkBuildStream);
 
   app.notFound((c) => c.text("Not found", 404));
   return app;
