@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BRANDING, resolveBranding } from "../../../src/core/invite-template";
 import { AccessPage, NotFoundPage } from "../../../src/views/access-page";
+import { AdminLayout } from "../../../src/views/admin/layout";
 import { GetPage } from "../../../src/views/get-page";
 import { renderPage } from "../../../src/views/layout";
 
@@ -61,6 +62,37 @@ describe("AccessPage", () => {
     expect(html).toContain('action="/access"');
     expect(html).toContain('method="post"');
     expect(html).toContain('type="email"');
+  });
+});
+
+describe("AdminLayout (design-system chrome)", () => {
+  const render = () =>
+    renderPage(
+      <AdminLayout title="Users">
+        <p>content</p>
+      </AdminLayout>,
+    );
+
+  it("renders the accessible shell: lang, single h1, skip link, labelled nav, main landmark", () => {
+    const html = render();
+    expect(html).toContain('<html lang="en">');
+    expect((html.match(/<h1>/g) ?? []).length).toBe(1);
+    expect(html).toContain('href="#main"');
+    expect(html).toContain('id="main"');
+    expect(html).toContain('<nav class="primary" aria-label="Primary">');
+  });
+
+  it("ships the design-system tokens: light/dark, focus-visible, responsive, reduced-motion", () => {
+    const html = render();
+    expect(html).toContain("--accent:");
+    expect(html).toContain("@media (prefers-color-scheme: dark)");
+    expect(html).toContain(":focus-visible");
+    expect(html).toContain("@media (max-width: 48rem)");
+    expect(html).toContain("prefers-reduced-motion");
+  });
+
+  it("includes the progressive-enhancement active-nav script (works without it)", () => {
+    expect(render()).toContain("aria-current");
   });
 });
 
