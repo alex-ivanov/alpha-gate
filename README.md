@@ -112,6 +112,14 @@ npm run format    # biome format --write
 npm run check     # lint + typecheck + test (the full gate)
 ```
 
+To poke the **live HTTP surface** in a browser/curl, run the App Worker locally (Miniflare D1/R2, still
+no account) — it seeds a demo client/build and prints ready-to-use URLs:
+
+```bash
+./deploy/dev.sh                                   # App Worker on http://localhost:8787 (seeded)
+# open http://localhost:8787/get?token=DEV0DEV0DEV0DEV0DEV0DEV0DEV0DEV0
+```
+
 Conventions, architecture, and how to add a feature: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Project structure

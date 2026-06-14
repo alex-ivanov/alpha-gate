@@ -18,6 +18,14 @@ npm run check      # the full gate: biome + tsc + vitest (all offline)
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` / `npm run format` | Biome check / write |
 | `npm run check` | lint + typecheck + test |
+| `./deploy/dev.sh` | run the App Worker locally on `:8787` (Miniflare D1/R2, no account), seeded so `/get`/`/appcast`/`/download` work |
+
+`npm test` is the primary validation — it exercises the real handlers offline. `./deploy/dev.sh` is
+for poking the **live HTTP surface** in a browser/curl: it renders a local wrangler config, applies
+migrations to a local DB, seeds a demo client/build, and starts `wrangler dev`. Flags: `--port`,
+`--no-seed`, `--reset`, `--role admin` (the Admin Worker fails closed locally without Cloudflare
+Access — use `npm test` for admin logic). The four things that need a real (throwaway) deploy: Access
+login, Cloudflare email delivery, bucket-lock, and an end-to-end Sparkle client (see DESIGN.md §23).
 
 `shellcheck` (CI, or `brew install shellcheck` locally) lints the bash scripts.
 
