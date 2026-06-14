@@ -51,8 +51,9 @@ const MARK: Record<ApplyStep["kind"], string> = {
   skip: "·",
 };
 
-/** Mutating APPLY phase: a Δ | Resource | Command-or-reason table; marker colored by change kind. */
-export function renderApply(steps: readonly ApplyStep[], palette: Palette): string {
+/** A Δ | Resource | Command-or-reason table under a heading; marker colored by change kind. Shared by
+ * the deploy APPLY phase and the teardown DESTROY plan. */
+function renderStepTable(heading: string, steps: readonly ApplyStep[], palette: Palette): string {
   const markStyle: Record<ApplyStep["kind"], (s: string) => string> = {
     create: palette.green,
     update: palette.cyan,
@@ -65,9 +66,27 @@ export function renderApply(steps: readonly ApplyStep[], palette: Palette): stri
     { text: s.kind === "skip" ? s.why : s.command, style: palette.dim },
   ]);
   return [
-    palette.bold("2 · APPLY") + palette.dim("  creates/changes resources"),
+    heading,
     renderTable(rows, palette, { head: ["Δ", "Resource", "Command / reason"] }),
   ].join("\n");
+}
+
+/** Mutating APPLY phase (deploy). */
+export function renderApply(steps: readonly ApplyStep[], palette: Palette): string {
+  return renderStepTable(
+    palette.bold("2 · APPLY") + palette.dim("  creates/changes resources"),
+    steps,
+    palette,
+  );
+}
+
+/** Destructive plan (teardown). */
+export function renderDestroy(steps: readonly ApplyStep[], palette: Palette): string {
+  return renderStepTable(
+    palette.bold("DESTROY") + palette.dim("  this permanently deletes resources"),
+    steps,
+    palette,
+  );
 }
 
 /**

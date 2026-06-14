@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTeamDomain, parseDeployArgs } from "../../src/deploy/core/args";
+import {
+  normalizeTeamDomain,
+  parseDeployArgs,
+  parseTeardownArgs,
+} from "../../src/deploy/core/args";
 
 function parse(args: string) {
   return parseDeployArgs(args.split(" ").filter(Boolean));
@@ -69,6 +73,26 @@ describe("parseDeployArgs", () => {
   it("rejects unknown flags and value flags missing a value", () => {
     expect(parse("--instance x --bogus").ok).toBe(false);
     expect(parseDeployArgs(["--instance"]).ok).toBe(false);
+  });
+});
+
+describe("parseTeardownArgs", () => {
+  it("defaults archive on; --no-archive turns it off", () => {
+    const a = parseTeardownArgs(["--instance", "x"]);
+    expect(a.ok && a.value.archive).toBe(true);
+    const b = parseTeardownArgs(["--instance", "x", "--no-archive"]);
+    expect(b.ok && b.value.archive === false).toBe(true);
+  });
+
+  it("requires a valid --instance", () => {
+    expect(parseTeardownArgs([]).ok).toBe(false);
+    expect(parseTeardownArgs(["--instance", "Bad_Name"]).ok).toBe(false);
+  });
+
+  it("captures --archive-dir, --yes, --dry-run", () => {
+    const r = parseTeardownArgs(["--instance", "x", "--archive-dir", "/tmp", "--yes", "--dry-run"]);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toMatchObject({ archiveDir: "/tmp", yes: true, dryRun: true });
   });
 });
 

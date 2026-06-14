@@ -46,7 +46,7 @@
   },
   "overrides": [
     {
-      "includes": ["src/lib/clock.ts"],
+      "includes": ["src/lib/clock.ts", "src/deploy/seams/clock.ts"],
       "linter": {
         "rules": {
           "style": {

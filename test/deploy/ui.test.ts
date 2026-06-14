@@ -3,6 +3,7 @@ import { colorPalette, plainPalette } from "../../src/deploy/core/colors";
 import type { ApplyStep, Finding, InspectStep, PreflightItem } from "../../src/deploy/core/types";
 import {
   renderApply,
+  renderDestroy,
   renderFindings,
   renderHeader,
   renderInspect,
@@ -77,6 +78,17 @@ describe("renderApply", () => {
     const skipLine = out.split("\n").find((l) => l.includes("bucket"));
     expect(skipLine).toContain("·");
     expect(skipLine).toContain("exists — skipping");
+  });
+});
+
+describe("renderDestroy", () => {
+  it("heads with DESTROY and shows the delete commands", () => {
+    const out = renderDestroy(
+      [{ kind: "delete", what: "database", why: "", command: "wrangler d1 delete x" }],
+      P,
+    );
+    expect(out).toContain("DESTROY");
+    expect(out).toContain("wrangler d1 delete x");
   });
 });
 

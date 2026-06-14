@@ -192,8 +192,10 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
     updateManifestUrl: env.updateManifestUrl,
     main: "../src/worker.ts",
   });
-  await env.fs.write(appCfg, renderConfig(configVars("app")));
-  await env.fs.write(adminCfg, renderConfig(configVars("admin")));
+  if (!args.dryRun) {
+    await env.fs.write(appCfg, renderConfig(configVars("app")));
+    await env.fs.write(adminCfg, renderConfig(configVars("admin")));
+  }
 
   // 3. R2 (create if absent).
   if (!inspection.bucketExists) {
@@ -284,12 +286,14 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   if (teamDomain !== null && teamDomain !== "" && aud !== null && aud !== "") {
     startStep("wire Cloudflare Access");
     const secretsFile = `${deployDir}/${args.instance}.secrets.json`;
-    await env.fs.write(
-      secretsFile,
-      JSON.stringify({ ACCESS_TEAM_DOMAIN: teamDomain, ACCESS_AUD: aud }),
-    );
+    if (!args.dryRun) {
+      await env.fs.write(
+        secretsFile,
+        JSON.stringify({ ACCESS_TEAM_DOMAIN: teamDomain, ACCESS_AUD: aud }),
+      );
+    }
     const wired = await wr.run(["deploy", "--config", adminCfg, "--secrets-file", secretsFile]);
-    await env.fs.remove(secretsFile);
+    if (!args.dryRun) await env.fs.remove(secretsFile);
     if (!args.dryRun && !wired.ok)
       return fail(env, "setting Access secrets failed", wired.stderr.trim());
     doneStep("Access");

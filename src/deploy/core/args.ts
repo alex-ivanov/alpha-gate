@@ -110,4 +110,53 @@ export function parseDeployArgs(argv: readonly string[]): Result<DeployArgs> {
   });
 }
 
+export interface TeardownArgs {
+  instance: string;
+  archive: boolean;
+  archiveDir: string | null;
+  yes: boolean;
+  dryRun: boolean;
+}
+
+const TEARDOWN_VALUE_FLAGS = new Set(["--instance", "--archive-dir"]);
+
+export function parseTeardownArgs(argv: readonly string[]): Result<TeardownArgs> {
+  const values: Record<string, string> = {};
+  let archive = true;
+  let yes = false;
+  let dryRun = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    const flag = argv[i];
+    if (flag === undefined) continue;
+    if (flag === "--no-archive") {
+      archive = false;
+    } else if (flag === "--yes") {
+      yes = true;
+    } else if (flag === "--dry-run") {
+      dryRun = true;
+    } else if (TEARDOWN_VALUE_FLAGS.has(flag)) {
+      const value = argv[i + 1];
+      if (value === undefined) return err(`${flag} needs a value`);
+      values[flag] = value;
+      i++;
+    } else {
+      return err(`unknown flag: ${flag}`, "run `teardown --help` for the supported flags");
+    }
+  }
+
+  const instance = values["--instance"];
+  if (instance === undefined || instance === "") {
+    return err("--instance is required", "e.g. --instance myalpha");
+  }
+  if (!SLUG.test(instance)) {
+    return err(
+      `invalid --instance '${instance}'`,
+      "lowercase letters, digits and hyphens only (no leading/trailing hyphen)",
+    );
+  }
+
+  return ok({ instance, archive, archiveDir: values["--archive-dir"] ?? null, yes, dryRun });
+}
+
 export type { Role };
