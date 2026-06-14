@@ -153,9 +153,11 @@ else
   fi
 fi
 
-# 2. R2 — create if absent.
+# 2. R2 — create if absent. Probe with `bucket info` (exit 0 iff it exists) rather than scraping
+# `bucket list` output: the list format isn't a bare bucket-per-line, so the old grep never matched and
+# a re-run tried to re-create the bucket — which errors ("already exists, and you own it") and aborts.
 if [ "${DRY_RUN}" -eq 0 ]; then
-  wrangler r2 bucket list | grep -q "^${RES}\b" || wrangler r2 bucket create "${RES}" >/dev/null
+  wrangler r2 bucket info "${RES}" >/dev/null 2>&1 || wrangler r2 bucket create "${RES}" >/dev/null
 fi
 
 # 3. Collect configuration. App identity/branding is seeded only on a FIRST init (the admin Settings
