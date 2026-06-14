@@ -12,6 +12,7 @@ const baseStyles = (accent: string) => `
     background: #f5f5f7; color: #1d1d1f; padding: 2rem; }
   .card { width: 100%; max-width: 28rem; background: #fff; border-radius: 16px;
     padding: 2.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); text-align: center; }
+  .header { display: block; width: 100%; border-radius: 12px; margin-bottom: 1rem; }
   .icon { width: 72px; height: 72px; border-radius: 16px; }
   h1 { font-size: 1.5rem; margin: 1rem 0 .25rem; }
   .blurb { color: #6e6e73; margin: 0 0 1.5rem; }

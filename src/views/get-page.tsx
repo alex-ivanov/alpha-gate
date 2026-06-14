@@ -13,6 +13,7 @@ export const GetPage: FC<{
   activateUrl: string;
 }> = ({ branding, token, downloadUrl, activateUrl }) => (
   <Layout title={branding.appName} accent={branding.accent}>
+    {branding.headerUrl ? <img class="header" src={branding.headerUrl} alt="" /> : null}
     {branding.iconUrl ? <img class="icon" src={branding.iconUrl} alt="" /> : null}
     <h1>{branding.appName}</h1>
     {branding.blurb ? <p class="blurb">{branding.blurb}</p> : null}

@@ -52,14 +52,16 @@ export interface Branding {
   blurb: string | null;
   accent: string;
   iconUrl: string | null;
+  headerUrl: string | null;
 }
 
-/** Clean, never-blocking defaults (decision 0003 sibling): neutral name, system blue, no icon. */
+/** Clean, never-blocking defaults (decision 0003 sibling): neutral name, system blue, no imagery. */
 export const DEFAULT_BRANDING: Branding = {
   appName: "Your App",
   blurb: null,
   accent: "#0A84FF",
   iconUrl: null,
+  headerUrl: null,
 };
 
 /** Merges admin overrides (from `meta` / R2 asset URL) over the defaults; ignores undefined. */
@@ -69,5 +71,6 @@ export function resolveBranding(overrides: Partial<Branding>): Branding {
     blurb: overrides.blurb ?? DEFAULT_BRANDING.blurb,
     accent: overrides.accent ?? DEFAULT_BRANDING.accent,
     iconUrl: overrides.iconUrl ?? DEFAULT_BRANDING.iconUrl,
+    headerUrl: overrides.headerUrl ?? DEFAULT_BRANDING.headerUrl,
   };
 }

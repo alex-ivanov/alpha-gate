@@ -15,7 +15,12 @@ import { type AuditFilter, listForDisplay } from "../../db/admin-audit";
 import { getById as getBuildById, listAll, listAvailable, listBuildStreams } from "../../db/builds";
 import { getById as getClientById, list as listClients } from "../../db/clients";
 import { getAll as getAllMeta } from "../../db/meta";
-import { list as listStreams, listUserStreams, streamIdsForClient } from "../../db/streams";
+import {
+  getById as getStreamById,
+  list as listStreams,
+  listUserStreams,
+  streamIdsForClient,
+} from "../../db/streams";
 import type { Deps } from "../../deps";
 
 // Impure read-model assembly: queries the db and shapes view-ready data so the admin views stay pure.
@@ -194,6 +199,54 @@ export async function loadBuildDetail(deps: Deps, id: number): Promise<BuildDeta
     channels: await listStreams(deps.db),
     linkedStreamIds: links.filter((link) => link.buildId === id).map((link) => link.streamId),
   };
+}
+
+export interface StreamDetail {
+  stream: Stream;
+  /** Builds linked to this channel (any status). */
+  linkedBuilds: Build[];
+  /** Available builds not yet linked — the link control's options. */
+  unlinkedBuilds: Build[];
+  /** Highest-numbered available linked build — what this channel currently serves (§8). */
+  topBuild: Build | null;
+  /** Clients assigned to this channel. */
+  assignedUsers: Client[];
+  /** Active clients not assigned — the assign control's options. */
+  unassignedUsers: Client[];
+}
+
+/** One channel with the builds it carries and the users it serves (the §13 channel manage page). */
+export async function loadStreamDetail(deps: Deps, id: number): Promise<StreamDetail | null> {
+  const stream = await getStreamById(deps.db, id);
+  if (stream === null) return null;
+  const builds = await listAll(deps.db);
+  const buildStreams = await listBuildStreams(deps.db);
+  const clients = await listClients(deps.db);
+  const userStreams = await listUserStreams(deps.db);
+
+  const linkedBuildIds = new Set(
+    buildStreams.filter((link) => link.streamId === id).map((link) => link.buildId),
+  );
+  const linkedBuilds = builds.filter((build) => linkedBuildIds.has(build.id));
+  const unlinkedBuilds = builds.filter(
+    (build) => !linkedBuildIds.has(build.id) && build.status === "available",
+  );
+  const topBuild = linkedBuilds
+    .filter((build) => build.status === "available")
+    .reduce<Build | null>(
+      (top, build) => (top === null || build.buildNumber > top.buildNumber ? build : top),
+      null,
+    );
+
+  const assignedClientIds = new Set(
+    userStreams.filter((link) => link.streamId === id).map((link) => link.clientId),
+  );
+  const assignedUsers = clients.filter((client) => assignedClientIds.has(client.id));
+  const unassignedUsers = clients.filter(
+    (client) => !assignedClientIds.has(client.id) && client.status === "active",
+  );
+
+  return { stream, linkedBuilds, unlinkedBuilds, topBuild, assignedUsers, unassignedUsers };
 }
 
 /** Channels for the upload form's channel select. */

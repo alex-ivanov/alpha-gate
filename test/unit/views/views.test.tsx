@@ -40,6 +40,13 @@ describe("GetPage", () => {
     expect(html).toContain('src="/assets/icon"');
   });
 
+  it("renders the header banner when branding provides one", () => {
+    const branding = resolveBranding({ appName: "Acme", headerUrl: "/assets/header" });
+    const html = renderPage(<GetPage {...base} branding={branding} />);
+    expect(html).toContain('class="header"');
+    expect(html).toContain('src="/assets/header"');
+  });
+
   it("HTML-escapes hostile branding and token values (no markup injection)", () => {
     const branding = resolveBranding({ appName: "<script>x</script>" });
     const html = renderPage(<GetPage {...base} branding={branding} token={'a"<b>'} />);

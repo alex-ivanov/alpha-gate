@@ -22,7 +22,11 @@ beforeAll(async () => {
 beforeEach(resetAll);
 
 async function getAdmin(path: string): Promise<string> {
-  return (await adminWorker(access).request(path, withToken(await access.signValidUser()))).text();
+  // Pass `env` as the third arg so c.env carries the [vars] (the Settings info panel reads them),
+  // exactly as the deployed Worker is invoked.
+  return (
+    await adminWorker(access).request(path, withToken(await access.signValidUser()), env)
+  ).text();
 }
 
 describe("admin operation pages", () => {
@@ -59,18 +63,49 @@ describe("admin operation pages", () => {
     expect(html).toContain('name="ed_signature"');
   });
 
-  it("settings page renders the branding form", async () => {
+  it("settings page renders the branding form, header upload, and the instance info panel", async () => {
     const html = await getAdmin("/admin/settings");
     expect(html).toContain('action="/admin/branding"');
     expect(html).toContain('name="app_name"');
+    expect(html).toContain('name="header"'); // branding header image upload
     expect(html).toContain('name="invite_body"');
+    expect(html).toContain("This instance"); // info panel
+    expect(html).toContain("0.0.0-test"); // TOOL_VERSION from the test env
+    expect(html).toContain("Self-update");
   });
 
-  it("channels page has the add-channel form and a delete action", async () => {
-    await createStream(deps.db, "stable"); // so a row (and its delete button) renders
+  it("CI page documents the service-token publish flow for this instance", async () => {
+    const html = await getAdmin("/admin/ci");
+    expect(html).toContain("CF_ACCESS_CLIENT_ID");
+    expect(html).toContain("/admin/builds/register");
+    expect(html).toContain("ci-publish.sh");
+  });
+
+  it("channels page has the add-channel form, a manage link, and a delete action", async () => {
+    await createStream(deps.db, "stable"); // so a row (and its action buttons) renders
     const html = await getAdmin("/admin/streams");
     expect(html).toContain('action="/admin/streams"');
     expect(html).toContain("/delete");
+    const stable = await getByName(deps.db, "stable");
+    expect(html).toContain(`/admin/streams/${stable?.id}`); // Manage link
+  });
+
+  it("channel manage page renders link/assign controls and what it currently serves", async () => {
+    await seedServableClient(deps); // channel "stable" with a linked build + assigned, servable user
+    const stable = await getByName(deps.db, "stable");
+    const html = await getAdmin(`/admin/streams/${stable?.id}`);
+    expect(html).toContain("Currently serving");
+    expect(html).toContain("/streams/unlink"); // the linked build can be unlinked
+    expect(html).toContain("/streams/unassign"); // the assigned user can be unassigned
+    expect(html).toContain(`/admin/streams/${stable?.id}/delete`);
+  });
+
+  it("channel manage page 404s for an unknown channel", async () => {
+    const res = await adminWorker(access).request(
+      "/admin/streams/99999",
+      withToken(await access.signValidUser()),
+    );
+    expect(res.status).toBe(404);
   });
 });
 

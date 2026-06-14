@@ -1,7 +1,9 @@
 import type { AccessEvent } from "../../core/types";
+import { CiPage } from "../../views/admin/ci-page";
 import {
   BuildManagePage,
   SettingsPage,
+  StreamManagePage,
   UploadPage,
   UserManagePage,
 } from "../../views/admin/manage";
@@ -26,6 +28,7 @@ import {
   loadDashboard,
   loadPending,
   loadSettings,
+  loadStreamDetail,
   loadStreams,
   loadUser,
   loadUsersPage,
@@ -75,12 +78,37 @@ export async function streamsView(c: AdminContext): Promise<Response> {
   return c.html(renderPage(<StreamsPage streams={await loadStreams(c.get("deps"))} />));
 }
 
+export async function streamManageView(c: AdminContext): Promise<Response> {
+  const id = toId(c.req.param("id"));
+  const detail = id === null ? null : await loadStreamDetail(c.get("deps"), id);
+  if (detail === null) return c.text("Not found", 404);
+  return c.html(renderPage(<StreamManagePage detail={detail} />));
+}
+
 export async function uploadView(c: AdminContext): Promise<Response> {
   return c.html(renderPage(<UploadPage channels={await loadChannels(c.get("deps"))} />));
 }
 
+export async function ciView(c: AdminContext): Promise<Response> {
+  return c.html(renderPage(<CiPage adminOrigin={new URL(c.req.url).origin} />));
+}
+
 export async function settingsView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<SettingsPage settings={await loadSettings(c.get("deps"))} />));
+  const settings = await loadSettings(c.get("deps"));
+  const env = c.env;
+  const info = {
+    instance: env.INSTANCE,
+    toolVersion: env.TOOL_VERSION,
+    emailProvider: env.EMAIL_PROVIDER,
+    emailFrom: env.EMAIL_FROM,
+    accessTeam: env.ACCESS_TEAM_DOMAIN ?? null,
+    accessAud: env.ACCESS_AUD ?? null,
+    selfUpdate: {
+      available: settings.selfupdate_available === "1",
+      latest: settings.selfupdate_latest ?? null,
+    },
+  };
+  return c.html(renderPage(<SettingsPage settings={settings} info={info} />));
 }
 
 export async function pendingView(c: AdminContext): Promise<Response> {

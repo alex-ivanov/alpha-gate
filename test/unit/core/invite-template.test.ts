@@ -43,14 +43,18 @@ describe("resolveBranding", () => {
     expect(resolveBranding({})).toEqual(DEFAULT_BRANDING);
     expect(DEFAULT_BRANDING.accent).toBe("#0A84FF");
     expect(DEFAULT_BRANDING.iconUrl).toBeNull();
+    expect(DEFAULT_BRANDING.headerUrl).toBeNull();
   });
 
   it("applies overrides over the defaults", () => {
-    expect(resolveBranding({ appName: "Acme", iconUrl: "/assets/icon" })).toEqual({
+    expect(
+      resolveBranding({ appName: "Acme", iconUrl: "/assets/icon", headerUrl: "/assets/header" }),
+    ).toEqual({
       appName: "Acme",
       blurb: null,
       accent: "#0A84FF",
       iconUrl: "/assets/icon",
+      headerUrl: "/assets/header",
     });
   });
 });

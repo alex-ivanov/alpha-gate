@@ -8,8 +8,8 @@ import { getAll } from "../db/meta";
 import type { Deps } from "../deps";
 
 // §6/§13 — resolves the branded /get page model and the invite template from the `meta` table,
-// falling back to the clean defaults. The icon is served at /assets/icon when one has been uploaded
-// (tracked by meta.icon = "1").
+// falling back to the clean defaults. The icon/header are served at /assets/icon and /assets/header
+// when one has been uploaded (tracked by meta.icon / meta.header = "1").
 
 export async function loadBranding(deps: Deps): Promise<Branding> {
   const all = await getAll(deps.db);
@@ -18,6 +18,7 @@ export async function loadBranding(deps: Deps): Promise<Branding> {
     blurb: all.blurb ?? DEFAULT_BRANDING.blurb,
     accent: all.accent ?? DEFAULT_BRANDING.accent,
     iconUrl: all.icon === "1" ? "/assets/icon" : DEFAULT_BRANDING.iconUrl,
+    headerUrl: all.header === "1" ? "/assets/header" : DEFAULT_BRANDING.headerUrl,
   };
 }
 

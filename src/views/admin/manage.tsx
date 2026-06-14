@@ -1,6 +1,6 @@
 import type { FC } from "hono/jsx";
 import type { Stream } from "../../core/types";
-import type { BuildDetail, UserDetail } from "../../routes/admin/read-model";
+import type { BuildDetail, StreamDetail, UserDetail } from "../../routes/admin/read-model";
 import { Post } from "./forms";
 import { AdminLayout } from "./layout";
 
@@ -127,6 +127,81 @@ export const BuildManagePage: FC<{ detail: BuildDetail }> = ({ detail }) => {
   );
 };
 
+export const StreamManagePage: FC<{ detail: StreamDetail }> = ({ detail }) => {
+  const { stream, linkedBuilds, unlinkedBuilds, topBuild, assignedUsers, unassignedUsers } = detail;
+  return (
+    <AdminLayout title={`Channel · ${stream.name}`}>
+      <p class="muted">
+        Currently serving:{" "}
+        {topBuild ? `${topBuild.buildNumber} (${topBuild.shortVersion})` : "no available build"}
+      </p>
+
+      <div class="panel actions">
+        <h2>Builds in this channel</h2>
+        {linkedBuilds.length === 0 ? <span class="muted">None linked. </span> : null}
+        {linkedBuilds.map((b) => (
+          <Post
+            action={`/admin/builds/${b.id}/streams/unlink`}
+            label={`Unlink ${b.buildNumber} (${b.shortVersion})`}
+            hidden={{ streamId: stream.id }}
+          />
+        ))}
+      </div>
+
+      <div class="panel actions">
+        <h2>Link a build</h2>
+        {unlinkedBuilds.length === 0 ? (
+          <span class="muted">No other available builds to link.</span>
+        ) : (
+          unlinkedBuilds.map((b) => (
+            <Post
+              action={`/admin/builds/${b.id}/streams/link`}
+              label={`Link ${b.buildNumber} (${b.shortVersion})`}
+              hidden={{ streamId: stream.id }}
+            />
+          ))
+        )}
+      </div>
+
+      <div class="panel actions">
+        <h2>Users in this channel</h2>
+        {assignedUsers.length === 0 ? <span class="muted">None assigned. </span> : null}
+        {assignedUsers.map((u) => (
+          <Post
+            action={`/admin/clients/${u.id}/streams/unassign`}
+            label={`Unassign ${u.email}`}
+            hidden={{ streamId: stream.id }}
+          />
+        ))}
+      </div>
+
+      <div class="panel actions">
+        <h2>Assign a user</h2>
+        {unassignedUsers.length === 0 ? (
+          <span class="muted">No active users to assign.</span>
+        ) : (
+          unassignedUsers.map((u) => (
+            <Post
+              action={`/admin/clients/${u.id}/streams/assign`}
+              label={`Assign ${u.email}`}
+              hidden={{ streamId: stream.id }}
+            />
+          ))
+        )}
+      </div>
+
+      <div class="panel actions">
+        <h2>Delete</h2>
+        <Post action={`/admin/streams/${stream.id}/delete`} label="Delete channel" />
+      </div>
+
+      <p>
+        <a href="/admin/streams">← Channels</a>
+      </p>
+    </AdminLayout>
+  );
+};
+
 export const UploadPage: FC<{ channels: Stream[] }> = ({ channels }) => (
   <AdminLayout title="Upload build">
     <p class="muted">
@@ -170,8 +245,70 @@ export const UploadPage: FC<{ channels: Stream[] }> = ({ channels }) => (
   </AdminLayout>
 );
 
-export const SettingsPage: FC<{ settings: Record<string, string> }> = ({ settings }) => (
+export interface SettingsInfo {
+  instance: string;
+  toolVersion: string;
+  emailProvider: string;
+  emailFrom: string;
+  accessTeam: string | null;
+  accessAud: string | null;
+  selfUpdate: { available: boolean; latest: string | null };
+}
+
+export const SettingsPage: FC<{ settings: Record<string, string>; info: SettingsInfo }> = ({
+  settings,
+  info,
+}) => (
   <AdminLayout title="Settings">
+    <div class="panel">
+      <h2>This instance</h2>
+      <table class="kv">
+        <tbody>
+          <tr>
+            <td>Instance</td>
+            <td>{info.instance}</td>
+          </tr>
+          <tr>
+            <td>Tool version</td>
+            <td>{info.toolVersion}</td>
+          </tr>
+          <tr>
+            <td>Email</td>
+            <td>
+              {info.emailProvider === "none" ? (
+                <span class="muted">not configured</span>
+              ) : (
+                `${info.emailProvider} · ${info.emailFrom || "—"}`
+              )}
+            </td>
+          </tr>
+          <tr>
+            <td>Access team</td>
+            <td>{info.accessTeam ?? <span class="muted">—</span>}</td>
+          </tr>
+          <tr>
+            <td>Access AUD</td>
+            <td class="muted">{info.accessAud ?? "—"}</td>
+          </tr>
+          <tr>
+            <td>Self-update</td>
+            <td>
+              {info.selfUpdate.available ? (
+                <span class="badge warn">
+                  {info.selfUpdate.latest} available — re-run deploy.sh
+                </span>
+              ) : (
+                <span class="badge ok">up to date</span>
+              )}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="muted">
+        Publishing from CI? See <a href="/admin/ci">CI publishing</a>.
+      </p>
+    </div>
+
     <form method="post" action="/admin/branding" enctype="multipart/form-data" class="panel">
       <h2>Download-page branding</h2>
       <p>

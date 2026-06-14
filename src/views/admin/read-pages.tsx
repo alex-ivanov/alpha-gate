@@ -250,6 +250,7 @@ export const StreamsPage: FC<{ streams: StreamView[] }> = ({ streams }) => (
               <td>{s.buildCount}</td>
               <td>{s.userCount}</td>
               <td class="actions">
+                <a href={`/admin/streams/${s.id}`}>Manage</a>
                 <Post action={`/admin/streams/${s.id}/delete`} label="Delete" />
               </td>
             </tr>

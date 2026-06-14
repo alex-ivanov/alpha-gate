@@ -36,6 +36,11 @@ const styles = `
     border-radius: 6px; font-family: inherit; }
   textarea { width: 100%; min-height: 5rem; }
   .actions a, .actions form { margin-right: .4rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
+  pre { background: #1d1d1f; color: #f5f5f7; padding: .9rem 1rem; border-radius: 8px;
+    overflow-x: auto; font-size: .78rem; line-height: 1.5; }
+  pre code { font-size: inherit; }
+  .kv td:first-child { color: #6e6e73; width: 12rem; }
 `;
 
 const NAV = [
@@ -45,6 +50,7 @@ const NAV = [
   ["/admin/streams", "Channels"],
   ["/admin/pending", "Requests"],
   ["/admin/upload", "Upload"],
+  ["/admin/ci", "CI"],
   ["/admin/settings", "Settings"],
   ["/admin/activity", "Activity"],
   ["/admin/audit", "Audit"],

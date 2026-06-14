@@ -42,6 +42,11 @@ export async function getByName(db: D1Database, name: string): Promise<Stream | 
   return row ? toStream(row) : null;
 }
 
+export async function getById(db: D1Database, id: number): Promise<Stream | null> {
+  const row = await queryOne<StreamRow>(db, "SELECT * FROM streams WHERE id = ?", [id]);
+  return row ? toStream(row) : null;
+}
+
 export async function assignUser(
   db: D1Database,
   clientId: number,

@@ -28,9 +28,11 @@ import {
   auditView,
   buildManageView,
   buildsView,
+  ciView,
   dashboardView,
   pendingView,
   settingsView,
+  streamManageView,
   streamsView,
   uploadView,
   userManageView,
@@ -55,8 +57,10 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.get("/admin/builds", buildsView);
   app.get("/admin/builds/:id", buildManageView);
   app.get("/admin/streams", streamsView);
+  app.get("/admin/streams/:id", streamManageView);
   app.get("/admin/pending", pendingView);
   app.get("/admin/upload", uploadView);
+  app.get("/admin/ci", ciView);
   app.get("/admin/settings", settingsView);
   app.get("/admin/activity", activityView);
   app.get("/admin/audit", auditView);
