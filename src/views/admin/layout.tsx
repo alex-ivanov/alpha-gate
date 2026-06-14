@@ -51,6 +51,7 @@ const NAV = [
   ["/admin/pending", "Requests"],
   ["/admin/upload", "Upload"],
   ["/admin/ci", "CI"],
+  ["/admin/setup", "Setup"],
   ["/admin/settings", "Settings"],
   ["/admin/activity", "Activity"],
   ["/admin/audit", "Audit"],

@@ -1,4 +1,5 @@
 import type { AccessEvent } from "../../core/types";
+import { adminToAppOrigin } from "../../lib/hosts";
 import { CiPage } from "../../views/admin/ci-page";
 import {
   BuildManagePage,
@@ -16,6 +17,7 @@ import {
   StreamsPage,
   UsersPage,
 } from "../../views/admin/read-pages";
+import { SetupPage } from "../../views/admin/setup-page";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { toId } from "./form";
@@ -92,6 +94,17 @@ export async function uploadView(c: AdminContext): Promise<Response> {
 
 export async function ciView(c: AdminContext): Promise<Response> {
   return c.html(renderPage(<CiPage adminOrigin={new URL(c.req.url).origin} />));
+}
+
+export async function setupView(c: AdminContext): Promise<Response> {
+  const meta = await loadSettings(c.get("deps"));
+  const info = {
+    appName: meta.app_name || "Your App",
+    activateScheme: meta.activate_scheme || "myapp",
+    publicKey: meta.sparkle_public_key || null,
+    appOrigin: adminToAppOrigin(new URL(c.req.url).origin) ?? "<your App Worker URL>",
+  };
+  return c.html(renderPage(<SetupPage info={info} />));
 }
 
 export async function settingsView(c: AdminContext): Promise<Response> {

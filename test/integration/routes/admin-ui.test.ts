@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import * as meta from "../../../src/db/meta";
 import { create as createStream, getByName, list as listStreams } from "../../../src/db/streams";
 import { buildDeps } from "../../../src/deps";
 import {
@@ -93,6 +94,26 @@ describe("admin operation pages", () => {
     expect(html).toContain("CF_ACCESS_CLIENT_ID");
     expect(html).toContain("/admin/builds/register");
     expect(html).toContain("ci-publish.sh");
+  });
+
+  it("settings page has the Sparkle public-key field", async () => {
+    const html = await getAdmin("/admin/settings");
+    expect(html).toContain('name="sparkle_public_key"');
+  });
+
+  it("setup page renders the personalized app-wiring guide", async () => {
+    await meta.set(deps.db, "activate_scheme", "acme");
+    await meta.set(deps.db, "sparkle_public_key", "TESTPUBKEY==");
+    const html = await getAdmin("/admin/setup");
+    expect(html).toContain("SUPublicEDKey");
+    expect(html).toContain("TESTPUBKEY=="); // the saved key, filled into the Info.plist snippet
+    expect(html).toContain("acme://activate?token="); // the configured scheme
+    expect(html).toContain("/appcast?token="); // the per-user feed URL
+  });
+
+  it("setup page warns when no Sparkle public key is saved", async () => {
+    const html = await getAdmin("/admin/setup");
+    expect(html).toContain("No Sparkle public key saved yet");
   });
 
   it("channels page has the add-channel form, a manage link, and a delete action", async () => {

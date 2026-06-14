@@ -16,6 +16,7 @@ const TEXT_FIELDS = [
   "blurb",
   "accent",
   "activate_scheme",
+  "sparkle_public_key",
   "invite_subject",
   "invite_body",
 ] as const;

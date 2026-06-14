@@ -407,6 +407,18 @@ export const SettingsPage: FC<{ settings: Record<string, string>; info: Settings
         <code>&lt;scheme&gt;://activate?token=…</code>— set this to the URL scheme your macOS app
         registers in its Info.plist.
       </p>
+      <p>
+        <input
+          name="sparkle_public_key"
+          value={settings.sparkle_public_key ?? ""}
+          placeholder="Sparkle EdDSA public key (SUPublicEDKey)"
+        />
+      </p>
+      <p class="muted">
+        The public key from Sparkle's <code>generate_keys</code> (not secret — it ships in the app).
+        Stored for reference; see <a href="/admin/setup">Setup</a> for the ready-to-paste
+        Info.plist.
+      </p>
       <h2>Invite email template</h2>
       <p>
         <input
