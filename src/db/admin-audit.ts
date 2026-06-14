@@ -42,6 +42,36 @@ export async function listInOrder(db: D1Database): Promise<AuditRow[]> {
   return rows.map(toAuditRow);
 }
 
+export interface AuditFilter {
+  actor?: string | undefined;
+  action?: string | undefined;
+  limit?: number;
+}
+
+/** Newest-first, optionally filtered by actor/action — for the §13 #15 audit page. */
+export async function listForDisplay(
+  db: D1Database,
+  filter: AuditFilter = {},
+): Promise<AuditRow[]> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (filter.actor) {
+    where.push("actor_email = ?");
+    params.push(filter.actor);
+  }
+  if (filter.action) {
+    where.push("action = ?");
+    params.push(filter.action);
+  }
+  const clause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+  const rows = await queryAll<AuditDbRow>(
+    db,
+    `SELECT * FROM admin_audit ${clause} ORDER BY id DESC LIMIT ?`,
+    [...params, filter.limit ?? 200],
+  );
+  return rows.map(toAuditRow);
+}
+
 /** Inserts only if the current head hash still equals expectedHeadHash. Returns whether it inserted. */
 export async function appendIfHead(
   db: D1Database,

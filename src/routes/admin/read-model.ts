@@ -1,9 +1,17 @@
 import type { AuditRow } from "../../core/audit-chain";
 import { type NoBuildState, noBuildState, type World } from "../../core/no-build";
 import type { Build, Client, Stream } from "../../core/types";
-import { type AccessLogEntry, countByBuild, currentBuild, recent } from "../../db/access-log";
+import {
+  type AccessLogEntry,
+  type ActivityFilter,
+  countByBuild,
+  currentBuild,
+  lastActivityForBuild,
+  lastEventAt,
+  recent,
+} from "../../db/access-log";
 import { type AccessRequest, countPending, listByStatus } from "../../db/access-requests";
-import { listInOrder } from "../../db/admin-audit";
+import { type AuditFilter, listForDisplay } from "../../db/admin-audit";
 import { getById as getBuildById, listAll, listAvailable, listBuildStreams } from "../../db/builds";
 import { getById as getClientById, list as listClients } from "../../db/clients";
 import { getAll as getAllMeta } from "../../db/meta";
@@ -20,6 +28,8 @@ export interface UserView {
   streams: string[];
   pinnedBuildId: number | null;
   currentBuild: number | null;
+  lastInstalled: string | null;
+  lastUpdated: string | null;
   noBuild: NoBuildState;
 }
 
@@ -28,6 +38,7 @@ export interface BuildView {
   streams: string[];
   downloads: number;
   updates: number;
+  lastActivity: string | null;
 }
 
 export interface StreamView {
@@ -72,6 +83,8 @@ export async function loadUsers(deps: Deps): Promise<UserView[]> {
       streams: streamIds.map((id) => streamName.get(id) ?? `#${id}`),
       pinnedBuildId: client.pinnedBuildId,
       currentBuild: installed,
+      lastInstalled: await lastEventAt(deps.db, client.id, "download"),
+      lastUpdated: await lastEventAt(deps.db, client.id, "update"),
       noBuild: noBuildState(world, client, installed),
     });
   }
@@ -90,6 +103,7 @@ export async function loadBuilds(deps: Deps): Promise<BuildView[]> {
       streams: streamIds.map((id) => streamName.get(id) ?? `#${id}`),
       downloads: await countByBuild(deps.db, build.buildNumber, "download"),
       updates: await countByBuild(deps.db, build.buildNumber, "update"),
+      lastActivity: await lastActivityForBuild(deps.db, build.buildNumber),
     });
   }
   return views;
@@ -192,10 +206,10 @@ export function loadSettings(deps: Deps): Promise<Record<string, string>> {
   return getAllMeta(deps.db);
 }
 
-export function loadActivity(deps: Deps): Promise<AccessLogEntry[]> {
-  return recent(deps.db, 100);
+export function loadActivity(deps: Deps, filter: ActivityFilter = {}): Promise<AccessLogEntry[]> {
+  return recent(deps.db, { limit: 100, ...filter });
 }
 
-export function loadAudit(deps: Deps): Promise<AuditRow[]> {
-  return listInOrder(deps.db);
+export function loadAudit(deps: Deps, filter: AuditFilter = {}): Promise<AuditRow[]> {
+  return listForDisplay(deps.db, filter);
 }

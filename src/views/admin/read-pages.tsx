@@ -74,7 +74,18 @@ export const PendingPage: FC<{ requests: AccessRequest[] }> = ({ requests }) => 
   </AdminLayout>
 );
 
-export const UsersPage: FC<{ users: UserView[]; channels: Stream[] }> = ({ users, channels }) => (
+export interface UsersFilter {
+  status: string;
+  stream: string;
+  nobuild: boolean;
+  pinned: boolean;
+}
+
+export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: UsersFilter }> = ({
+  users,
+  channels,
+  filter,
+}) => (
   <AdminLayout title="Users">
     <form method="post" action="/admin/clients" class="addform">
       <input type="email" name="email" placeholder="email" required />
@@ -88,8 +99,37 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[] }> = ({ users
       <button type="submit">Add user</button>
     </form>
 
+    <form method="get" action="/admin/users" class="addform">
+      <select name="status">
+        <option value="">any status</option>
+        <option value="active" selected={filter.status === "active"}>
+          active
+        </option>
+        <option value="revoked" selected={filter.status === "revoked"}>
+          revoked
+        </option>
+      </select>
+      <select name="stream">
+        <option value="">any channel</option>
+        {channels.map((s) => (
+          <option value={s.name} selected={filter.stream === s.name}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+      <label>
+        <input type="checkbox" name="nobuild" value="1" checked={filter.nobuild} /> no available
+        build
+      </label>
+      <label>
+        <input type="checkbox" name="pinned" value="1" checked={filter.pinned} /> pinned
+      </label>
+      <button type="submit">Filter</button>
+      <a href="/admin/users">clear</a>
+    </form>
+
     {users.length === 0 ? (
-      <p class="empty">No users yet.</p>
+      <p class="empty">No users match.</p>
     ) : (
       <table>
         <thead>
@@ -98,6 +138,8 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[] }> = ({ users
             <th>Status</th>
             <th>Channels</th>
             <th>Installed</th>
+            <th>Last install</th>
+            <th>Last update</th>
             <th>Pinned</th>
             <th>State</th>
             <th>Actions</th>
@@ -110,6 +152,8 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[] }> = ({ users
               <td>{u.status}</td>
               <td>{u.streams.join(", ") || <span class="muted">—</span>}</td>
               <td>{u.currentBuild ?? <span class="muted">—</span>}</td>
+              <td class="muted">{u.lastInstalled ?? "—"}</td>
+              <td class="muted">{u.lastUpdated ?? "—"}</td>
               <td>{u.pinnedBuildId ?? <span class="muted">—</span>}</td>
               <td>
                 <NoBuildBadge state={u.noBuild} />
@@ -144,6 +188,7 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
             <th>Channels</th>
             <th>DL</th>
             <th>Upd</th>
+            <th>Last activity</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -157,6 +202,7 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
               <td>{b.streams.join(", ") || <span class="muted">—</span>}</td>
               <td>{b.downloads}</td>
               <td>{b.updates}</td>
+              <td class="muted">{b.lastActivity ?? "—"}</td>
               <td class="actions">
                 <a href={`/admin/builds/${b.build.id}`}>Manage</a>
                 {b.build.status === "available" ? (
@@ -214,10 +260,34 @@ export const StreamsPage: FC<{ streams: StreamView[] }> = ({ streams }) => (
   </AdminLayout>
 );
 
-export const ActivityPage: FC<{ events: AccessLogEntry[] }> = ({ events }) => (
+export interface ActivityFilterView {
+  email: string;
+  event: string;
+  build: string;
+}
+
+export const ActivityPage: FC<{ events: AccessLogEntry[]; filter: ActivityFilterView }> = ({
+  events,
+  filter,
+}) => (
   <AdminLayout title="Activity">
+    <form method="get" action="/admin/activity" class="addform">
+      <input type="text" name="email" placeholder="email" value={filter.email} />
+      <select name="event">
+        <option value="">any event</option>
+        {["check", "download", "update"].map((e) => (
+          <option value={e} selected={filter.event === e}>
+            {e}
+          </option>
+        ))}
+      </select>
+      <input type="text" name="build" placeholder="build #" value={filter.build} />
+      <button type="submit">Filter</button>
+      <a href="/admin/activity">clear</a>
+    </form>
+
     {events.length === 0 ? (
-      <p class="empty">No activity yet.</p>
+      <p class="empty">No activity matches.</p>
     ) : (
       <table>
         <thead>
@@ -243,10 +313,27 @@ export const ActivityPage: FC<{ events: AccessLogEntry[] }> = ({ events }) => (
   </AdminLayout>
 );
 
-export const AuditPage: FC<{ rows: AuditRow[] }> = ({ rows }) => (
+export interface AuditFilterView {
+  actor: string;
+  action: string;
+}
+
+export const AuditPage: FC<{ rows: AuditRow[]; filter: AuditFilterView }> = ({ rows, filter }) => (
   <AdminLayout title="Audit">
+    <form method="get" action="/admin/audit" class="addform">
+      <input type="text" name="actor" placeholder="actor email" value={filter.actor} />
+      <input
+        type="text"
+        name="action"
+        placeholder="action (e.g. client.revoke)"
+        value={filter.action}
+      />
+      <button type="submit">Filter</button>
+      <a href="/admin/audit">clear</a>
+    </form>
+
     {rows.length === 0 ? (
-      <p class="empty">No admin actions recorded yet.</p>
+      <p class="empty">No admin actions match.</p>
     ) : (
       <table>
         <thead>
@@ -255,6 +342,8 @@ export const AuditPage: FC<{ rows: AuditRow[] }> = ({ rows }) => (
             <th>Actor</th>
             <th>Action</th>
             <th>Target</th>
+            <th>IP</th>
+            <th>Ray ID</th>
           </tr>
         </thead>
         <tbody>
@@ -264,6 +353,8 @@ export const AuditPage: FC<{ rows: AuditRow[] }> = ({ rows }) => (
               <td>{r.actorEmail}</td>
               <td>{r.action}</td>
               <td>{r.target ?? <span class="muted">—</span>}</td>
+              <td class="muted">{r.ip ?? "—"}</td>
+              <td class="muted">{r.rayId ?? "—"}</td>
             </tr>
           ))}
         </tbody>

@@ -90,8 +90,34 @@ export interface AccessLogEntry {
   createdAt: string;
 }
 
-/** The most recent events, newest first — the §13 activity feed. */
-export async function recent(db: D1Database, limit = 100): Promise<AccessLogEntry[]> {
+export interface ActivityFilter {
+  limit?: number;
+  email?: string | undefined;
+  event?: AccessEvent | undefined;
+  buildNumber?: number | undefined;
+}
+
+/** The most recent events, newest first — the §13 activity feed; optionally filtered. */
+export async function recent(
+  db: D1Database,
+  filter: ActivityFilter = {},
+): Promise<AccessLogEntry[]> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (filter.email) {
+    where.push("email = ?");
+    params.push(filter.email);
+  }
+  if (filter.event) {
+    where.push("event = ?");
+    params.push(filter.event);
+  }
+  if (filter.buildNumber !== undefined) {
+    where.push("build_number = ?");
+    params.push(filter.buildNumber);
+  }
+  const clause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+
   const rows = await queryAll<{
     id: number;
     client_id: number | null;
@@ -103,8 +129,8 @@ export async function recent(db: D1Database, limit = 100): Promise<AccessLogEntr
   }>(
     db,
     `SELECT id, client_id, email, event, short_version, build_number, created_at
-     FROM access_log ORDER BY id DESC LIMIT ?`,
-    [limit],
+     FROM access_log ${clause} ORDER BY id DESC LIMIT ?`,
+    [...params, filter.limit ?? 100],
   );
   return rows.map((row) => ({
     id: row.id,
@@ -115,4 +141,17 @@ export async function recent(db: D1Database, limit = 100): Promise<AccessLogEntr
     buildNumber: row.build_number,
     createdAt: row.created_at,
   }));
+}
+
+/** The most recent event time for a build (any event) — the §13 builds-list "last activity". */
+export async function lastActivityForBuild(
+  db: D1Database,
+  buildNumber: number,
+): Promise<string | null> {
+  const row = await queryOne<{ v: string | null }>(
+    db,
+    "SELECT MAX(created_at) AS v FROM access_log WHERE build_number = ?",
+    [buildNumber],
+  );
+  return row?.v ?? null;
 }

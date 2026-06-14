@@ -1,3 +1,4 @@
+import type { AccessEvent } from "../../core/types";
 import {
   BuildManagePage,
   SettingsPage,
@@ -38,7 +39,18 @@ export async function dashboardView(c: AdminContext): Promise<Response> {
 
 export async function usersView(c: AdminContext): Promise<Response> {
   const { users, channels } = await loadUsersPage(c.get("deps"));
-  return c.html(renderPage(<UsersPage users={users} channels={channels} />));
+  const filter = {
+    status: c.req.query("status") ?? "",
+    stream: c.req.query("stream") ?? "",
+    nobuild: c.req.query("nobuild") === "1",
+    pinned: c.req.query("pinned") === "1",
+  };
+  let rows = users;
+  if (filter.status) rows = rows.filter((u) => u.status === filter.status);
+  if (filter.nobuild) rows = rows.filter((u) => u.noBuild !== "servable");
+  if (filter.pinned) rows = rows.filter((u) => u.pinnedBuildId !== null);
+  if (filter.stream) rows = rows.filter((u) => u.streams.includes(filter.stream));
+  return c.html(renderPage(<UsersPage users={rows} channels={channels} filter={filter} />));
 }
 
 export async function userManageView(c: AdminContext): Promise<Response> {
@@ -76,9 +88,28 @@ export async function pendingView(c: AdminContext): Promise<Response> {
 }
 
 export async function activityView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<ActivityPage events={await loadActivity(c.get("deps"))} />));
+  const filter = {
+    email: c.req.query("email") ?? "",
+    event: c.req.query("event") ?? "",
+    build: c.req.query("build") ?? "",
+  };
+  const buildNumber = /^\d+$/.test(filter.build) ? Number.parseInt(filter.build, 10) : undefined;
+  const events = await loadActivity(c.get("deps"), {
+    email: filter.email || undefined,
+    event: filter.event ? (filter.event as AccessEvent) : undefined,
+    buildNumber,
+  });
+  return c.html(renderPage(<ActivityPage events={events} filter={filter} />));
 }
 
 export async function auditView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<AuditPage rows={await loadAudit(c.get("deps"))} />));
+  const filter = {
+    actor: c.req.query("actor") ?? "",
+    action: c.req.query("action") ?? "",
+  };
+  const rows = await loadAudit(c.get("deps"), {
+    actor: filter.actor || undefined,
+    action: filter.action || undefined,
+  });
+  return c.html(renderPage(<AuditPage rows={rows} filter={filter} />));
 }
