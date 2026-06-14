@@ -1,13 +1,49 @@
+import type { Palette } from "./colors";
+import { type Cell, renderTable } from "./table";
 import type { ApplyStep, Finding, InspectStep, PreflightItem } from "./types";
 
-// The "grouped panels" console UI (the operator-approved layout). Every function here is PURE — it
-// returns the string to print — so the exact wording/alignment is unit-tested and nothing about what
-// the CLI shows depends on side effects. The transparency contract: the operator always sees the
-// phase, the reason ("why"), and the exact command before anything runs.
+// The "grouped panels" console UI: phased, table-formatted, color when the terminal supports it. Pure
+// — every function returns the string to print and takes the Palette in, so wording/alignment/markers
+// are unit-tested and color is a presentation detail decided at the edge. Transparency contract holds:
+// the operator always sees the phase, the reason ("why"), and the exact command before anything runs.
 
-const OK = "✓";
-const FAIL = "✗";
-const BULLET = "•";
+export function renderHeader(instance: string, palette: Palette): string {
+  return palette.bold(`Alpha Gate deploy · ${instance}`);
+}
+
+/** Preflight tool/auth checks as a table: ✓ green / ✗ red with the detail or fix-it hint. */
+export function renderPreflight(items: readonly PreflightItem[], palette: Palette): string {
+  const rows: Cell[][] = items.map((item) => [
+    { text: item.name },
+    {
+      text: `${item.ok ? "✓" : "✗"} ${item.detail}`,
+      style: item.ok ? palette.green : palette.red,
+    },
+  ]);
+  return renderTable(rows, palette, { head: ["Check", "Result"] });
+}
+
+/** Read-only INSPECT phase: a Why | Command table; commands dimmed. */
+export function renderInspect(steps: readonly InspectStep[], palette: Palette): string {
+  const rows: Cell[][] = steps.map((s) => [
+    { text: s.why },
+    { text: s.command, style: palette.dim },
+  ]);
+  return [
+    palette.bold("1 · INSPECT") + palette.dim("  read-only — learn current state"),
+    renderTable(rows, palette, { head: ["Why", "Command"] }),
+  ].join("\n");
+}
+
+/** The facts learned during INSPECT, echoed before the APPLY plan. */
+export function renderFindings(findings: readonly Finding[], palette: Palette): string {
+  const rows: Cell[][] = findings.map((f) => [
+    { text: f.label },
+    { text: f.value, style: palette.cyan },
+  ]);
+  return renderTable(rows, palette, { head: ["Resource", "State"] });
+}
+
 const MARK: Record<ApplyStep["kind"], string> = {
   create: "+",
   update: "~",
@@ -15,45 +51,38 @@ const MARK: Record<ApplyStep["kind"], string> = {
   skip: "·",
 };
 
-function pad(text: string, width: number): string {
-  return text.length >= width ? text : text + " ".repeat(width - text.length);
+/** Mutating APPLY phase: a Δ | Resource | Command-or-reason table; marker colored by change kind. */
+export function renderApply(steps: readonly ApplyStep[], palette: Palette): string {
+  const markStyle: Record<ApplyStep["kind"], (s: string) => string> = {
+    create: palette.green,
+    update: palette.cyan,
+    delete: palette.red,
+    skip: palette.dim,
+  };
+  const rows: Cell[][] = steps.map((s) => [
+    { text: MARK[s.kind], style: markStyle[s.kind] },
+    { text: s.what },
+    { text: s.kind === "skip" ? s.why : s.command, style: palette.dim },
+  ]);
+  return [
+    palette.bold("2 · APPLY") + palette.dim("  creates/changes resources"),
+    renderTable(rows, palette, { head: ["Δ", "Resource", "Command / reason"] }),
+  ].join("\n");
 }
 
-function widestOf(labels: readonly string[]): number {
-  return labels.reduce((max, label) => Math.max(max, label.length), 0);
-}
-
-export function renderHeader(instance: string): string {
-  return `Alpha Gate deploy · instance: ${instance}\n${"─".repeat(48)}`;
-}
-
-/** One compact line: `PREFLIGHT  ✓ node 20  ✓ wrangler 4.100  ✗ login → run npx wrangler login`. */
-export function renderPreflight(items: readonly PreflightItem[]): string {
-  const cells = items.map((item) => `${item.ok ? OK : FAIL} ${item.detail}`);
-  return `PREFLIGHT\n  ${cells.join("   ")}`;
-}
-
-/** The read-only INSPECT panel: why-label aligned, exact command alongside. */
-export function renderInspect(steps: readonly InspectStep[]): string {
-  const width = widestOf(steps.map((step) => step.why));
-  const lines = steps.map((step) => `  ${BULLET} ${pad(step.why, width)}  ${step.command}`);
-  return ["1 · INSPECT   read-only — learn current state", ...lines].join("\n");
-}
-
-/** The facts learned during INSPECT, echoed before the APPLY plan is shown. */
-export function renderFindings(findings: readonly Finding[]): string {
-  const width = widestOf(findings.map((finding) => finding.label));
-  return findings
-    .map((finding) => `  ${OK} ${pad(finding.label, width)}  ${finding.value}`)
-    .join("\n");
-}
-
-/** The mutating APPLY panel: a +/~/-/· marker per change, with the exact command (or skip reason). */
-export function renderApply(steps: readonly ApplyStep[]): string {
-  const width = widestOf(steps.map((step) => step.what));
-  const lines = steps.map((step) => {
-    const head = `  ${MARK[step.kind]} ${pad(step.what, width)}`;
-    return step.kind === "skip" ? `${head}  ${step.why}` : `${head}  ${step.command}`;
-  });
-  return ["2 · APPLY   creates/changes resources", ...lines].join("\n");
+/**
+ * A step only the operator can do (e.g. enabling Cloudflare Access in the dashboard). The CLI shows
+ * this, then BLOCKS on a prompt seam until the operator confirms it's done — see seams/io waitForDone.
+ */
+export function renderManualStep(
+  title: string,
+  steps: readonly string[],
+  palette: Palette,
+): string {
+  const lines = [
+    palette.yellow(`⚙ MANUAL STEP — only you can do this`),
+    title,
+    ...steps.map((s, i) => `  ${i + 1}. ${s}`),
+  ];
+  return lines.join("\n");
 }

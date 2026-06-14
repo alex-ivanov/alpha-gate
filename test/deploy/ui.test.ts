@@ -1,91 +1,102 @@
 import { describe, expect, it } from "vitest";
+import { colorPalette, plainPalette } from "../../src/deploy/core/colors";
 import type { ApplyStep, Finding, InspectStep, PreflightItem } from "../../src/deploy/core/types";
 import {
   renderApply,
   renderFindings,
   renderHeader,
   renderInspect,
+  renderManualStep,
   renderPreflight,
 } from "../../src/deploy/core/ui";
 
-// The transparency UI is pure, so we assert exactly what the operator sees: phase headers, the why,
-// the exact command, status markers, and that a skip shows its reason (not a command).
+// Rendered with plainPalette so assertions are color-code-free; the structure (tables, headers, why,
+// exact command, markers, skip reasons) is what we pin.
+
+const P = plainPalette;
 
 describe("renderHeader", () => {
   it("names the instance", () => {
-    expect(renderHeader("myalpha")).toContain("instance: myalpha");
+    expect(renderHeader("myalpha", P)).toContain("myalpha");
   });
 });
 
 describe("renderPreflight", () => {
-  it("marks each tool ✓/✗ and shows the detail/fix on one PREFLIGHT line", () => {
+  it("tables each check with ✓/✗ and the detail/fix", () => {
     const items: PreflightItem[] = [
       { name: "node", ok: true, detail: "node 20.11" },
-      { name: "auth", ok: false, detail: "login → run npx wrangler login" },
+      { name: "auth", ok: false, detail: "run npx wrangler login" },
     ];
-    const out = renderPreflight(items);
-    expect(out).toContain("PREFLIGHT");
+    const out = renderPreflight(items, P);
+    expect(out).toContain("Check");
     expect(out).toContain("✓ node 20.11");
-    expect(out).toContain("✗ login → run npx wrangler login");
+    expect(out).toContain("✗ run npx wrangler login");
   });
 });
 
 describe("renderInspect", () => {
-  it("shows the read-only header, the why, and the exact command for each step", () => {
+  it("shows the read-only header, a Why|Command table, and the exact command", () => {
     const steps: InspectStep[] = [
       { why: "account & login", command: "wrangler whoami" },
       { why: "database exists?", command: "wrangler d1 list --json" },
     ];
-    const out = renderInspect(steps);
+    const out = renderInspect(steps, P);
     expect(out).toContain("1 · INSPECT");
     expect(out).toContain("read-only");
-    expect(out).toContain("• account & login");
-    expect(out).toContain("wrangler whoami");
+    expect(out).toContain("Why");
+    expect(out).toContain("account & login");
     expect(out).toContain("wrangler d1 list --json");
-  });
-
-  it("aligns the command column (why-labels padded to equal width)", () => {
-    const steps: InspectStep[] = [
-      { why: "short", command: "cmd-a" },
-      { why: "a much longer why", command: "cmd-b" },
-    ];
-    const lines = renderInspect(steps).split("\n").slice(1); // drop the header
-    const colA = lines[0]?.indexOf("cmd-a");
-    const colB = lines[1]?.indexOf("cmd-b");
-    expect(colA).toBe(colB); // commands start at the same column
   });
 });
 
 describe("renderFindings", () => {
-  it("echoes each learned fact", () => {
-    const findings: Finding[] = [
-      { label: "database", value: "not found" },
-      { label: "Access", value: "not configured" },
-    ];
-    const out = renderFindings(findings);
-    expect(out).toContain("✓ database");
+  it("tables each learned fact", () => {
+    const findings: Finding[] = [{ label: "database", value: "not found" }];
+    const out = renderFindings(findings, P);
+    expect(out).toContain("Resource");
+    expect(out).toContain("database");
     expect(out).toContain("not found");
-    expect(out).toContain("✓ Access");
   });
 });
 
 describe("renderApply", () => {
   const steps: ApplyStep[] = [
-    { kind: "create", what: "database", why: "not found", command: "wrangler d1 create x" },
+    { kind: "create", what: "database", why: "", command: "wrangler d1 create x" },
     { kind: "skip", what: "bucket", why: "exists — skipping", command: "" },
   ];
 
-  it("uses + for a create and shows its exact command", () => {
-    const out = renderApply(steps);
+  it("shows + for a create with its exact command", () => {
+    const out = renderApply(steps, P);
     expect(out).toContain("2 · APPLY");
-    expect(out).toContain("+ database");
     expect(out).toContain("wrangler d1 create x");
+    expect(out).toMatch(/\+ .*database|database.*\+/);
   });
 
-  it("uses · for a skip and shows the reason, never a command", () => {
-    const out = renderApply(steps);
+  it("shows · and the reason for a skip — never a command", () => {
+    const out = renderApply(steps, P);
     const skipLine = out.split("\n").find((l) => l.includes("bucket"));
-    expect(skipLine).toContain("· bucket");
+    expect(skipLine).toContain("·");
     expect(skipLine).toContain("exists — skipping");
+  });
+});
+
+describe("renderManualStep", () => {
+  it("labels it a manual step and numbers the instructions", () => {
+    const out = renderManualStep(
+      "Enable Cloudflare Access:",
+      ["Open Zero Trust", "Add a policy"],
+      P,
+    );
+    expect(out).toContain("MANUAL STEP");
+    expect(out).toContain("Enable Cloudflare Access:");
+    expect(out).toContain("1. Open Zero Trust");
+    expect(out).toContain("2. Add a policy");
+  });
+});
+
+describe("color", () => {
+  it("wraps with ANSI under colorPalette and is identity under plainPalette", () => {
+    expect(renderHeader("x", colorPalette)).toContain("\x1b[");
+    expect(renderHeader("x", plainPalette)).not.toContain("\x1b[");
   });
 });
