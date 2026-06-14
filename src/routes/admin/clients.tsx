@@ -3,6 +3,7 @@ import type { AdminAction } from "../../core/no-build";
 import { generateToken } from "../../core/tokens";
 import * as clients from "../../db/clients";
 import * as streams from "../../db/streams";
+import { inviteUrl } from "../../lib/hosts";
 import { recordAudit } from "../../services/audit";
 import { loadBranding, loadInviteTemplate } from "../../services/branding";
 import { InvitePage } from "../../views/admin/manage-pages";
@@ -17,8 +18,9 @@ import { requireUser } from "./middleware";
 // validates its inputs defensively, runs the §11 confirm flow for stranding actions, and records an
 // audit row. Plain <form> POSTs; success redirects to the users list (or shows the invite link).
 
+// The invite points at the public App host, never the gated Admin host this request hit (see app-origin).
 function getUrl(c: AdminContext, token: string): string {
-  return `${new URL(c.req.url).origin}/get?token=${encodeURIComponent(token)}`;
+  return inviteUrl(c.req.url, token);
 }
 
 export async function createClient(c: AdminContext): Promise<Response> {

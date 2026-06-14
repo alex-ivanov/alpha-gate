@@ -29,6 +29,16 @@ describe("createClient", () => {
     expect((await listInOrder(deps.db)).some((r) => r.action === "client.create")).toBe(true);
   });
 
+  it("the surfaced invite link points at the public App host, not the gated Admin host", async () => {
+    const res = await adminWorker(access).request(
+      "https://alpha-gate-acme-admin.team.workers.dev/admin/clients",
+      withTokenForm(await userToken(), { email: "gate@example.test" }),
+    );
+    const html = await res.text();
+    expect(html).toContain("https://alpha-gate-acme.team.workers.dev/get?token=");
+    expect(html).not.toContain("alpha-gate-acme-admin.team.workers.dev/get");
+  });
+
   it("rejects a malformed email with 400 and creates nothing", async () => {
     const res = await adminWorker(access).request(
       "/admin/clients",

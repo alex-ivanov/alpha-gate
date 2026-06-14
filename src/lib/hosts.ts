@@ -17,3 +17,11 @@ export function adminToAppOrigin(adminUrl: string): string | null {
   labels[0] = first.slice(0, -"-admin".length);
   return `${url.protocol}//${labels.join(".")}`;
 }
+
+// The public `/get?token=` invite link a user follows. It must resolve on the *App* host — `/get` only
+// exists there — so derive it from the admin URL. When the app host can't be known (custom domain, local
+// dev), fall back to the admin request origin: no worse than before, and the only option without it.
+export function inviteUrl(adminUrl: string, token: string): string {
+  const origin = adminToAppOrigin(adminUrl) ?? new URL(adminUrl).origin;
+  return `${origin}/get?token=${encodeURIComponent(token)}`;
+}

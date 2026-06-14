@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adminToAppOrigin } from "../../../src/lib/hosts";
+import { adminToAppOrigin, inviteUrl } from "../../../src/lib/hosts";
 
 describe("adminToAppOrigin", () => {
   it("drops the -admin suffix to get the public App Worker origin", () => {
@@ -24,5 +24,25 @@ describe("adminToAppOrigin", () => {
 
   it("returns null for a malformed URL", () => {
     expect(adminToAppOrigin("not a url")).toBeNull();
+  });
+});
+
+describe("inviteUrl", () => {
+  it("builds the /get link on the public App host, not the gated Admin host", () => {
+    expect(inviteUrl("https://alpha-gate-acme-admin.acct.workers.dev/admin/clients", "ABC")).toBe(
+      "https://alpha-gate-acme.acct.workers.dev/get?token=ABC",
+    );
+  });
+
+  it("url-encodes the token", () => {
+    expect(inviteUrl("https://alpha-gate-x-admin.acct.workers.dev/admin", "a/b+c")).toBe(
+      "https://alpha-gate-x.acct.workers.dev/get?token=a%2Fb%2Bc",
+    );
+  });
+
+  it("falls back to the request origin when the app host can't be derived (local dev)", () => {
+    expect(inviteUrl("http://localhost:8788/admin/clients", "ABC")).toBe(
+      "http://localhost:8788/get?token=ABC",
+    );
   });
 });

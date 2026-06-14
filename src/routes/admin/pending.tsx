@@ -2,6 +2,7 @@ import { renderInvite } from "../../core/invite-template";
 import { generateToken } from "../../core/tokens";
 import * as accessRequests from "../../db/access-requests";
 import * as clients from "../../db/clients";
+import { inviteUrl } from "../../lib/hosts";
 import { recordAudit } from "../../services/audit";
 import { loadBranding, loadInviteTemplate } from "../../services/branding";
 import { InvitePage } from "../../views/admin/manage-pages";
@@ -36,7 +37,7 @@ export async function invitePending(c: AdminContext): Promise<Response> {
   await accessRequests.setStatus(deps.db, id, "handled");
   await recordAudit(deps, auditFields(c, "request.invite", request.email));
 
-  const url = `${new URL(c.req.url).origin}/get?token=${encodeURIComponent(token)}`;
+  const url = inviteUrl(c.req.url, token);
   const branding = await loadBranding(deps);
   const template = await loadInviteTemplate(deps);
   const invite = renderInvite(template, { appName: branding.appName, getUrl: url, token });
