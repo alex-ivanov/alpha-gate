@@ -40,6 +40,8 @@ export interface DeployEnv {
   toolVersion: string;
   updateManifestUrl: string;
   nodeMajor: number;
+  /** Whether stdin is a TTY — gates interactive prompts (the manual-Access wait + first-init branding). */
+  interactive: boolean;
 }
 
 function fail(env: DeployEnv, reason: string, hint: string): number {
@@ -54,6 +56,12 @@ async function askNonEmpty(prompt: Prompt, question: string): Promise<string> {
     answer = (await prompt.ask(`  ${question}: `)).trim();
   }
   return answer;
+}
+
+async function askWithDefault(prompt: Prompt, label: string, fallback: string): Promise<string> {
+  const suffix = fallback === "" ? "" : ` [${fallback}]`;
+  const answer = (await prompt.ask(`  ${label}${suffix}: `)).trim();
+  return answer === "" ? fallback : answer;
 }
 
 export async function runDeploy(argv: readonly string[], env: DeployEnv): Promise<number> {
@@ -108,9 +116,33 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   }
   env.out(renderFindings(inspectionFindings(inspection), env.palette));
 
+  const freshDb = inspection.d1Id === null;
+
+  // First-init branding (parity with the old deploy.sh): on a fresh instance + an interactive TTY,
+  // prompt for anything not passed as a flag, so /get + the activate link are correct immediately. The
+  // values are seeded with INSERT OR IGNORE, so the admin Settings page owns them thereafter.
+  let effective = args;
+  if (freshDb && env.interactive && !args.yes && !args.dryRun) {
+    effective = {
+      ...args,
+      appName: args.appName ?? (await askWithDefault(env.prompt, "App name", "Your App")),
+      activateScheme:
+        args.activateScheme ?? (await askWithDefault(env.prompt, "Activate URL scheme", "myapp")),
+      blurb: args.blurb ?? (await askWithDefault(env.prompt, "Short blurb (optional)", "")),
+      accent: args.accent ?? (await askWithDefault(env.prompt, "Accent colour", "#0A84FF")),
+    };
+  }
+
   // APPLY — show the plan, confirm, then mutate.
-  env.out(renderApply(buildApplyPlan(args, inspection), env.palette));
+  env.out(renderApply(buildApplyPlan(effective, inspection), env.palette));
   if (!args.dryRun && !args.yes) {
+    if (!env.interactive) {
+      return fail(
+        env,
+        "this run would change resources but isn't interactive",
+        "re-run with --yes to proceed",
+      );
+    }
     if (!(await env.prompt.confirm("Apply these changes?"))) {
       env.out("aborted — nothing changed.");
       return 1;
@@ -120,7 +152,6 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   await env.fs.mkdirp(deployDir);
   const statePath = `${deployDir}/${args.instance}.state.json`;
   let state = parseState((await env.fs.read(statePath)) ?? "", args.instance);
-  const freshDb = inspection.d1Id === null;
 
   // 1. D1 (create if absent, then resolve its id).
   let d1Id = inspection.d1Id;
@@ -166,7 +197,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   if (!args.dryRun && !mig.ok) return fail(env, "migrations failed", mig.stderr.trim());
 
   // 5. Seed app config — first init only (INSERT OR IGNORE never clobbers admin edits).
-  const seedSql = buildSeedSql(args);
+  const seedSql = buildSeedSql(effective);
   if (freshDb && seedSql !== null) {
     const seed = await wr.run([
       "d1",
@@ -201,9 +232,9 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
 
   // 7. Cloudflare Access. With creds → set them via --secrets-file (one deploy). Without → show the
   // manual dashboard step and WAIT, then collect the creds the operator now has.
-  let teamDomain = args.accessTeamDomain;
-  let aud = args.accessAud;
-  if (accessManualNeeded(args, inspection)) {
+  let teamDomain = effective.accessTeamDomain;
+  let aud = effective.accessAud;
+  if (accessManualNeeded(effective, inspection)) {
     env.out(
       renderManualStep(
         "Enable Cloudflare Access on the admin Worker, then come back:",
@@ -216,7 +247,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
         env.palette,
       ),
     );
-    if (!args.dryRun && !args.yes) {
+    if (!args.dryRun && !args.yes && env.interactive) {
       await env.prompt.waitForDone("Press Enter once Access is enabled and you have the AUD …");
       teamDomain = normalizeTeamDomain(await askNonEmpty(env.prompt, "Access team domain"));
       aud = await askNonEmpty(env.prompt, "Access AUD tag");
@@ -241,7 +272,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   env.out(env.palette.green("Deployed."));
   env.out(`  App   (public) → ${appUrl}`);
   env.out(`  Admin (gated)  → ${adminUrl}`);
-  if (accessManualNeeded(args, inspection) && (teamDomain === null || teamDomain === "")) {
+  if (accessManualNeeded(effective, inspection) && (teamDomain === null || teamDomain === "")) {
     env.out(
       "  Access not wired — re-run with --access-team-domain/--access-aud once it's enabled.",
     );

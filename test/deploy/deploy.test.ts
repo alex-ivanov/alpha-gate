@@ -49,7 +49,7 @@ function fakeWrangler(s: Scenario): Wrangler & { calls: string[][] } {
 
 function makeEnv(
   wrangler: Wrangler,
-  opts: { nodeMajor?: number; prompt?: Prompt; fs?: FileSystem } = {},
+  opts: { nodeMajor?: number; prompt?: Prompt; fs?: FileSystem; interactive?: boolean } = {},
 ): { env: DeployEnv; out: string[]; fs: FileSystem } {
   const out: string[] = [];
   const fs = opts.fs ?? createFakeFileSystem();
@@ -66,6 +66,7 @@ function makeEnv(
       toolVersion: "0.1.0",
       updateManifestUrl: "https://example.test/release.json",
       nodeMajor: opts.nodeMajor ?? 20,
+      interactive: opts.interactive ?? true,
     },
   };
 }
@@ -145,12 +146,51 @@ describe("runDeploy — guards", () => {
 describe("runDeploy — manual Access flow", () => {
   it("shows the manual step, waits, collects creds, then wires Access", async () => {
     const w = fakeWrangler({});
-    // confirm → "y"; waitForDone → ""; team domain; AUD.
+    // branding via flags (no branding prompts); then confirm "y", waitForDone "", team, AUD.
     const prompt = createFakePrompt(["y", "", "t.cloudflareaccess.com", "AUD"]);
     const { env, out } = makeEnv(w, { prompt });
-    const code = await runDeploy(["--instance", "x", "--app-name", "Acme"], env);
+    const code = await runDeploy(
+      [
+        "--instance",
+        "x",
+        "--app-name",
+        "Acme",
+        "--activate-scheme",
+        "acme",
+        "--blurb",
+        "b",
+        "--accent",
+        "#111",
+      ],
+      env,
+    );
     expect(code).toBe(0);
     expect(out.join("\n")).toContain("MANUAL STEP");
     expect(cmds(w).some((x) => x.includes("--secrets-file"))).toBe(true);
+  });
+
+  it("does not prompt when non-interactive without --yes — it errors and tells you to pass --yes", async () => {
+    const w = fakeWrangler({});
+    const { env } = makeEnv(w, { interactive: false });
+    expect(await runDeploy(["--instance", "x"], env)).toBe(1);
+    // Never reached the mutating apply (no create).
+    expect(cmds(w).some((x) => x.startsWith("d1 create"))).toBe(false);
+  });
+});
+
+describe("runDeploy — first-init branding prompts", () => {
+  it("prompts for unset branding on a fresh interactive run and seeds the answers", async () => {
+    const w = fakeWrangler({});
+    // app name, activate scheme, blurb, accent, then confirm. Access creds via flags (no manual wait).
+    const prompt = createFakePrompt(["My App", "scheme", "", "", "y"]);
+    const { env } = makeEnv(w, { prompt });
+    const code = await runDeploy(
+      ["--instance", "x", "--access-team-domain", "t.cloudflareaccess.com", "--access-aud", "AUD"],
+      env,
+    );
+    expect(code).toBe(0);
+    const seed = cmds(w).find((x) => x.startsWith("d1 execute"));
+    expect(seed).toContain("My App"); // the prompted app name was seeded
+    expect(seed).toContain("scheme");
   });
 });

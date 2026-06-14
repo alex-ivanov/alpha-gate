@@ -39,6 +39,7 @@ async function main(): Promise<number> {
     toolVersion,
     updateManifestUrl: process.env.UPDATE_MANIFEST_URL ?? DEFAULT_MANIFEST,
     nodeMajor,
+    interactive: process.stdin.isTTY === true,
   };
   return runDeploy(rest, env);
 }
