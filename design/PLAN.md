@@ -88,8 +88,44 @@ Legend: ☐ todo · ◐ in progress · ☑ done
 - ☑ **M19 — Admin operations UI** (post-plan). Forms + action buttons on every back-office page;
   per-entity manage pages (user, build); channel create/delete (new endpoints + core `delete-stream`
   with §11 confirm); upload + settings forms; nav. **Gate met:** 209 tests — render assertions (each
-  form posts to the right handler) + channel create / strand-confirm-delete. Remaining follow-ups:
-  `POST /access` submission, Cloudflare Email Service adapter.
+  form posts to the right handler) + channel create / strand-confirm-delete. Follow-ups closed in
+  M20–M25 below.
+
+### Post-plan §13 coverage closure (M20–M25)
+
+A comprehensive spec-coverage audit found the §13 back office was functionally complete for the core
+flows but missing several enumerated §13 sub-features and two infra adapters. M20–M25 close them. The
+items below are tracked against the DESIGN.md §13 numbered list.
+
+- ☑ **M20 — Pending access requests (§13 #10).** `POST /access` validates + stores a request;
+  `/admin/pending` lists them with invite/dismiss; a dashboard badge counts them. Closes the M19
+  `POST /access` follow-up. **Gate met:** request→queue→invite/dismiss route + render tests.
+- ☑ **M21 — List filters + stats timestamps + audit columns (§13 #2/#3/#9/#15).** Users-list filters
+  (status/channel/no-build/pinned) + last-install/last-update columns; builds-list last-activity;
+  activity & audit filters; audit IP/Ray columns. **Gate met:** 219 tests — filter + column render
+  assertions over seeded data.
+- ☑ **M22 — Channel manage page, CI help, settings info, branding header (§13 #5/#7/§6).** Per-channel
+  manage page (`/admin/streams/:id`: link/unlink builds, assign/unassign users, what it serves,
+  delete); CI-publishing help page; settings instance-info panel; the `/get` branding header banner
+  (serving already existed — wired `headerUrl`). **Gate met:** 223 tests.
+- ☑ **M23 — Bulk build actions + artifact detail + rollback marker (§13 #3/#7).** Bulk
+  withdraw/mark/clear-critical with one combined §11 confirm over the selection (new
+  `validateActions`/`computeAffectedUsersForActions`); build-manage EdDSA signature + length + DMG
+  detail; the rollback-target marker (migration `0008`, label-only per §9). **Gate met:** 236 tests.
+- ☑ **M24 — Self-update completeness, JWKS cache, deploy hardening, `release.json` (§22 / decision
+  0006).** Persist + surface `min_supported`/`notes_url`/`breaking` (dashboard banner notes link +
+  below-min warning); Worker-global JWKS cache keyed by team domain with TTL + unknown-kid refetch;
+  `deploy.sh` prereq checks, `--email-from`-required-with-cloudflare, `send_email` admin-only;
+  `release.json` self-update manifest. **Gate met:** 245 tests; `deploy.sh --dry-run` verified.
+- ☑ **M25 — Cloudflare Email Service adapter (§24).** `createCloudflareEmailSender` composes an
+  RFC 5322 message (pure, header-injection-safe, unit-tested) and sends via the `EMAIL` `send_email`
+  binding (`cloudflare:email`, lazy import); `selectEmailSender` reads the env and falls back to
+  copy-paste unless fully configured. Closes the M19 email follow-up. Actual delivery is
+  real-infra-only (§23). **Gate met:** 254 tests.
+
+**§13 status:** all 15 numbered back-office features are now implemented. Cloudflare email *delivery*
+(M25) is the only behavior not exercised offline — it requires live infra (Workers Paid + sending
+domain) by design.
 
 ## CUJ → milestone map
 
@@ -118,7 +154,7 @@ Legend: ☐ todo · ◐ in progress · ☑ done
 
 ## Open items still to ratify (non-blocking)
 
-- `UPDATE_MANIFEST_URL` real org/repo path + `release.json` shape — before any real deploy (M16/M17).
-  Working shape recorded in decision 0004's sibling note; fetch is mocked in tests.
+- `release.json` shape is now ratified and committed (M24); the `UPDATE_MANIFEST_URL` default still
+  points at a placeholder `your-org/alpha-gate` path — repoint it to the real repo before a public deploy.
 - Token paste-field constraints on the (out-of-scope) app side — confirm before M1 locks `generateToken()`
   if the app limits key length (decision 0002).
