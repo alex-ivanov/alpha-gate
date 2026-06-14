@@ -43,6 +43,29 @@ describe("CUJ-18 branding", () => {
     expect(html).toContain('src="/assets/icon"');
   });
 
+  it("saves the activate URL scheme and the /get Activate link uses it (§7)", async () => {
+    const form = new FormData();
+    form.set("activate_scheme", "acme");
+    const res = await adminWorker(access).request("/admin/branding", {
+      method: "POST",
+      headers: { "Cf-Access-Jwt-Assertion": await access.signValidUser() },
+      body: form,
+    });
+    expect(res.status).toBe(303);
+    expect(await metaGet(deps.db, "activate_scheme")).toBe("acme");
+
+    const { token } = await seedServableClient(deps);
+    const html = await (await appWorker().request(`/get?token=${token}`)).text();
+    expect(html).toContain(`acme://activate?token=${token}`);
+    expect(html).not.toContain("myapp://");
+  });
+
+  it("defaults the activate scheme to myapp when none is configured", async () => {
+    const { token } = await seedServableClient(deps);
+    const html = await (await appWorker().request(`/get?token=${token}`)).text();
+    expect(html).toContain(`myapp://activate?token=${token}`);
+  });
+
   it("refuses a service token (branding is human-only)", async () => {
     const form = new FormData();
     form.set("app_name", "Hacked");

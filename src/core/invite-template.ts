@@ -64,6 +64,21 @@ export const DEFAULT_BRANDING: Branding = {
   headerUrl: null,
 };
 
+/**
+ * The macOS app's custom URL scheme for the §7 activation deep link (`<scheme>://activate?token=`).
+ * Per-instance config (it must match the app's Info.plist CFBundleURLSchemes); "myapp" is the default.
+ */
+export const DEFAULT_ACTIVATE_SCHEME = "myapp";
+
+// A valid RFC 3986 scheme: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ). Restricting to this also keeps
+// the value safe to interpolate into the Activate href (no quotes/spaces/colons to break out of it).
+const SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*$/;
+
+/** The configured activate scheme if it is a well-formed URL scheme, else the safe default. */
+export function resolveActivateScheme(raw: string | null | undefined): string {
+  return typeof raw === "string" && SCHEME_RE.test(raw) ? raw : DEFAULT_ACTIVATE_SCHEME;
+}
+
 /** Merges admin overrides (from `meta` / R2 asset URL) over the defaults; ignores undefined. */
 export function resolveBranding(overrides: Partial<Branding>): Branding {
   return {

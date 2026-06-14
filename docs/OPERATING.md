@@ -164,7 +164,7 @@ unless noted **[svc-ok]** (a service token is also accepted there).
 | `/admin/builds/:id/critical` | `critical=true\|false` |
 | `/admin/builds/:id/streams/link` | `streamId` |
 | `/admin/builds/:id/streams/unlink` | `streamId` (+ `confirm=true` if it would strand) |
-| `/admin/branding` | `app_name?`, `blurb?`, `accent?`, `invite_subject?`, `invite_body?`, `icon?` (png/jpeg/webp), `header?` |
+| `/admin/branding` | `app_name?`, `blurb?`, `accent?`, `activate_scheme?`, `invite_subject?`, `invite_body?`, `icon?` (png/jpeg/webp), `header?` |
 
 **Admin — publish (POST) [svc-ok]:** `/admin/builds/upload` (multipart: `archive` + metadata),
 `/admin/builds/register` (metadata: `object_key`, `size`, + version fields).
@@ -182,7 +182,12 @@ emails, and you re-POST with `confirm=true` to proceed (§11).
 - **Move a user between channels** → `…/streams/assign` then `…/streams/unassign`.
 - **Pin** a user to a build → `…/pin` with `buildId`; **unpin** to resume channel resolution.
 - **Mark an update critical** → `/admin/builds/:id/critical` with `critical=true`.
-- **Branding** → `POST /admin/branding` (app name, blurb, accent, icon, and the invite email template).
+- **Branding** → `POST /admin/branding` (app name, blurb, accent, icon, header, the invite email
+  template, and the **activate URL scheme**). Set on the Settings page (`/admin/settings`).
+- **Activate URL scheme (§7)** → the "App activation" field in Settings (`activate_scheme`, default
+  `myapp`). The download page's Activate button links to `<scheme>://activate?token=…`; it **must match
+  the scheme your macOS app registers** in its Info.plist `CFBundleURLSchemes` (and the app must handle
+  the `…://activate?token=` deep link). An invalid value falls back to `myapp`.
 
 ## Rollback
 

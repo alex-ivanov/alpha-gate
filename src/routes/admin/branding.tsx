@@ -11,7 +11,14 @@ import { requireUser } from "./middleware";
 // §13 — download-page branding + invite template. Human-only. Text config goes to `meta`; images go
 // to R2 under the fixed branding keys after a content-type + size check (branding attack surface).
 
-const TEXT_FIELDS = ["app_name", "blurb", "accent", "invite_subject", "invite_body"] as const;
+const TEXT_FIELDS = [
+  "app_name",
+  "blurb",
+  "accent",
+  "activate_scheme",
+  "invite_subject",
+  "invite_body",
+] as const;
 // Raster only — SVG served from the app origin is a stored-XSS vector (scriptable when opened
 // directly at /assets/icon), so it is intentionally excluded.
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);

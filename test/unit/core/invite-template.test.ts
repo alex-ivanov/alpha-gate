@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_ACTIVATE_SCHEME,
   DEFAULT_BRANDING,
   DEFAULT_INVITE_TEMPLATE,
   fillTemplate,
   renderInvite,
+  resolveActivateScheme,
   resolveBranding,
 } from "../../../src/core/invite-template";
 
@@ -35,6 +37,27 @@ describe("renderInvite", () => {
     expect(body).toContain("https://app.example/get?token=ABC");
     expect(body).toContain("Acme alpha");
     expect(body).not.toContain("{app_name}");
+  });
+});
+
+describe("resolveActivateScheme", () => {
+  it("defaults to 'myapp' when unset or empty", () => {
+    expect(resolveActivateScheme(null)).toBe(DEFAULT_ACTIVATE_SCHEME);
+    expect(resolveActivateScheme(undefined)).toBe(DEFAULT_ACTIVATE_SCHEME);
+    expect(resolveActivateScheme("")).toBe(DEFAULT_ACTIVATE_SCHEME);
+    expect(DEFAULT_ACTIVATE_SCHEME).toBe("myapp");
+  });
+
+  it("accepts well-formed RFC 3986 schemes", () => {
+    expect(resolveActivateScheme("acme")).toBe("acme");
+    expect(resolveActivateScheme("com.acme.app")).toBe("com.acme.app");
+    expect(resolveActivateScheme("my-app+x")).toBe("my-app+x");
+  });
+
+  it("rejects schemes that could break out of the href, falling back to the default", () => {
+    for (const bad of ["javascript:alert(1)", "1myapp", "my app", 'a"onclick', "a://b", "a/b"]) {
+      expect(resolveActivateScheme(bad)).toBe(DEFAULT_ACTIVATE_SCHEME);
+    }
   });
 });
 

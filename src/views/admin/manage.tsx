@@ -394,6 +394,19 @@ export const SettingsPage: FC<{ settings: Record<string, string>; info: Settings
       <p>
         Header: <input type="file" name="header" accept="image/png,image/jpeg,image/webp" />
       </p>
+      <h2>App activation</h2>
+      <p>
+        <input
+          name="activate_scheme"
+          value={settings.activate_scheme ?? ""}
+          placeholder="Activate URL scheme (default: myapp)"
+        />
+      </p>
+      <p class="muted">
+        The Activate button on the download page links to{" "}
+        <code>&lt;scheme&gt;://activate?token=…</code>— set this to the URL scheme your macOS app
+        registers in its Info.plist.
+      </p>
       <h2>Invite email template</h2>
       <p>
         <input

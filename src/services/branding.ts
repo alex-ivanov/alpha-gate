@@ -3,8 +3,9 @@ import {
   DEFAULT_BRANDING,
   DEFAULT_INVITE_TEMPLATE,
   type InviteTemplate,
+  resolveActivateScheme,
 } from "../core/invite-template";
-import { getAll } from "../db/meta";
+import { getAll, get as getMeta } from "../db/meta";
 import type { Deps } from "../deps";
 
 // §6/§13 — resolves the branded /get page model and the invite template from the `meta` table,
@@ -20,6 +21,11 @@ export async function loadBranding(deps: Deps): Promise<Branding> {
     iconUrl: all.icon === "1" ? "/assets/icon" : DEFAULT_BRANDING.iconUrl,
     headerUrl: all.header === "1" ? "/assets/header" : DEFAULT_BRANDING.headerUrl,
   };
+}
+
+/** The §7 activation deep-link scheme (meta.activate_scheme), validated, falling back to the default. */
+export async function loadActivateScheme(deps: Deps): Promise<string> {
+  return resolveActivateScheme(await getMeta(deps.db, "activate_scheme"));
 }
 
 export async function loadInviteTemplate(deps: Deps): Promise<InviteTemplate> {

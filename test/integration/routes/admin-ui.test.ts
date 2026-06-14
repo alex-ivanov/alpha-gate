@@ -81,6 +81,7 @@ describe("admin operation pages", () => {
     expect(html).toContain('action="/admin/branding"');
     expect(html).toContain('name="app_name"');
     expect(html).toContain('name="header"'); // branding header image upload
+    expect(html).toContain('name="activate_scheme"'); // §7 deep-link scheme
     expect(html).toContain('name="invite_body"');
     expect(html).toContain("This instance"); // info panel
     expect(html).toContain("0.0.0-test"); // TOOL_VERSION from the test env
