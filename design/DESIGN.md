@@ -387,7 +387,9 @@ Three signatures, none performed by a Worker:
 
 ## 15. Revocation notice via Sparkle
 
-For revoked/unknown tokens **only**, `/appcast` returns an **informational-only** update instead of a 403: an item with a higher `sparkle:version`, a `<link>` to the access page, and no enclosure. Sparkle shows a notice without an "Install and Relaunch" button, directing the user to renew. A bare 403 would only surface a generic error on manual checks and nothing on background checks. A *valid* token with no servable build is **not** revoked — it gets an empty feed, never this notice (§11, decision [0010](decisions/0010-no-build-appcast.md)); otherwise a working user would be wrongly told to reactivate.
+For revoked/unknown tokens **only**, `/appcast` returns an **informational-only** update instead of a 403: an item with the sentinel `sparkle:version`, a `<link>` to the access page, and no enclosure. Sparkle shows a notice without an "Install and Relaunch" button, directing the user to renew. A bare 403 would only surface a generic error on manual checks and nothing on background checks. A *valid* token with no servable build is **not** revoked — it gets an empty feed, never this notice (§11, decision [0010](decisions/0010-no-build-appcast.md)); otherwise a working user would be wrongly told to reactivate.
+
+The notice carries (decision [0011](decisions/0011-informational-notice-content.md)): a `<sparkle:shortVersionString>` (a fixed friendly label) so Sparkle's dialog never displays the raw sentinel number; a `<description>` message (HTML release notes, `xmlEscape`d into a `CDATA` block so admin text renders as literal text and can't break out); and an empty `<sparkle:informationalUpdate>` (Sparkle 2's explicit "informational for all versions" marker; 1.x falls back to the no-enclosure rule). The **title and message are operator-editable** on the Settings page (`meta.notice_title` / `meta.notice_message`, message supports `{app_name}`), defaulting to a clear, action-oriented notice.
 
 ---
 

@@ -432,6 +432,24 @@ export const SettingsPage: FC<{ settings: Record<string, string>; info: Settings
           {settings.invite_body ?? ""}
         </textarea>
       </p>
+      <h2>Access notice (revoked / expired tokens)</h2>
+      <p>
+        <input
+          name="notice_title"
+          value={settings.notice_title ?? ""}
+          placeholder="Notice title (default: Reactivate your access)"
+        />
+      </p>
+      <p>
+        <textarea name="notice_message" placeholder="Message — supports {app_name}">
+          {settings.notice_message ?? ""}
+        </textarea>
+      </p>
+      <p class="muted">
+        Shown by Sparkle when a token is revoked or unknown — an informational notice (no install)
+        linking to your <code>/access</code> page. A valid user with no build sees nothing. Leave
+        blank for the default.
+      </p>
       <button type="submit">Save settings</button>
     </form>
   </AdminLayout>

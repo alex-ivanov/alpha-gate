@@ -15,3 +15,4 @@ When a decision changes, append to the record (don't silently rewrite) so histor
 | [0008](0008-informational-sentinel.md) | Informational appcast item uses a fixed sentinel version, no enclosure | M4 |
 | [0009](0009-deploy-cli.md) | Deploy/teardown/dev are a TypeScript CLI (pure core + wrangler seam), not bash | §18–§19, §21, §23 |
 | [0010](0010-no-build-appcast.md) | A no-build *active* user gets an empty appcast; reactivation notice is revoked/unknown only | §8, §11, §15 |
+| [0011](0011-informational-notice-content.md) | Richer, editable reactivation notice (shortVersionString hides the sentinel; description; informationalUpdate) | §15, §13 |

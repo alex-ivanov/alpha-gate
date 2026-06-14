@@ -1,7 +1,10 @@
 import {
+  type AccessNotice,
   type Branding,
+  DEFAULT_ACCESS_NOTICE,
   DEFAULT_BRANDING,
   DEFAULT_INVITE_TEMPLATE,
+  fillAppName,
   type InviteTemplate,
   resolveActivateScheme,
 } from "../core/invite-template";
@@ -33,5 +36,15 @@ export async function loadInviteTemplate(deps: Deps): Promise<InviteTemplate> {
   return {
     subject: all.invite_subject ?? DEFAULT_INVITE_TEMPLATE.subject,
     body: all.invite_body ?? DEFAULT_INVITE_TEMPLATE.body,
+  };
+}
+
+/** §15 — the reactivation notice text (meta.notice_title / notice_message), {app_name}-filled. */
+export async function loadAccessNotice(deps: Deps): Promise<AccessNotice> {
+  const all = await getAll(deps.db);
+  const appName = all.app_name ?? DEFAULT_BRANDING.appName;
+  return {
+    title: fillAppName(all.notice_title ?? DEFAULT_ACCESS_NOTICE.title, appName),
+    message: fillAppName(all.notice_message ?? DEFAULT_ACCESS_NOTICE.message, appName),
   };
 }

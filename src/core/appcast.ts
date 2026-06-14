@@ -14,7 +14,18 @@ const ENCLOSURE_TYPE = "application/octet-stream";
  */
 export const INFORMATIONAL_SENTINEL_VERSION = 999_000_000;
 
-const INFORMATIONAL_TITLE = "Reactivate your access";
+// Shown in Sparkle's dialog in place of the raw sentinel number: sparkle:shortVersionString is the
+// human-readable version string (the sentinel stays the machine-comparable sparkle:version).
+export const INFORMATIONAL_DISPLAY_VERSION = "Access renewal";
+
+export interface InformationalNotice {
+  /** The /access page the notice links to. */
+  accessUrl: string;
+  /** Dialog title (already {app_name}-filled by the caller). */
+  title: string;
+  /** Plain-text body, shown as the dialog's release notes (already {app_name}-filled). */
+  message: string;
+}
 
 export function xmlEscape(value: string): string {
   return value
@@ -48,16 +59,28 @@ export function renderUpdateItem(build: Build, enclosureUrl: string): string {
   return wrapItem(children);
 }
 
-/** The §15 informational notice for revoked/unknown tokens: higher version, a link, NO enclosure. */
-export function renderInformationalItem(
-  accessPageUrl: string,
-  title = INFORMATIONAL_TITLE,
-): string {
+/**
+ * The §15 informational notice for revoked/unknown tokens (decision 0011): a title, a message, the
+ * sentinel `sparkle:version` with a friendly `shortVersionString` (so Sparkle shows "Access renewal",
+ * not "999000000"), an explicit empty `<sparkle:informationalUpdate>` (Sparkle 2's documented marker;
+ * 1.x falls back to "no enclosure → informational"), a `<link>`, and NO enclosure (never installable).
+ */
+export function renderInformationalItem(notice: InformationalNotice): string {
   return wrapItem([
-    `<title>${xmlEscape(title)}</title>`,
+    `<title>${xmlEscape(notice.title)}</title>`,
+    `<description>${descriptionCdata(notice.message)}</description>`,
     `<sparkle:version>${INFORMATIONAL_SENTINEL_VERSION}</sparkle:version>`,
-    `<link>${xmlEscape(accessPageUrl)}</link>`,
+    `<sparkle:shortVersionString>${xmlEscape(INFORMATIONAL_DISPLAY_VERSION)}</sparkle:shortVersionString>`,
+    "<sparkle:informationalUpdate></sparkle:informationalUpdate>",
+    `<link>${xmlEscape(notice.accessUrl)}</link>`,
   ]);
+}
+
+// The admin message becomes the dialog's HTML release notes. xmlEscape first so it renders as literal
+// text (no markup/script reaches Sparkle's WebView) — escaping `>` also guarantees the content can't
+// contain `]]>`, so it can't break out of the CDATA. Newlines become <br> for a readable paragraph.
+function descriptionCdata(message: string): string {
+  return `<![CDATA[<p>${xmlEscape(message).replace(/\n/g, "<br>")}</p>]]>`;
 }
 
 export interface AppcastOptions {

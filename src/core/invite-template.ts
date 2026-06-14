@@ -26,6 +26,28 @@ You've been added to the {app_name} alpha. To get started:
 That page is yours — revisit it any time to reinstall. It stops working if access is revoked.`,
 };
 
+/**
+ * The §15 reactivation notice shown by Sparkle for a revoked/unknown token (an informational update,
+ * never an install). Editable per-instance via meta.notice_title / meta.notice_message; the message
+ * supports {app_name}. Defaults are clear and action-oriented.
+ */
+export interface AccessNotice {
+  title: string;
+  message: string;
+}
+
+export const DEFAULT_ACCESS_NOTICE: AccessNotice = {
+  title: "Reactivate your access",
+  message:
+    "Your access to {app_name} has expired or been revoked, so updates are paused. " +
+    "Open your access page to get a new activation link.",
+};
+
+/** Replaces just {app_name} — used by text that has no get_url/token (e.g. the §15 access notice). */
+export function fillAppName(text: string, appName: string): string {
+  return text.replace(/\{app_name\}/g, appName);
+}
+
 /** Replaces {app_name}/{get_url}/{token} in one pass (a value can't reintroduce a placeholder). */
 export function fillTemplate(text: string, vars: InviteVars): string {
   const replacements: Record<string, string> = {

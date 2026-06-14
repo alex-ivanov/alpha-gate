@@ -83,12 +83,21 @@ describe("renderUpdateItem", () => {
 });
 
 describe("renderInformationalItem", () => {
-  it("renders a no-enclosure notice with the sentinel version and a link (golden, §15)", () => {
-    expect(renderInformationalItem("https://app.example/access")).toBe(
+  const NOTICE = {
+    accessUrl: "https://app.example/access",
+    title: "Reactivate your access",
+    message: "Your access to Acme has expired. Open your access page.",
+  };
+
+  it("renders the §15 notice: title, description, sentinel + display version, info marker, link (golden)", () => {
+    expect(renderInformationalItem(NOTICE)).toBe(
       [
         "    <item>",
         "      <title>Reactivate your access</title>",
+        "      <description><![CDATA[<p>Your access to Acme has expired. Open your access page.</p>]]></description>",
         "      <sparkle:version>999000000</sparkle:version>",
+        "      <sparkle:shortVersionString>Access renewal</sparkle:shortVersionString>",
+        "      <sparkle:informationalUpdate></sparkle:informationalUpdate>",
         "      <link>https://app.example/access</link>",
         "    </item>",
       ].join("\n"),
@@ -96,7 +105,23 @@ describe("renderInformationalItem", () => {
   });
 
   it("never contains an enclosure (so Sparkle shows a notice with no Install button)", () => {
-    expect(renderInformationalItem("https://app.example/access")).not.toContain("<enclosure");
+    expect(renderInformationalItem(NOTICE)).not.toContain("<enclosure");
+  });
+
+  it("escapes a hostile title/message: no markup reaches the WebView, the CDATA can't be broken", () => {
+    const xml = renderInformationalItem({
+      ...NOTICE,
+      title: "<b>hi</b>",
+      message: `</p><script>alert(1)</script> ]]> & "x"`,
+    });
+    expect(xml).toContain("<title>&lt;b&gt;hi&lt;/b&gt;</title>");
+    expect(xml).not.toContain("<script>");
+    // the message's "]]>" is neutralized to "]]&gt;"; the only real "]]>" is the CDATA terminator.
+    expect(xml).toContain("]]&gt;");
+    expect(xml.split("]]>").length - 1).toBe(1);
+    expect(xml).toContain(
+      "&lt;/p&gt;&lt;script&gt;alert(1)&lt;/script&gt; ]]&gt; &amp; &quot;x&quot;",
+    );
   });
 
   it("uses a fixed sentinel comfortably below INT32 max", () => {

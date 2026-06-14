@@ -1,7 +1,7 @@
 import { gateToken } from "../../auth/token-gate";
 import { renderAppcast, renderInformationalItem, renderUpdateItem } from "../../core/appcast";
 import { insertEvent } from "../../db/access-log";
-import { loadBranding } from "../../services/branding";
+import { loadAccessNotice, loadBranding } from "../../services/branding";
 import type { AppContext } from "./app-context";
 import { resolveServed } from "./resolve";
 
@@ -19,9 +19,11 @@ export async function appcastRoute(c: AppContext): Promise<Response> {
 
   let items: readonly string[];
   if (gate.kind !== "active") {
-    // Revoked AND unknown take the identical path — same item, same (no) resolve/log work — so the
+    // Revoked AND unknown take the identical path — same notice, same (no) resolve/log work — so the
     // response can't reveal whether a token exists (§6/§16): no DB write is gated on token existence.
-    items = [renderInformationalItem(accessUrl)];
+    // (loadAccessNotice reads only instance-wide meta, never anything token-specific.)
+    const notice = await loadAccessNotice(deps);
+    items = [renderInformationalItem({ accessUrl, title: notice.title, message: notice.message })];
   } else {
     const client = gate.client;
     const result = await resolveServed(deps, client);

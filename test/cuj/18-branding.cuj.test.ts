@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { generateToken } from "../../src/core/tokens";
 import { get as metaGet } from "../../src/db/meta";
 import { buildDeps } from "../../src/deps";
 import { getObject } from "../../src/r2/builds-bucket";
@@ -64,6 +65,35 @@ describe("CUJ-18 branding", () => {
     const { token } = await seedServableClient(deps);
     const html = await (await appWorker().request(`/get?token=${token}`)).text();
     expect(html).toContain(`myapp://activate?token=${token}`);
+  });
+
+  it("saves a custom access notice; an invalid token's Sparkle notice shows it ({app_name}-filled)", async () => {
+    const form = new FormData();
+    form.set("app_name", "Acme");
+    form.set("notice_title", "Renew your Acme pass");
+    form.set("notice_message", "Your {app_name} access ended — open the page to continue updates.");
+    const res = await adminWorker(access).request("/admin/branding", {
+      method: "POST",
+      headers: { "Cf-Access-Jwt-Assertion": await access.signValidUser() },
+      body: form,
+    });
+    expect(res.status).toBe(303);
+
+    // An unknown (well-formed) token gets the §15 notice — now carrying the admin's title/message.
+    const xml = await (await appWorker().request(`/appcast?token=${generateToken()}`)).text();
+    expect(xml).toContain("<title>Renew your Acme pass</title>");
+    expect(xml).toContain("Your Acme access ended"); // {app_name} filled in the message
+    expect(xml).toContain(
+      "<sparkle:shortVersionString>Access renewal</sparkle:shortVersionString>",
+    );
+    expect(xml).toContain("<sparkle:informationalUpdate></sparkle:informationalUpdate>");
+    expect(xml).not.toContain("<enclosure"); // still a notice, never installable
+  });
+
+  it("falls back to the default notice when none is configured", async () => {
+    const xml = await (await appWorker().request(`/appcast?token=${generateToken()}`)).text();
+    expect(xml).toContain("<title>Reactivate your access</title>");
+    expect(xml).toContain("Your access to Your App has expired"); // default, default app name
   });
 
   it("refuses a service token (branding is human-only)", async () => {

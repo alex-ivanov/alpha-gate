@@ -19,6 +19,8 @@ const TEXT_FIELDS = [
   "sparkle_public_key",
   "invite_subject",
   "invite_body",
+  "notice_title",
+  "notice_message",
 ] as const;
 // Raster only — SVG served from the app origin is a stored-XSS vector (scriptable when opened
 // directly at /assets/icon), so it is intentionally excluded.
