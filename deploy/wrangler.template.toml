@@ -11,6 +11,9 @@ workers_dev = true
 binding = "DB"
 database_name = "alpha-gate-${INSTANCE}"
 database_id = "${D1_ID}"
+# Resolved relative to THIS config file, which deploy.sh/dev.sh render into ./.deploy/ — so the real
+# `wrangler d1 migrations apply` finds ./migrations (the --dry-run path mocks wrangler and never did).
+migrations_dir = "../migrations"
 
 [[r2_buckets]]
 binding = "BUILDS"
