@@ -90,11 +90,20 @@ const styles = `
   .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 1.25rem 1.35rem; margin: 1rem 0; box-shadow: var(--shadow); }
   .panel h2 { font-size: .95rem; margin: 0 0 .85rem; font-weight: 650; }
-  .actions a, .actions form { margin-right: .4rem; }
+
+  /* Row actions: a single baseline-aligned row that wraps as a unit. The Manage link carries .btn so it
+     matches the POST buttons beside it instead of reading as bare underlined text on a stray baseline. */
+  td.actions { white-space: nowrap; }
+  .actions { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+  .actions form.inline { display: inline-flex; }
 
   input, select, textarea { font: inherit; font-size: .875rem; padding: .4rem .55rem; color: var(--text);
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
   textarea { width: 100%; min-height: 5rem; resize: vertical; }
+  /* Stacked panel forms (Upload, Branding) wrap each field in a <p>; without a width the field shrinks to
+     its content and clips long placeholders. File/checkbox inputs stay inline. */
+  .panel p > input:not([type=checkbox]):not([type=file]),
+  .panel p > select { display: block; width: 100%; max-width: 26rem; }
   input::placeholder, textarea::placeholder { color: var(--text-muted); }
   label { font-size: .875rem; }
 

@@ -94,6 +94,14 @@ describe("AdminLayout (design-system chrome)", () => {
   it("includes the progressive-enhancement active-nav script (works without it)", () => {
     expect(render()).toContain("aria-current");
   });
+
+  it("lays row actions out as a flex row and gives panel form fields a width", () => {
+    const html = render();
+    // .actions is a wrapping flex row so Manage + the POST buttons share a baseline (not a stray link).
+    expect(html).toMatch(/\.actions\s*\{[^}]*display:\s*flex/);
+    // Stacked panel forms (Upload, Branding) give their fields a width so long placeholders don't clip.
+    expect(html).toContain(".panel p > input");
+  });
 });
 
 describe("NotFoundPage", () => {
