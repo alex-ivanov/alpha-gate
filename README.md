@@ -159,13 +159,12 @@ design/              # DESIGN.md (spec), PLAN.md, CANONICAL-LAYOUT.md, decisions
 
 ## Project status
 
-Feature-complete against `design/DESIGN.md`; 200 tests pass offline; `tsc` and Biome clean. Two things
-to know:
+Feature-complete against `design/DESIGN.md`; 209 tests pass offline; `tsc` and Biome clean. The back
+office is fully operable from the browser — Add-user/Add-channel forms, per-row and per-entity actions
+(revoke/reissue/pin/assign, build withdraw/restore/critical/link, channel create/delete), an upload
+form, and a branding/settings page — all behind Cloudflare Access. Two tracked follow-ups remain:
 
-- **Admin UI is API-complete, button-partial.** Every admin action (invite/revoke/reissue/pin/assign,
-  build withdraw/restore/critical/link, upload/register, branding) is a tested form-POST endpoint, and
-  the back office renders the read views (dashboard, users, builds, channels, activity, audit) plus the
-  invite-link and §11 confirmation pages. Wiring interactive buttons/forms into every list page is a
-  tracked follow-up; until then, drive actions via the endpoints documented in `docs/OPERATING.md`.
+- **`POST /access`** — the public request-access form renders but its submission (and a pending-requests
+  queue) isn't handled yet.
 - **Cloudflare Email Service** delivery is a documented follow-up behind the `EmailSender` seam;
   copy-paste invites (the free-tier default) are fully implemented.

@@ -85,6 +85,11 @@ Legend: ☐ todo · ◐ in progress · ☑ done
   + shellcheck. **Gate:** CUJ-13, CUJ-14, CUJ-16.
 - ☑ **M18 — Publish scripts + GitHub Actions.** `publish.sh`, `ci-publish.sh`, `.github/workflows/publish.yml`.
   **Gate:** CUJ-17 (CI plumbing complete), shellcheck.
+- ☑ **M19 — Admin operations UI** (post-plan). Forms + action buttons on every back-office page;
+  per-entity manage pages (user, build); channel create/delete (new endpoints + core `delete-stream`
+  with §11 confirm); upload + settings forms; nav. **Gate met:** 209 tests — render assertions (each
+  form posts to the right handler) + channel create / strand-confirm-delete. Remaining follow-ups:
+  `POST /access` submission, Cloudflare Email Service adapter.
 
 ## CUJ → milestone map
 

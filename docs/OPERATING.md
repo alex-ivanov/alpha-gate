@@ -4,15 +4,13 @@ A practical runbook for installing, publishing to, and operating an Alpha Gate i
 architecture and rationale see [`../design/DESIGN.md`](../design/DESIGN.md); for the quick start see the
 [README](../README.md).
 
-> **Operational model today.** The Worker — public app, gated admin handlers, audit, cron — is complete
-> and tested. Two things shape how you operate it right now:
-> - **CI publishing works fully** over curl via a Cloudflare Access **service token** (the only
+> **Operational model.** The Worker — public app, gated admin, audit, cron — is complete and tested.
+> - **Human admin tasks** (invite, revoke, reissue, pin, channels, build withdraw/restore/critical,
+>   upload, branding) are done from the **back-office UI**, authenticated by your Cloudflare Access
+>   browser session: open the admin URL and use the forms/buttons on each page.
+> - **CI publishing** works headlessly over curl via a Cloudflare Access **service token** (the only
 >   credential allowed on the upload/register routes).
-> - **Human admin actions** (invite, revoke, pin, withdraw, branding, …) are authenticated by your
->   **Cloudflare Access browser session**. The handlers exist and are tested, but the convenience
->   buttons/forms aren't wired into every back-office page yet — see [Known gaps](#known-gaps). Until
->   they are, drive these by submitting the documented POSTs from a browser that holds your Access
->   session, or via a small local HTML form.
+> - The endpoint reference below documents what each form posts to, for scripting or curl.
 
 ## Contents
 - [Prerequisites](#prerequisites)
@@ -77,15 +75,9 @@ For **CI publishing**, also add a **Service Auth** rule to the same Access appli
 
 ## Create a release channel
 
-Users and builds are attached to named channels (e.g. `stable`, `beta`). A dedicated channel-management
-endpoint is a [follow-up](#known-gaps); for now create one directly in D1:
-
-```bash
-npx wrangler d1 execute alpha-gate-myalpha --remote \
-  --command "INSERT INTO streams (name) VALUES ('stable');"
-npx wrangler d1 execute alpha-gate-myalpha --remote \
-  --command "SELECT id, name FROM streams;"   # note the id — you'll reference it below
-```
+Users and builds are attached to named channels (e.g. `stable`, `beta`). Create them on the **Channels**
+page (the *Add channel* form), or `POST /admin/streams` with `name`. Deleting a channel that would
+leave users with no build is confirmed (§11) before it proceeds.
 
 ## Invite a user
 
@@ -139,8 +131,12 @@ unless noted **[svc-ok]** (a service token is also accepted there).
 | GET | `/assets/:name` | Public branding (`icon`, `header`). |
 | GET | `/access` | Request-access page (submission handler is a follow-up). |
 
-**Admin — reads (GET):** `/admin` (dashboard), `/admin/users`, `/admin/builds`, `/admin/streams`,
+**Admin — pages (GET):** `/admin` (dashboard), `/admin/users`, `/admin/users/:id` (manage),
+`/admin/builds`, `/admin/builds/:id` (manage), `/admin/streams`, `/admin/upload`, `/admin/settings`,
 `/admin/activity`, `/admin/audit`.
+
+**Admin — channel mutations (POST, human):** `/admin/streams` (`name`),
+`/admin/streams/:id/delete` (+ `confirm=true` if it would strand).
 
 **Admin — client mutations (POST, human):**
 
@@ -229,11 +225,7 @@ the dashboard or `wrangler r2 object delete`, then re-run.
 
 These are tracked follow-ups; the underlying behavior they'd expose is implemented and tested.
 
-- **Admin action buttons/forms** aren't wired into every back-office list page — drive mutations via the
-  [endpoint reference](#endpoint-reference) (browser session) for now.
-- **Channel (stream) create/delete** has no admin endpoint yet — create channels via `wrangler d1
-  execute` (above). Assign/unassign and build↔channel linking endpoints already exist.
 - **`POST /access`** (the request-access form submission and the pending-requests queue) is not handled
   yet; the `/access` page renders but submitting it has no effect.
 - **Cloudflare Email Service** delivery is behind the `EmailSender` seam but not implemented; invites are
-  copy-paste links (the free-tier default).
+  copy-paste links shown in the admin UI (the free-tier default).
