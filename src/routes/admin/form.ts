@@ -12,7 +12,4 @@ export function toId(raw: string | null | undefined): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-/** Conservative email shape check: a single @, non-empty whitespace-free parts, a dotted domain. */
-export function isEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
+export { isEmail } from "../../lib/text";

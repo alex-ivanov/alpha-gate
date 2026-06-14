@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { buildDeps, type Deps } from "../../deps";
 import type { Env } from "../../env";
-import { accessRoute } from "./access";
+import { accessRoute, postAccessRoute } from "./access";
 import type { AppEnv } from "./app-context";
 import { appcastRoute } from "./appcast";
 import { assetsRoute } from "./assets";
@@ -24,6 +24,7 @@ export function createAppApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.get("/download", downloadRoute);
   app.get("/assets/:name", assetsRoute);
   app.get("/access", accessRoute);
+  app.post("/access", postAccessRoute);
 
   app.notFound((c) => c.text("Not found", 404));
   return app;

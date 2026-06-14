@@ -43,6 +43,7 @@ const NAV = [
   ["/admin/users", "Users"],
   ["/admin/builds", "Builds"],
   ["/admin/streams", "Channels"],
+  ["/admin/pending", "Requests"],
   ["/admin/upload", "Upload"],
   ["/admin/settings", "Settings"],
   ["/admin/activity", "Activity"],

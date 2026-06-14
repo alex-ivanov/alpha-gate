@@ -18,6 +18,19 @@ export const AccessPage: FC<{ appName: string; accent: string }> = ({ appName, a
   </Layout>
 );
 
+export const RequestReceivedPage: FC<{ appName: string; accent: string }> = ({
+  appName,
+  accent,
+}) => (
+  <Layout title={appName} accent={accent}>
+    <h1>Request received</h1>
+    <p class="blurb">
+      Thanks — your request for {appName} access has been recorded. The admin will follow up by
+      email.
+    </p>
+  </Layout>
+);
+
 export const NotFoundPage: FC<{ accent?: string }> = ({ accent = DEFAULT_BRANDING.accent }) => (
   <Layout title="Not found" accent={accent}>
     <h1>Not found</h1>

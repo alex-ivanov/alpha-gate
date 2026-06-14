@@ -2,6 +2,7 @@ import type { FC } from "hono/jsx";
 import type { AuditRow } from "../../core/audit-chain";
 import type { Stream } from "../../core/types";
 import type { AccessLogEntry } from "../../db/access-log";
+import type { AccessRequest } from "../../db/access-requests";
 import type { BuildView, Dashboard, StreamView, UserView } from "../../routes/admin/read-model";
 import { Post } from "./forms";
 import { AdminLayout, NoBuildBadge } from "./layout";
@@ -33,7 +34,43 @@ export const DashboardPage: FC<{ data: Dashboard }> = ({ data }) => (
         <div class="n">{data.noBuild}</div>
         <div class="l">no available build</div>
       </div>
+      <div class="card">
+        <div class="n">{data.pendingRequests}</div>
+        <div class="l">
+          <a href="/admin/pending">pending requests</a>
+        </div>
+      </div>
     </div>
+  </AdminLayout>
+);
+
+export const PendingPage: FC<{ requests: AccessRequest[] }> = ({ requests }) => (
+  <AdminLayout title="Pending requests">
+    {requests.length === 0 ? (
+      <p class="empty">No pending access requests.</p>
+    ) : (
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>When</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {requests.map((r) => (
+            <tr>
+              <td>{r.email}</td>
+              <td class="muted">{r.createdAt}</td>
+              <td class="actions">
+                <Post action={`/admin/pending/${r.id}/invite`} label="Invite" />
+                <Post action={`/admin/pending/${r.id}/dismiss`} label="Dismiss" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
   </AdminLayout>
 );
 

@@ -45,6 +45,11 @@ export async function getById(db: D1Database, id: number): Promise<Client | null
   return row ? toClient(row) : null;
 }
 
+export async function findByEmail(db: D1Database, email: string): Promise<Client | null> {
+  const row = await queryOne<ClientRow>(db, "SELECT * FROM clients WHERE email = ?", [email]);
+  return row ? toClient(row) : null;
+}
+
 export async function list(db: D1Database): Promise<Client[]> {
   const rows = await queryAll<ClientRow>(db, "SELECT * FROM clients ORDER BY id");
   return rows.map(toClient);

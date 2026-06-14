@@ -2,6 +2,7 @@ import type { AuditRow } from "../../core/audit-chain";
 import { type NoBuildState, noBuildState, type World } from "../../core/no-build";
 import type { Build, Client, Stream } from "../../core/types";
 import { type AccessLogEntry, countByBuild, currentBuild, recent } from "../../db/access-log";
+import { type AccessRequest, countPending, listByStatus } from "../../db/access-requests";
 import { listInOrder } from "../../db/admin-audit";
 import { getById as getBuildById, listAll, listAvailable, listBuildStreams } from "../../db/builds";
 import { getById as getClientById, list as listClients } from "../../db/clients";
@@ -41,6 +42,7 @@ export interface Dashboard {
   builds: number;
   streams: number;
   noBuild: number;
+  pendingRequests: number;
   selfUpdate: { available: boolean; latest: string | null };
 }
 
@@ -112,8 +114,13 @@ export async function loadDashboard(deps: Deps): Promise<Dashboard> {
     builds: world.builds.length,
     streams: streams.length,
     noBuild: users.filter((user) => user.noBuild !== "servable").length,
+    pendingRequests: await countPending(deps.db),
     selfUpdate: { available: m.selfupdate_available === "1", latest: m.selfupdate_latest ?? null },
   };
+}
+
+export function loadPending(deps: Deps): Promise<AccessRequest[]> {
+  return listByStatus(deps.db, "pending");
 }
 
 /** The World + per-client installed-build map that §11 validation (core/validation) operates on. */

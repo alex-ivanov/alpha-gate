@@ -20,6 +20,7 @@ import {
   unpinClient,
 } from "./clients";
 import { adminAuth } from "./middleware";
+import { dismissPending, invitePending } from "./pending";
 import { createStream, deleteStream } from "./streams";
 import { registerBuild, uploadBuild } from "./upload";
 import {
@@ -28,6 +29,7 @@ import {
   buildManageView,
   buildsView,
   dashboardView,
+  pendingView,
   settingsView,
   streamsView,
   uploadView,
@@ -53,6 +55,7 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.get("/admin/builds", buildsView);
   app.get("/admin/builds/:id", buildManageView);
   app.get("/admin/streams", streamsView);
+  app.get("/admin/pending", pendingView);
   app.get("/admin/upload", uploadView);
   app.get("/admin/settings", settingsView);
   app.get("/admin/activity", activityView);
@@ -61,6 +64,10 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   // Channel mutations (§13)
   app.post("/admin/streams", createStream);
   app.post("/admin/streams/:id/delete", deleteStream);
+
+  // Pending access requests (§13 #10)
+  app.post("/admin/pending/:id/invite", invitePending);
+  app.post("/admin/pending/:id/dismiss", dismissPending);
 
   // Client mutations (§10/§13)
   app.post("/admin/clients", createClient);

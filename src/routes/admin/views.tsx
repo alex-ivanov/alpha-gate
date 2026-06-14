@@ -9,6 +9,7 @@ import {
   AuditPage,
   BuildsPage,
   DashboardPage,
+  PendingPage,
   StreamsPage,
   UsersPage,
 } from "../../views/admin/read-pages";
@@ -22,6 +23,7 @@ import {
   loadBuilds,
   loadChannels,
   loadDashboard,
+  loadPending,
   loadSettings,
   loadStreams,
   loadUser,
@@ -67,6 +69,10 @@ export async function uploadView(c: AdminContext): Promise<Response> {
 
 export async function settingsView(c: AdminContext): Promise<Response> {
   return c.html(renderPage(<SettingsPage settings={await loadSettings(c.get("deps"))} />));
+}
+
+export async function pendingView(c: AdminContext): Promise<Response> {
+  return c.html(renderPage(<PendingPage requests={await loadPending(c.get("deps"))} />));
 }
 
 export async function activityView(c: AdminContext): Promise<Response> {

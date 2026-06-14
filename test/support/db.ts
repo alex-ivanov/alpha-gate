@@ -8,6 +8,7 @@ const TABLES = [
   "user_streams",
   "access_log",
   "admin_audit",
+  "access_requests",
   "clients",
   "builds",
   "streams",
