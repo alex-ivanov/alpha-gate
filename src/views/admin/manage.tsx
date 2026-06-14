@@ -20,8 +20,8 @@ export const UserManagePage: FC<{ detail: UserDetail }> = ({ detail }) => {
   return (
     <AdminLayout title={`User · ${client.email}`}>
       <p class="muted">
-        Status: {client.status} · Installed: {currentBuild ?? "—"} · Pinned:{" "}
-        {client.pinnedBuildId ?? "—"}
+        Label: {client.label ?? "—"} · Status: {client.status} · Installed: {currentBuild ?? "—"} ·
+        Pinned: {client.pinnedBuildId ?? "—"}
       </p>
 
       <div class="panel actions">

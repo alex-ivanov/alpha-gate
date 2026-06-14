@@ -147,6 +147,7 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
         <thead>
           <tr>
             <th>Email</th>
+            <th>Label</th>
             <th>Status</th>
             <th>Channels</th>
             <th>Installed</th>
@@ -161,6 +162,7 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
           {users.map((u) => (
             <tr>
               <td>{u.email}</td>
+              <td>{u.label ?? <span class="muted">—</span>}</td>
               <td>{u.status}</td>
               <td>{u.streams.join(", ") || <span class="muted">—</span>}</td>
               <td>{u.currentBuild ?? <span class="muted">—</span>}</td>

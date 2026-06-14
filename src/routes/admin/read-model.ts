@@ -29,6 +29,7 @@ import type { Deps } from "../../deps";
 export interface UserView {
   id: number;
   email: string;
+  label: string | null;
   status: string;
   streams: string[];
   pinnedBuildId: number | null;
@@ -103,6 +104,7 @@ export async function loadUsers(deps: Deps): Promise<UserView[]> {
     users.push({
       id: client.id,
       email: client.email,
+      label: client.label,
       status: client.status,
       streams: streamIds.map((id) => streamName.get(id) ?? `#${id}`),
       pinnedBuildId: client.pinnedBuildId,

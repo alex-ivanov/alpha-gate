@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { insert as insertClient } from "../../../src/db/clients";
 import * as meta from "../../../src/db/meta";
 import { buildDeps } from "../../../src/deps";
 import { recordAudit } from "../../../src/services/audit";
@@ -43,6 +44,16 @@ describe("admin read views", () => {
     const html = await (await getAdmin("/admin/users")).text();
     expect(html).toContain("alice@example.test");
     expect(html).toContain("ok"); // servable badge
+  });
+
+  it("users list and manage page show the client label", async () => {
+    const client = await insertClient(deps.db, {
+      email: "lab@example.test",
+      token: "T".repeat(32),
+      label: "QA laptop",
+    });
+    expect(await (await getAdmin("/admin/users")).text()).toContain("QA laptop");
+    expect(await (await getAdmin(`/admin/users/${client.id}`)).text()).toContain("QA laptop");
   });
 
   it("users list flags a no-build user (withdrawn-only build, stranded)", async () => {
