@@ -153,21 +153,31 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   const statePath = `${deployDir}/${args.instance}.state.json`;
   let state = parseState((await env.fs.read(statePath)) ?? "", args.instance);
 
+  // Live progress: a dim "→ …" as each step starts, a green "✓" (with the deploy URL) when it lands.
+  // Failures print via fail() instead. Skipped steps were already shown in the plan above.
+  env.out("");
+  env.out(env.palette.bold("Applying…"));
+  const startStep = (label: string): void => env.out(env.palette.dim(`  → ${label}…`));
+  const doneStep = (label: string, extra = ""): void =>
+    env.out(env.palette.green(`  ✓ ${label}${extra === "" ? "" : `  ${extra}`}`));
+
   // 1. D1 (create if absent, then resolve its id).
   let d1Id = inspection.d1Id;
   if (d1Id === null) {
+    startStep("create database");
     const created = await wr.run(["d1", "create", res]);
-    if (args.dryRun) {
-      d1Id = "dry-run-d1-id";
-    } else {
-      if (!created.ok) return fail(env, "could not create the D1 database", created.stderr.trim());
-      const relist = await wr.run(["d1", "list", "--json"]);
-      d1Id = parseD1Id(relist.stdout, res);
+    if (!args.dryRun && !created.ok) {
+      return fail(env, "could not create the D1 database", created.stderr.trim());
     }
+    d1Id = args.dryRun
+      ? "dry-run-d1-id"
+      : parseD1Id((await wr.run(["d1", "list", "--json"])).stdout, res);
+    if (d1Id === null) {
+      return fail(env, "D1 created but no id was returned", "check your account quota");
+    }
+    doneStep("database");
   }
-  if (d1Id === null)
-    return fail(env, "D1 created but no id was returned", "check your account quota");
-  const databaseId: string = d1Id; // const so the closure below captures the narrowed (non-null) value
+  const databaseId: string = d1Id;
   state = { ...state, d1Id: databaseId };
 
   // 2. Render both configs (needs the resolved d1Id; written before migrate/deploy use --config).
@@ -187,18 +197,23 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
 
   // 3. R2 (create if absent).
   if (!inspection.bucketExists) {
+    startStep("create bucket");
     const r2 = await wr.run(["r2", "bucket", "create", res]);
     if (!args.dryRun && !r2.ok)
       return fail(env, "could not create the R2 bucket", r2.stderr.trim());
+    doneStep("bucket");
   }
 
   // 4. Migrations (idempotent).
+  startStep("apply migrations");
   const mig = await wr.run(["d1", "migrations", "apply", res, "--config", appCfg, "--remote"]);
   if (!args.dryRun && !mig.ok) return fail(env, "migrations failed", mig.stderr.trim());
+  doneStep("migrations");
 
   // 5. Seed app config — first init only (INSERT OR IGNORE never clobbers admin edits).
   const seedSql = buildSeedSql(effective);
   if (freshDb && seedSql !== null) {
+    startStep("seed app config");
     const seed = await wr.run([
       "d1",
       "execute",
@@ -210,24 +225,37 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
       seedSql,
     ]);
     if (!args.dryRun && !seed.ok) return fail(env, "seeding app config failed", seed.stderr.trim());
+    doneStep("app config");
   }
 
-  // 6. Deploy both Workers; capture + validate the URLs.
+  // 6. Deploy both Workers; capture + validate each URL.
+  startStep("deploy app Worker");
   const appDeploy = await wr.run(["deploy", "--config", appCfg]);
-  const adminDeploy = await wr.run(["deploy", "--config", adminCfg]);
   const appUrl = args.dryRun
     ? `https://${res}.<account>.workers.dev`
     : extractDeployUrl(appDeploy.stdout);
+  if (appUrl === null) {
+    return fail(
+      env,
+      "the app Worker deployed but no URL was found",
+      "check `wrangler deploy` output",
+    );
+  }
+  doneStep("app Worker", appUrl);
+
+  startStep("deploy admin Worker");
+  const adminDeploy = await wr.run(["deploy", "--config", adminCfg]);
   const adminUrl = args.dryRun
     ? `https://${res}-admin.<account>.workers.dev`
     : extractDeployUrl(adminDeploy.stdout);
-  if (appUrl === null || adminUrl === null) {
+  if (adminUrl === null) {
     return fail(
       env,
-      "a Worker deployed but no URL was found in the output",
-      "re-run; if it persists, check `wrangler deploy` output",
+      "the admin Worker deployed but no URL was found",
+      "check `wrangler deploy` output",
     );
   }
+  doneStep("admin Worker", adminUrl);
   state = { ...state, appUrl, adminUrl };
 
   // 7. Cloudflare Access. With creds → set them via --secrets-file (one deploy). Without → show the
@@ -254,6 +282,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
     }
   }
   if (teamDomain !== null && teamDomain !== "" && aud !== null && aud !== "") {
+    startStep("wire Cloudflare Access");
     const secretsFile = `${deployDir}/${args.instance}.secrets.json`;
     await env.fs.write(
       secretsFile,
@@ -263,6 +292,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
     await env.fs.remove(secretsFile);
     if (!args.dryRun && !wired.ok)
       return fail(env, "setting Access secrets failed", wired.stderr.trim());
+    doneStep("Access");
   }
 
   // 8. Persist state (real runs only) and print the summary.

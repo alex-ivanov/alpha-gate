@@ -76,7 +76,7 @@ const cmds = (w: { calls: string[][] }) => w.calls.map((c) => c.join(" "));
 describe("runDeploy — fresh instance", () => {
   it("creates db + bucket, migrates, seeds, deploys both, wires Access, and writes state", async () => {
     const w = fakeWrangler({});
-    const { env, fs } = makeEnv(w);
+    const { env, fs, out } = makeEnv(w);
     const code = await runDeploy(
       [
         "--instance",
@@ -92,6 +92,11 @@ describe("runDeploy — fresh instance", () => {
       env,
     );
     expect(code).toBe(0);
+    // Live per-step progress (the ✓ marks) is printed as each step lands.
+    const log = out.join("\n");
+    expect(log).toContain("✓ database");
+    expect(log).toContain("✓ app Worker");
+    expect(log).toContain("✓ Access");
     const c = cmds(w);
     expect(c).toContain("d1 create alpha-gate-x");
     expect(c).toContain("r2 bucket create alpha-gate-x");
