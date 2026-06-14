@@ -48,31 +48,43 @@ are reused, pending migrations applied, both Workers redeployed; tokens/clients/
 preserved. The `--instance` slug must be lowercase letters, digits, and hyphens.
 
 The script checks its prerequisites (`jq`, `envsubst`, and — outside `--dry-run` — `npx`) before doing
-anything. To enable email add `--email-provider cloudflare --email-from alpha@<your-domain>`;
-`--email-from` is **required** in that mode (delivery would silently fail without a verified sender).
-The Cloudflare Email Service binding is rendered onto the **admin Worker only**, never the public app.
+anything. **First init is guided**: anything you don't pass as a flag is prompted for when you run it
+interactively (press Enter for the shown default), so a new instance comes up working almost at once.
+The prompts/flags are:
+
+- **App identity** — `--app-name` and `--activate-scheme` (your macOS app's URL scheme, §7), plus
+  optional `--blurb` / `--accent`. Seeded into `meta` on first init so `/get` is correct immediately;
+  the admin Settings page owns them after that (re-runs don't prompt for or overwrite them).
+- **Cloudflare Access** — `--access-team-domain` and `--access-aud` (see below); when supplied the
+  script sets them as secrets and redeploys the admin Worker, so you never hand-run `wrangler secret put`.
+- **Email** — `--email-provider cloudflare --email-from alpha@<your-domain>`; `--email-from` is
+  **required** in that mode (delivery would silently fail without a verified sender). The Cloudflare
+  Email Service binding is rendered onto the **admin Worker only**, never the public app.
+
+`--dry-run` and non-TTY runs skip all prompts and use flags/defaults, so CI stays non-interactive.
 
 ## Enable Cloudflare Access
 
-The admin URL is public until you put Cloudflare Access in front of it.
+The admin URL is public until you put Cloudflare Access in front of it. This is the one genuinely
+manual step (a Zero Trust dashboard action — there is no `wrangler` command for it):
 
 1. Dashboard → **Workers & Pages** → the `alpha-gate-myalpha-admin` Worker → **Settings → Domains &
    Routes** → enable **Cloudflare Access**. Cloudflare creates a self-hosted Access application for the
    admin hostname.
 2. Edit the Access **policy**: action *Allow*, include **Emails** → your email. Identity method:
    **One-time PIN** (Cloudflare emails a login code — no external IdP).
-3. Tell the Worker its Access identity so it can verify the JWT itself (defense-in-depth):
-   - `ACCESS_TEAM_DOMAIN` = your team domain, e.g. `yourteam.cloudflareaccess.com` (Zero Trust →
-     Settings → Custom Pages / team domain).
-   - `ACCESS_AUD` = the Access application's **Application Audience (AUD) Tag** (Access → Applications →
-     your app → Overview).
+3. Note your **team domain** (Zero Trust → Settings → team domain, e.g. `yourteam.cloudflareaccess.com`)
+   and the application's **AUD tag** (Access → Applications → your app → Overview), then **re-run
+   `deploy.sh`** with them — it sets the secrets and redeploys for you:
    ```bash
-   npx wrangler secret put ACCESS_TEAM_DOMAIN --config .deploy/myalpha.admin.toml
-   npx wrangler secret put ACCESS_AUD         --config .deploy/myalpha.admin.toml
-   npx wrangler deploy --config .deploy/myalpha.admin.toml
+   ./deploy/deploy.sh --instance myalpha \
+     --access-team-domain yourteam.cloudflareaccess.com --access-aud <AUD>
    ```
+   (Equivalent manual form, if you prefer: `wrangler secret put ACCESS_TEAM_DOMAIN` / `ACCESS_AUD` on
+   `.deploy/myalpha.admin.toml`, then `wrangler deploy`.)
 
-The Worker fails **closed**: with these unset, every admin request is rejected.
+The Worker verifies the JWT itself (defense-in-depth) and fails **closed**: with these unset, every
+admin request is rejected.
 
 For **CI publishing**, also add a **Service Auth** rule to the same Access application and create a
 **service token**; its Client ID/Secret become `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` for

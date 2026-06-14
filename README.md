@@ -66,19 +66,22 @@ npx wrangler login              # once, interactive
 
 `deploy.sh` is idempotent: it creates the D1 database and R2 bucket if absent, renders the two wrangler
 configs from one template, applies migrations, deploys both Workers, writes `.deploy/myalpha.state.json`,
-and prints the app + admin URLs followed by a one-time checklist. Re-run it any time to update in place
-(data is preserved). Try it without touching your account using `--dry-run`.
+and prints the app + admin URLs followed by what's left to do. **First init is guided** — it prompts for
+your app name, the app's activate URL scheme (§7), and optional branding (each overridable by a flag:
+`--app-name`, `--activate-scheme`, `--blurb`, `--accent`), and seeds them so `/get` works immediately.
+Re-run it any time to update in place (data is preserved). Try it without touching your account using
+`--dry-run`.
 
-### One-time setup (printed by the deploy script)
+### One-time setup
 
 1. **Protect the admin Worker with Cloudflare Access** — Dashboard → the `alpha-gate-myalpha-admin`
    Worker → Settings → Domains & Routes → enable *Cloudflare Access*, then add your email to the policy
-   (one-time PIN). Access Zero Trust is free for up to 50 users.
-2. **Give the admin Worker its Access identity** (defense-in-depth JWT check):
+   (one-time PIN). Access Zero Trust is free for up to 50 users. This is the only step `deploy.sh`
+   can't do for you (dashboard-only; no API token by design).
+2. **Re-run deploy with your Access identity** — it sets the secrets and redeploys automatically:
    ```bash
-   npx wrangler secret put ACCESS_TEAM_DOMAIN --config .deploy/myalpha.admin.toml   # yourteam.cloudflareaccess.com
-   npx wrangler secret put ACCESS_AUD         --config .deploy/myalpha.admin.toml   # the Access app's AUD tag
-   npx wrangler deploy --config .deploy/myalpha.admin.toml
+   ./deploy/deploy.sh --instance myalpha \
+     --access-team-domain yourteam.cloudflareaccess.com --access-aud <the Access app's AUD tag>
    ```
 3. **Publish the first build** (on macOS): `./publish.sh --instance myalpha`.
 4. *(optional)* **Email**: upgrade to Workers Paid, onboard a sending domain, then re-run deploy with

@@ -1,20 +1,46 @@
 #!/usr/bin/env bash
 # Provision and deploy one Alpha Gate instance (§19). Idempotent: re-run to update in place — D1/R2
 # are reused, pending migrations applied, both Workers redeployed. Pure wrangler; no API token/DNS.
-# --dry-run mocks wrangler so the whole flow (config render, state, checklist) can be exercised offline.
+#
+# First init is guided: anything not passed as a flag is prompted for (when run interactively), so a
+# new instance comes up working almost immediately. Re-runs leave app config alone (the admin Settings
+# page owns it) and are the place to wire Cloudflare Access once its application exists.
+#
+# Flags (all optional except --instance):
+#   --instance <slug>              instance name (lowercase/digits/hyphens)
+#   --app-name <name>              download-page app name        (first init → meta.app_name)
+#   --activate-scheme <scheme>     macOS app URL scheme (§7)      (first init → meta.activate_scheme)
+#   --blurb <text>                 download-page blurb            (first init → meta.blurb)
+#   --accent <#hex>                accent colour                  (first init → meta.accent)
+#   --access-team-domain <d>       e.g. team.cloudflareaccess.com (set as a secret + redeploy admin)
+#   --access-aud <tag>             the Access application's AUD   (set as a secret + redeploy admin)
+#   --email-provider none|cloudflare ; --email-from <addr>
+#   --dry-run                      mock wrangler; exercise the whole flow offline (no prompts)
 set -euo pipefail
 
 INSTANCE=""
+APP_NAME=""
+ACTIVATE_SCHEME=""
+BLURB=""
+ACCENT=""
+ACCESS_TEAM_DOMAIN=""
+ACCESS_AUD=""
 EMAIL_PROVIDER="none"
 EMAIL_FROM=""
 DRY_RUN=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --instance)       INSTANCE="${2:-}"; shift 2 ;;
-    --email-provider) EMAIL_PROVIDER="${2:-}"; shift 2 ;;
-    --email-from)     EMAIL_FROM="${2:-}"; shift 2 ;;
-    --dry-run)        DRY_RUN=1; shift ;;
+    --instance)            INSTANCE="${2:-}"; shift 2 ;;
+    --app-name)            APP_NAME="${2:-}"; shift 2 ;;
+    --activate-scheme)     ACTIVATE_SCHEME="${2:-}"; shift 2 ;;
+    --blurb)               BLURB="${2:-}"; shift 2 ;;
+    --accent)              ACCENT="${2:-}"; shift 2 ;;
+    --access-team-domain)  ACCESS_TEAM_DOMAIN="${2:-}"; shift 2 ;;
+    --access-aud)          ACCESS_AUD="${2:-}"; shift 2 ;;
+    --email-provider)      EMAIL_PROVIDER="${2:-}"; shift 2 ;;
+    --email-from)          EMAIL_FROM="${2:-}"; shift 2 ;;
+    --dry-run)             DRY_RUN=1; shift ;;
     *) echo "unknown flag: $1" >&2; exit 1 ;;
   esac
 done
@@ -37,6 +63,12 @@ if [ "${EMAIL_PROVIDER}" = "cloudflare" ] && [ -z "${EMAIL_FROM}" ]; then
   echo "--email-from is required when --email-provider is cloudflare" >&2
   exit 1
 fi
+# Access is all-or-nothing: a domain without an AUD (or vice versa) can't verify a token.
+if { [ -n "${ACCESS_TEAM_DOMAIN}" ] && [ -z "${ACCESS_AUD}" ]; } ||
+   { [ -z "${ACCESS_TEAM_DOMAIN}" ] && [ -n "${ACCESS_AUD}" ]; }; then
+  echo "--access-team-domain and --access-aud must be provided together" >&2
+  exit 1
+fi
 
 # Prerequisite tooling. jq + envsubst are used even in --dry-run (state/config render); the wrangler
 # CLI (via npx) is only needed for a real deploy. Fail fast with a clear message rather than mid-run.
@@ -54,6 +86,25 @@ UPDATE_MANIFEST_URL="${UPDATE_MANIFEST_URL:-https://raw.githubusercontent.com/yo
 DEPLOY_DIR="${ROOT}/.deploy"
 mkdir -p "${DEPLOY_DIR}"
 
+# Interactive only when attached to a terminal and not rehearsing — so CI / --dry-run never blocks.
+INTERACTIVE=0
+if [ "${DRY_RUN}" -eq 0 ] && [ -t 0 ] && [ -r /dev/tty ]; then INTERACTIVE=1; fi
+
+# Prompt for VARNAME if it's empty (i.e. not passed as a flag). Reads straight into the named variable
+# (no eval), so values with spaces/quotes are safe. Falls back to the default on empty input / non-TTY.
+ask() {
+  local __var="$1" label="$2" def="$3"
+  [ -n "${!__var}" ] && return 0
+  if [ "${INTERACTIVE}" -eq 1 ]; then
+    if [ -n "${def}" ]; then
+      read -r -p "  ${label} [${def}]: " "${__var}" </dev/tty || true
+    else
+      read -r -p "  ${label}: " "${__var}" </dev/tty || true
+    fi
+  fi
+  [ -n "${!__var}" ] || printf -v "${__var}" '%s' "${def}"
+}
+
 # wrangler wrapper: in --dry-run, echo the command instead of invoking the real CLI.
 wrangler() {
   if [ "${DRY_RUN}" -eq 1 ]; then
@@ -63,14 +114,16 @@ wrangler() {
   npx wrangler "$@"
 }
 
-# 1. D1 — create if absent, capture id.
+# 1. D1 — create if absent, capture id, and note whether this is a first init (fresh database).
+FRESH_DB=0
 if [ "${DRY_RUN}" -eq 1 ]; then
-  D1_ID="dry-run-d1-id"
+  D1_ID="dry-run-d1-id"; FRESH_DB=1
 else
   D1_ID="$(wrangler d1 list --json | jq -r --arg n "${RES}" '.[]|select(.name==$n)|.uuid' || true)"
   if [ -z "${D1_ID}" ] || [ "${D1_ID}" = "null" ]; then
     wrangler d1 create "${RES}" >/dev/null
     D1_ID="$(wrangler d1 list --json | jq -r --arg n "${RES}" '.[]|select(.name==$n)|.uuid')"
+    FRESH_DB=1
   fi
 fi
 
@@ -79,7 +132,27 @@ if [ "${DRY_RUN}" -eq 0 ]; then
   wrangler r2 bucket list | grep -q "^${RES}\b" || wrangler r2 bucket create "${RES}" >/dev/null
 fi
 
-# 3. Render the wrangler config for both roles from the one template. The Cloudflare Email Service
+# 3. Collect configuration. App identity/branding is seeded only on a FIRST init (the admin Settings
+# page owns it afterwards, so re-runs must not clobber edits). Access credentials can be supplied on
+# any run — typically the re-run after the Access application has been created.
+if [ "${FRESH_DB}" -eq 1 ]; then
+  [ "${INTERACTIVE}" -eq 1 ] && echo "Configuring new instance '${INSTANCE}' — press Enter to accept [defaults]:"
+  ask APP_NAME        "App name"                          "Your App"
+  ask ACTIVATE_SCHEME "Activate URL scheme (your app's)"  "myapp"
+  ask BLURB           "Short blurb (optional)"            ""
+  ask ACCENT          "Accent colour"                     "#0A84FF"
+elif [ "${INTERACTIVE}" -eq 1 ]; then
+  echo "Instance '${INSTANCE}' already exists — app name/branding are managed in the admin Settings page."
+fi
+# Access prompts only on a re-run (a fresh deploy can't know the AUD — the Access app doesn't exist
+# yet). Flags work on any run. Blank skips and prints the manual instructions instead.
+if [ "${FRESH_DB}" -eq 0 ] && [ "${INTERACTIVE}" -eq 1 ] && [ -z "${ACCESS_TEAM_DOMAIN}" ]; then
+  echo "Cloudflare Access (leave blank to set up later):"
+  ask ACCESS_TEAM_DOMAIN "Access team domain (e.g. team.cloudflareaccess.com)" ""
+  [ -n "${ACCESS_TEAM_DOMAIN}" ] && ask ACCESS_AUD "Access application AUD tag" ""
+fi
+
+# 4. Render the wrangler config for both roles from the one template. The Cloudflare Email Service
 # binding is rendered ONLY for the admin Worker, and only when email delivery is on — the public app
 # Worker never sends mail, so it must not carry (or be able to use) the send_email binding.
 render() {
@@ -98,10 +171,29 @@ render() {
 render app "${RES}"
 render admin "${RES}-admin"
 
-# 4. Apply migrations once against the shared database.
+# 5. Apply migrations once against the shared database.
 wrangler d1 migrations apply "${RES}" --config "${DEPLOY_DIR}/${INSTANCE}.app.toml" --remote
 
-# 5. Deploy both Workers and capture their URLs.
+# 6. First init only: seed the collected app config into `meta` (INSERT OR IGNORE never clobbers a
+# value the admin later edits in Settings). The app validates activate_scheme at read time, so a typo
+# safely falls back to the default rather than breaking the Activate link.
+if [ "${FRESH_DB}" -eq 1 ]; then
+  sql_escape() { printf '%s' "$1" | sed "s/'/''/g"; }
+  SEED_SQL=""
+  add_meta() {
+    [ -n "$2" ] || return 0
+    SEED_SQL="${SEED_SQL}INSERT OR IGNORE INTO meta (key, value) VALUES ('$1', '$(sql_escape "$2")');"
+  }
+  add_meta app_name "${APP_NAME}"
+  add_meta activate_scheme "${ACTIVATE_SCHEME}"
+  add_meta blurb "${BLURB}"
+  add_meta accent "${ACCENT}"
+  if [ -n "${SEED_SQL}" ]; then
+    wrangler d1 execute "${RES}" --config "${DEPLOY_DIR}/${INSTANCE}.app.toml" --remote --command "${SEED_SQL}"
+  fi
+fi
+
+# 7. Deploy both Workers and capture their URLs.
 if [ "${DRY_RUN}" -eq 1 ]; then
   wrangler deploy --config "${DEPLOY_DIR}/${INSTANCE}.app.toml"
   wrangler deploy --config "${DEPLOY_DIR}/${INSTANCE}.admin.toml"
@@ -112,25 +204,51 @@ else
   ADM_URL="$(wrangler deploy --config "${DEPLOY_DIR}/${INSTANCE}.admin.toml" | grep -oE 'https://[a-z0-9.-]+\.workers\.dev' | head -n1)"
 fi
 
-# 6. Persist state and print the one-time manual checklist.
+# 8. If Access credentials were supplied, set them as secrets and redeploy the admin Worker — this
+# removes the manual `wrangler secret put` step. Secrets are piped on stdin (never echoed/logged).
+ACCESS_SET=0
+if [ -n "${ACCESS_TEAM_DOMAIN}" ] && [ -n "${ACCESS_AUD}" ]; then
+  if [ "${DRY_RUN}" -eq 1 ]; then
+    echo "[dry-run] set ACCESS_TEAM_DOMAIN + ACCESS_AUD secrets and redeploy admin" >&2
+  else
+    printf '%s' "${ACCESS_TEAM_DOMAIN}" | npx wrangler secret put ACCESS_TEAM_DOMAIN --config "${DEPLOY_DIR}/${INSTANCE}.admin.toml"
+    printf '%s' "${ACCESS_AUD}"         | npx wrangler secret put ACCESS_AUD         --config "${DEPLOY_DIR}/${INSTANCE}.admin.toml"
+    npx wrangler deploy --config "${DEPLOY_DIR}/${INSTANCE}.admin.toml" >/dev/null
+  fi
+  ACCESS_SET=1
+fi
+
+# 9. Persist state and print the remaining (genuinely manual) steps.
 jq -n --arg i "${INSTANCE}" --arg a "${APP_URL}" --arg m "${ADM_URL}" --arg d "${D1_ID}" \
   '{instance:$i, app_url:$a, admin_url:$m, d1_id:$d}' > "${DEPLOY_DIR}/${INSTANCE}.state.json"
 
-cat <<EOF
+echo
+echo "Deployed:"
+echo "  App   (public) -> ${APP_URL}     # users + Sparkle"
+echo "  Admin (gated)  -> ${ADM_URL}     # back office"
+[ "${FRESH_DB}" -eq 1 ] && echo "  App config seeded: name='${APP_NAME}', activate scheme='${ACTIVATE_SCHEME}'."
+echo
 
-Deployed:
-  App   (public) -> ${APP_URL}     # users + Sparkle
-  Admin (gated)  -> ${ADM_URL}     # back office
-
-Finish setup (manual, one-time):
-  1. Protect the admin Worker with Cloudflare Access (Dashboard -> the
-     "${RES}-admin" Worker -> Settings -> Domains & Routes -> enable Access),
-     then add your email to the policy (one-time PIN).
-  2. Tell the admin Worker its Access identity:
-       npx wrangler secret put ACCESS_TEAM_DOMAIN --config .deploy/${INSTANCE}.admin.toml
-       npx wrangler secret put ACCESS_AUD         --config .deploy/${INSTANCE}.admin.toml
-       npx wrangler deploy --config .deploy/${INSTANCE}.admin.toml
-  3. Publish the first build (on macOS):  ./publish.sh --instance ${INSTANCE}
-  4. (optional) Email: upgrade to Workers Paid, onboard a sending domain, then
-     re-run with --email-provider cloudflare --email-from alpha@<your-domain>.
+if [ "${ACCESS_SET}" -eq 1 ]; then
+  cat <<EOF
+Cloudflare Access secrets set on the admin Worker.
+Remaining:
+  - Ensure the Access application is enabled on "${RES}-admin" and your email is on its policy
+    (Cloudflare Zero Trust -> Access -> Applications). The admin login is dead until it is.
+  - Publish the first build (on macOS):  ./publish.sh --instance ${INSTANCE}
 EOF
+else
+  cat <<EOF
+Finish setup:
+  1. Protect the admin Worker with Cloudflare Access (one-time, dashboard-only):
+       Cloudflare Zero Trust -> Access -> Applications -> Add an application (Self-hosted),
+       hostname = ${ADM_URL#https://}, add a policy allowing your email (one-time PIN),
+       and note the application's AUD tag.
+  2. Re-run to wire Access automatically (no manual secret-put):
+       ./deploy/deploy.sh --instance ${INSTANCE} \\
+         --access-team-domain <team>.cloudflareaccess.com --access-aud <AUD>
+  3. Publish the first build (on macOS):  ./publish.sh --instance ${INSTANCE}
+  4. (optional) Email: upgrade to Workers Paid, onboard a sending domain, then re-run with
+       --email-provider cloudflare --email-from alpha@<your-domain>
+EOF
+fi
