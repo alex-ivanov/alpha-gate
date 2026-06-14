@@ -26,6 +26,10 @@ declare global {
       // Admin-only, set after Cloudflare Access is enabled (§19). Absent on the app Worker.
       ACCESS_TEAM_DOMAIN?: string;
       ACCESS_AUD?: string;
+
+      // Cloudflare Email Service binding (§24). Rendered onto the admin Worker only, and only when
+      // EMAIL_PROVIDER="cloudflare"; absent otherwise (delivery falls back to copy-paste).
+      EMAIL?: SendEmail;
     }
   }
 }

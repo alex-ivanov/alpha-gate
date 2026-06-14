@@ -26,7 +26,7 @@ architecture and rationale see [`../design/DESIGN.md`](../design/DESIGN.md); for
 - [Audit & breach detection](#audit--breach-detection)
 - [Multiple instances](#multiple-instances)
 - [Teardown](#teardown)
-- [Known gaps](#known-gaps)
+- [Email delivery](#email-delivery)
 
 ## Prerequisites
 
@@ -233,11 +233,11 @@ deletes the local `.deploy/<slug>.*` files. **Remove the Cloudflare Access appli
 separately.** If the R2 bucket is non-empty the delete is reported (not silently skipped) — empty it via
 the dashboard or `wrangler r2 object delete`, then re-run.
 
-## Known gaps
+## Email delivery
 
-These are tracked follow-ups; the underlying behavior they'd expose is implemented and tested.
-
-- **`POST /access`** (the request-access form submission and the pending-requests queue) is not handled
-  yet; the `/access` page renders but submitting it has no effect.
-- **Cloudflare Email Service** delivery is behind the `EmailSender` seam but not implemented; invites are
-  copy-paste links shown in the admin UI (the free-tier default).
+With `EMAIL_PROVIDER="none"` (the free-tier default) nothing is sent: every invite/notification is a
+copy-paste link surfaced in the admin UI. With `EMAIL_PROVIDER="cloudflare"` (Workers Paid + an
+onboarded sending domain + a verified `--email-from`), the admin Worker's `send_email` binding delivers
+invites and self-update notices for real. The message composition (RFC 5322, header-injection-safe) is
+unit-tested; **actual delivery is verified only against live Cloudflare infrastructure**, not the
+offline test suite. A misconfigured Cloudflare setup falls back to copy-paste rather than erroring.

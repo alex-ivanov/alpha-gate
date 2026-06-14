@@ -4,7 +4,7 @@ import {
   createCachedJwksFetcher,
 } from "./auth/access-jwt";
 import type { Env } from "./env";
-import { type Clock, nowSeconds, systemClock } from "./lib/clock";
+import { type Clock, emailDate, nowSeconds, systemClock } from "./lib/clock";
 import { type EmailSender, selectEmailSender } from "./services/email";
 
 // The dependency-injection container (CANONICAL-LAYOUT rule 1). Handlers and services receive `Deps`
@@ -36,7 +36,7 @@ export function buildDeps(env: Env): Deps {
       fetchJwks: cachedFetchJwks,
       now: nowSeconds,
     }),
-    email: selectEmailSender(env.EMAIL_PROVIDER),
+    email: selectEmailSender(env, emailDate),
     fetch: globalThis.fetch,
   };
 }

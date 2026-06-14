@@ -12,3 +12,6 @@ export const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 /** ISO-8601 UTC for `days` ago — the §16 log-prune cutoff. */
 export const isoDaysAgo = (days: number): string =>
   new Date(Date.now() - days * 86_400_000).toISOString();
+
+/** RFC 5322 / IMF date for an email `Date:` header (e.g. "Fri, 13 Jun 2026 12:00:00 GMT"). */
+export const emailDate = (): string => new Date().toUTCString();
