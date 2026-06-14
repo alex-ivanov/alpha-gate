@@ -159,4 +159,47 @@ export function parseTeardownArgs(argv: readonly string[]): Result<TeardownArgs>
   return ok({ instance, archive, archiveDir: values["--archive-dir"] ?? null, yes, dryRun });
 }
 
+export interface DevArgs {
+  role: Role;
+  port: number;
+  seed: boolean;
+  reset: boolean;
+}
+
+export function parseDevArgs(argv: readonly string[]): Result<DevArgs> {
+  let role: Role = "app";
+  let port = 8787;
+  let seed = true;
+  let reset = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    const flag = argv[i];
+    if (flag === undefined) continue;
+    if (flag === "--no-seed") {
+      seed = false;
+    } else if (flag === "--reset") {
+      reset = true;
+    } else if (flag === "--role") {
+      const value = argv[i + 1];
+      i++;
+      if (value !== "app" && value !== "admin") {
+        return err(`invalid --role '${value ?? ""}'`, "expected 'app' or 'admin'");
+      }
+      role = value;
+    } else if (flag === "--port") {
+      const value = argv[i + 1];
+      i++;
+      const parsed = value === undefined ? Number.NaN : Number.parseInt(value, 10);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+        return err(`invalid --port '${value ?? ""}'`, "expected a port number 1–65535");
+      }
+      port = parsed;
+    } else {
+      return err(`unknown flag: ${flag}`, "run `dev --help` for the supported flags");
+    }
+  }
+
+  return ok({ role, port, seed, reset });
+}
+
 export type { Role };

@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 
 // The wrangler seam: the ONLY place the CLI shells out. Commands are passed as an argv array (never a
 // shell string), so there's no quoting/injection surface. run() resolves with the exit code + captured
@@ -20,6 +20,8 @@ export interface RunOptions {
 
 export interface Wrangler {
   run(args: readonly string[], opts?: RunOptions): Promise<RunResult>;
+  /** Spawn a long-running command with inherited stdio (e.g. `wrangler dev`); resolves on exit. */
+  exec(args: readonly string[]): Promise<number>;
 }
 
 export interface WranglerOptions {
@@ -52,6 +54,17 @@ export function createWrangler(options: WranglerOptions = {}): Wrangler {
         }
       });
     },
+    exec(args) {
+      if (options.dryRun) {
+        log(`[dry-run] wrangler ${args.join(" ")}`);
+        return Promise.resolve(0);
+      }
+      return new Promise<number>((resolve) => {
+        const child = spawn("npx", ["wrangler", ...args], { stdio: "inherit" });
+        child.on("exit", (code) => resolve(code ?? 0));
+        child.on("error", () => resolve(1));
+      });
+    },
   };
 }
 
@@ -74,6 +87,10 @@ export function createFakeWrangler(
         stdout: partial.stdout ?? "",
         stderr: partial.stderr ?? "",
       });
+    },
+    exec(args) {
+      calls.push([...args]);
+      return Promise.resolve(0);
     },
   };
 }

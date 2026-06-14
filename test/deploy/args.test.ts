@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeTeamDomain,
   parseDeployArgs,
+  parseDevArgs,
   parseTeardownArgs,
 } from "../../src/deploy/core/args";
 
@@ -93,6 +94,27 @@ describe("parseTeardownArgs", () => {
     const r = parseTeardownArgs(["--instance", "x", "--archive-dir", "/tmp", "--yes", "--dry-run"]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value).toMatchObject({ archiveDir: "/tmp", yes: true, dryRun: true });
+  });
+});
+
+describe("parseDevArgs", () => {
+  it("defaults to app role, port 8787, seed on", () => {
+    const r = parseDevArgs([]);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toMatchObject({ role: "app", port: 8787, seed: true, reset: false });
+  });
+
+  it("parses role/port/flags", () => {
+    const r = parseDevArgs(["--role", "admin", "--port", "9000", "--no-seed", "--reset"]);
+    expect(r.ok).toBe(true);
+    if (r.ok)
+      expect(r.value).toMatchObject({ role: "admin", port: 9000, seed: false, reset: true });
+  });
+
+  it("rejects a bad role or port", () => {
+    expect(parseDevArgs(["--role", "bogus"]).ok).toBe(false);
+    expect(parseDevArgs(["--port", "0"]).ok).toBe(false);
+    expect(parseDevArgs(["--port", "99999"]).ok).toBe(false);
   });
 });
 

@@ -1,0 +1,151 @@
+import { parseDevArgs } from "../core/args";
+import type { Palette } from "../core/colors";
+import { renderConfig } from "../core/config";
+import { resourceName } from "../core/plan";
+import { renderHeader } from "../core/ui";
+import type { FileSystem } from "../seams/files";
+import type { Wrangler } from "../seams/wrangler";
+
+// The `dev` command (§23 local surface): run a Worker locally on Miniflare (no Cloudflare account).
+// Renders a local wrangler config, applies migrations to a LOCAL D1, optionally seeds a demo
+// client/build, then hands off to `wrangler dev`. The admin role points main at the dev-only entry
+// (src/dev/admin-entry.ts) + DEV_ADMIN=1 so the gated UI is browser-usable on localhost.
+
+export interface DevEnv {
+  wrangler: Wrangler;
+  fs: FileSystem;
+  palette: Palette;
+  out: (line: string) => void;
+  rootDir: string;
+  toolVersion: string;
+  updateManifestUrl: string;
+}
+
+const INSTANCE = "local";
+const DEMO_TOKEN = "DEV0DEV0DEV0DEV0DEV0DEV0DEV0DEV0"; // valid Crockford base32 (no I/L/O/U)
+
+function fail(env: DevEnv, reason: string, hint: string): number {
+  env.out(env.palette.red(`dev: ${reason}`));
+  if (hint) env.out(`  → ${hint}`);
+  return 1;
+}
+
+export async function runDev(argv: readonly string[], env: DevEnv): Promise<number> {
+  const parsed = parseDevArgs(argv);
+  if (!parsed.ok) return fail(env, parsed.error, parsed.hint ?? "");
+  const args = parsed.value;
+
+  const res = resourceName(INSTANCE); // alpha-gate-local
+  const deployDir = `${env.rootDir}/.deploy`;
+  const stateDir = `${env.rootDir}/.wrangler/state`; // gitignored; shared by both roles
+  const cfg = `${deployDir}/${INSTANCE}.${args.role}.toml`;
+  const wr = env.wrangler;
+
+  env.out(renderHeader(`${INSTANCE} (${args.role})`, env.palette));
+
+  if (args.reset) {
+    await env.fs.remove(stateDir);
+    env.out(env.palette.dim("  reset local D1/R2 state"));
+  }
+
+  // Render the local config. The admin role uses the dev-only entry so its gated UI opens on localhost.
+  await env.fs.mkdirp(deployDir);
+  await env.fs.write(
+    cfg,
+    renderConfig({
+      instance: INSTANCE,
+      d1Id: "local", // ignored by `wrangler dev --local`
+      role: args.role,
+      name: args.role === "admin" ? `${res}-admin` : res,
+      emailProvider: "none",
+      emailFrom: "",
+      toolVersion: env.toolVersion,
+      updateManifestUrl: env.updateManifestUrl,
+      main: args.role === "admin" ? "../src/dev/admin-entry.ts" : "../src/worker.ts",
+    }),
+  );
+
+  // Migrations against the LOCAL database.
+  const mig = await wr.run([
+    "d1",
+    "migrations",
+    "apply",
+    res,
+    "--config",
+    cfg,
+    "--local",
+    "--persist-to",
+    stateDir,
+  ]);
+  if (!mig.ok) return fail(env, "local migrations failed", mig.stderr.trim());
+
+  // Seed a demo world (idempotent) so /get, /appcast, /download return real data.
+  if (args.seed) {
+    const archive = `${deployDir}/${INSTANCE}-dev-archive.zip`;
+    await env.fs.write(archive, "ALPHA-GATE-DEV-ARCHIVE");
+    await wr.run([
+      "r2",
+      "object",
+      "put",
+      `${res}/build/1000/App.zip`,
+      "--file",
+      archive,
+      "--content-type",
+      "application/zip",
+      "--local",
+      "--persist-to",
+      stateDir,
+    ]);
+    const sql = [
+      "INSERT OR IGNORE INTO streams (name) VALUES ('local');",
+      `INSERT OR IGNORE INTO clients (email, token, status) VALUES ('dev@example.test', '${DEMO_TOKEN}', 'active');`,
+      "INSERT OR IGNORE INTO builds (short_version, build_number, object_key, ed_signature, length, status)" +
+        " VALUES ('1.0.0-dev', 1000, 'build/1000/App.zip', 'DEVSIG==', 22, 'available');",
+      "INSERT OR IGNORE INTO build_streams (build_id, stream_id)" +
+        " SELECT b.id, s.id FROM builds b JOIN streams s ON s.name='local' WHERE b.build_number=1000;",
+      "INSERT OR IGNORE INTO user_streams (client_id, stream_id)" +
+        " SELECT c.id, s.id FROM clients c JOIN streams s ON s.name='local' WHERE c.email='dev@example.test';",
+    ].join("");
+    await wr.run([
+      "d1",
+      "execute",
+      res,
+      "--config",
+      cfg,
+      "--local",
+      "--persist-to",
+      stateDir,
+      "--command",
+      sql,
+    ]);
+  }
+
+  const base = `http://localhost:${args.port}`;
+  env.out("");
+  if (args.role === "app") {
+    env.out(env.palette.green(`App Worker → ${base}`));
+    if (args.seed) env.out(`  ${base}/get?token=${DEMO_TOKEN}`);
+  } else {
+    env.out(env.palette.green(`Admin Worker → ${base}/admin`));
+    env.out(
+      env.palette.yellow(
+        "  LOCAL-DEV auth shim — every request is admin 'dev@local'. localhost only.",
+      ),
+    );
+  }
+  env.out(env.palette.dim("  Ctrl-C to stop."));
+  env.out("");
+
+  const devArgs = [
+    "dev",
+    "--config",
+    cfg,
+    "--port",
+    String(args.port),
+    "--local",
+    "--persist-to",
+    stateDir,
+  ];
+  if (args.role === "admin") devArgs.push("--var", "DEV_ADMIN:1");
+  return wr.exec(devArgs);
+}

@@ -27,7 +27,7 @@ export function createFileSystem(): FileSystem {
       await mkdir(path, { recursive: true });
     },
     async remove(path) {
-      await rm(path, { force: true });
+      await rm(path, { force: true, recursive: true });
     },
   };
 }

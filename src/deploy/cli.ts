@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type DeployEnv, runDeploy } from "./commands/deploy";
+import { type DevEnv, runDev } from "./commands/dev";
 import { runTeardown, type TeardownEnv } from "./commands/teardown";
 import { selectPalette, shouldColor } from "./core/colors";
 import { nowStamp } from "./seams/clock";
@@ -49,7 +50,19 @@ async function main(): Promise<number> {
     return runTeardown(rest, env);
   }
 
-  console.error("usage: cli.ts <deploy|teardown> [flags]   (dev lands next)");
+  if (command === "dev") {
+    const toolVersion = (
+      await readFile(path.join(ROOT, "VERSION"), "utf8").catch(() => "0.0.0")
+    ).trim();
+    const env: DevEnv = {
+      ...shared(rest),
+      toolVersion,
+      updateManifestUrl: process.env.UPDATE_MANIFEST_URL ?? DEFAULT_MANIFEST,
+    };
+    return runDev(rest, env);
+  }
+
+  console.error("usage: cli.ts <deploy|teardown|dev> [flags]");
   return 1;
 }
 
