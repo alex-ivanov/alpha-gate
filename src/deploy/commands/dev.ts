@@ -65,7 +65,11 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
     }),
   );
 
-  // Migrations against the LOCAL database.
+  // Migrations + seed use the captured run() (NOT exec): these are short `npx wrangler` commands, and
+  // spawning npx with inherited stdio from inside this npx/tsx process deadlocks on npm's lock — only
+  // the final, long-running `wrangler dev` gets inherited stdio. We print a progress line before each
+  // step (so a slow/blocked step isn't a silent hang) and surface wrangler's stderr on failure.
+  env.out(env.palette.dim("  → applying migrations to the local database…"));
   const mig = await wr.run([
     "d1",
     "migrations",
@@ -77,13 +81,22 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
     "--persist-to",
     stateDir,
   ]);
-  if (!mig.ok) return fail(env, "local migrations failed", mig.stderr.trim());
+  if (!mig.ok) {
+    if (mig.stderr.trim()) env.out(mig.stderr.trim());
+    return fail(
+      env,
+      "local migrations failed",
+      "retry with --reset (a stuck local state can block it)",
+    );
+  }
 
-  // Seed a demo world (idempotent) so /get, /appcast, /download return real data.
+  // Seed a demo world (idempotent) so /get, /appcast, /download return real data. Best-effort: a seed
+  // failure is reported but does not stop the server (the schema is already migrated).
   if (args.seed) {
+    env.out(env.palette.dim("  → seeding a demo client + build…"));
     const archive = `${deployDir}/${INSTANCE}-dev-archive.zip`;
     await env.fs.write(archive, "ALPHA-GATE-DEV-ARCHIVE");
-    await wr.run([
+    const put = await wr.run([
       "r2",
       "object",
       "put",
@@ -96,6 +109,9 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
       "--persist-to",
       stateDir,
     ]);
+    if (!put.ok && put.stderr.trim()) {
+      env.out(env.palette.yellow(`  seed (r2) skipped: ${put.stderr.trim()}`));
+    }
     const sql = [
       "INSERT OR IGNORE INTO streams (name) VALUES ('local');",
       `INSERT OR IGNORE INTO clients (email, token, status) VALUES ('dev@example.test', '${DEMO_TOKEN}', 'active');`,
@@ -106,7 +122,7 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
       "INSERT OR IGNORE INTO user_streams (client_id, stream_id)" +
         " SELECT c.id, s.id FROM clients c JOIN streams s ON s.name='local' WHERE c.email='dev@example.test';",
     ].join("");
-    await wr.run([
+    const seeded = await wr.run([
       "d1",
       "execute",
       res,
@@ -118,6 +134,9 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
       "--command",
       sql,
     ]);
+    if (!seeded.ok && seeded.stderr.trim()) {
+      env.out(env.palette.yellow(`  seed (d1) skipped: ${seeded.stderr.trim()}`));
+    }
   }
 
   const base = `http://localhost:${args.port}`;
@@ -134,6 +153,9 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
     );
   }
   env.out(env.palette.dim("  Ctrl-C to stop."));
+  env.out(
+    env.palette.dim("  → starting wrangler dev (the first run downloads the workerd runtime)…"),
+  );
   env.out("");
 
   const devArgs = [
