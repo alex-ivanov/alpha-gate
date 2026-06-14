@@ -36,18 +36,20 @@ Alpha Gate is a self-hosted distribution gate for a notarized macOS app updated 
 
 Keep I/O at the edges and logic pure. The resolver, the no-build computation, §11 validation, the audit hash-chain build/verify, and appcast XML generation must be **plain functions over plain data** (no bindings) so most logic is testable with zero runtime. Tests use `@cloudflare/vitest-pool-workers` (runs in `workerd`/Miniflare, isolated per-test storage, offline). What Miniflare can't simulate — Access JWT, email, outbound HTTP — sits behind injectable seams/mocks. Note beta caveats: coverage is Istanbul (not V8), and fake timers don't reach the KV/R2 simulators, so use seeded timestamps for time-dependent tests.
 
-## Commands (as designed — none exist yet)
+## Commands
 
 ```bash
-npm test                                      # vitest-pool-workers; runs everything offline, no Cloudflare account
+npm test                                      # both suites: worker (vitest-pool-workers) + deploy CLI (node); offline
+npm run check                                 # the full gate: biome + typecheck (both tsconfigs) + test
 
+./deploy/dev.sh                               # §23 local surface: App Worker on Miniflare D1/R2, seeded, no account
 ./deploy/deploy.sh --instance <slug>          # provision D1 + R2, apply migrations, deploy both Workers (idempotent;
                                               #   re-run to update an instance in place — data preserved)
 ./deploy/deploy.sh --instance <slug> --email-provider cloudflare --email-from alpha@<sending-domain>
-./deploy/teardown.sh --instance <slug>        # destructive: removes both Workers, empties+deletes R2, deletes D1
+./deploy/teardown.sh --instance <slug>        # destructive: archives D1 first, removes both Workers + D1 (R2/Access manual)
 
 ./publish.sh   --instance <slug>              # macOS: build → sign → notarize → staple → sign_update → upload + register
 ./ci-publish.sh                               # portable: upload an already-signed archive + register (browser-less, CI)
 ```
 
-Deployment is **pure wrangler** (`wrangler login` once; needs `jq` + `envsubst`) — no API token, DNS, or zone. The two things a script can't do are printed as a one-time checklist: enable Cloudflare Access on the admin hostname + allowlist your email, then feed `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` back as secrets (§19). All three publish paths (local script, browser upload, GitHub Actions) converge on `POST /admin/builds/upload`.
+Deployment is a **TypeScript CLI** (`src/deploy/`, run via `tsx` from the thin `deploy/*.sh` wrappers; decision 0009) over **pure wrangler** (`wrangler login` once; no `jq`/`envsubst`) — no API token, DNS, or zone. The two things a script can't do are printed as a one-time checklist: enable Cloudflare Access on the admin hostname + allowlist your email, then feed `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` back as secrets (§19). All three publish paths (local script, browser upload, GitHub Actions) converge on `POST /admin/builds/upload`.

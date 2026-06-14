@@ -6,7 +6,7 @@ channels/pins/rollbacks from an admin back office behind **Cloudflare Access**, 
 **Cloudflare (Workers + D1 + R2)** within the free tier — no custom domain, deployable to any account
 from one script, with many isolated instances per account.
 
-> Status: feature-complete and tested (200 tests, offline). See [Project status](#project-status) for
+> Status: feature-complete and tested (268 worker + 84 deploy-CLI tests, all offline). See [Project status](#project-status) for
 > the one deliberately-deferred piece and the admin-UI state.
 
 ## Features
@@ -49,8 +49,9 @@ Full design rationale: [`design/DESIGN.md`](design/DESIGN.md).
 
 ## Prerequisites
 
-- **Node ≥ 20** and **npm** (the repo pins `wrangler` as a dev dependency — use `npx wrangler`).
-- **`jq`** and **`envsubst`** (from GNU gettext) for the deploy script. macOS: `brew install jq gettext`.
+- **Node ≥ 20** and **npm** (the repo pins `wrangler` as a dev dependency — use `npx wrangler`). The
+  deploy/teardown/dev commands are a TypeScript CLI run via `tsx` (also a dev dependency), so
+  `npm install` is the only setup — no `jq`/`envsubst`.
 - A **Cloudflare account** (free tier is enough). Run `npx wrangler login` once.
 - **macOS** only for `publish.sh` (Apple signing/notarization); not needed to deploy or develop.
 
@@ -64,9 +65,10 @@ npx wrangler login              # once, interactive
 ./deploy/deploy.sh --instance myalpha
 ```
 
-`deploy.sh` is idempotent: it creates the D1 database and R2 bucket if absent, renders the two wrangler
-configs from one template, applies migrations, deploys both Workers, writes `.deploy/myalpha.state.json`,
-and prints the app + admin URLs followed by what's left to do. **First init is guided** — it prompts for
+`deploy.sh` is idempotent: it inspects the account (read-only) then creates the D1 database and R2 bucket
+only if absent, renders the two wrangler configs, applies migrations, deploys both Workers, writes
+`.deploy/myalpha.state.json`, and prints the app + admin URLs followed by what's left to do. **First init
+is guided** — it prompts for
 your app name, the app's activate URL scheme (§7), and optional branding (each overridable by a flag:
 `--app-name`, `--activate-scheme`, `--blurb`, `--accent`), and seeds them so `/get` works immediately.
 Re-run it any time to update in place (data is preserved). Try it without touching your account using
@@ -144,8 +146,9 @@ src/
   services/          # audit, email, self-update, anchor, branding (orchestration over db/r2/core)
   routes/{app,admin} # Hono handlers; deps injected, never bindings directly
   deps.ts  env.ts  cron.ts  lib/clock.ts
+  deploy/            # deploy/teardown/dev CLI: core/ (pure) + seams/ (wrangler,fs,io,clock) + commands/
 migrations/          # 0001–0006 D1 schema (SQL)
-deploy/              # wrangler.template.toml, deploy.sh, teardown.sh
+deploy/              # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → the TS CLI
 publish.sh  ci-publish.sh  .github/workflows/
 test/                # unit/ integration/ cuj/ + support/ (offline vitest-pool-workers)
 design/              # DESIGN.md (spec), PLAN.md, CANONICAL-LAYOUT.md, decisions/
@@ -176,7 +179,8 @@ design/              # DESIGN.md (spec), PLAN.md, CANONICAL-LAYOUT.md, decisions
 
 ## Project status
 
-Feature-complete against `design/DESIGN.md`; 209 tests pass offline; `tsc` and Biome clean. The back
+Feature-complete against `design/DESIGN.md`; 268 worker + 84 deploy-CLI tests pass offline; `tsc` (both
+tsconfigs) and Biome clean. The back
 office is fully operable from the browser — Add-user/Add-channel forms, per-row and per-entity actions
 (revoke/reissue/pin/assign, build withdraw/restore/critical/link, channel create/delete), an upload
 form, and a branding/settings page — all behind Cloudflare Access. Two tracked follow-ups remain:

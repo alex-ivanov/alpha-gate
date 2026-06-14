@@ -35,7 +35,22 @@ Production admin auth (decision 0006) is unchanged and still covered by `npm tes
 The four things that need a real (throwaway) deploy: Access login (the genuine edge JWT), Cloudflare
 email delivery, bucket-lock, and an end-to-end Sparkle client (see DESIGN.md §23).
 
-`shellcheck` (CI, or `brew install shellcheck` locally) lints the bash scripts.
+### The deploy CLI
+
+`dev`, `deploy`, and `teardown` are a **TypeScript CLI** under `src/deploy/` (decision
+[0009](design/decisions/0009-deploy-cli.md)); the `deploy/*.sh` files are three-line `tsx` wrappers. It
+follows the same pure-core/seams rule as the app: `core/` is I/O-free and unit-tested (arg parsing,
+`renderConfig`, the defensive `wrangler`-output parsers, the inspect→apply plan, the state ledger, the
+console UI), while `seams/` is the only I/O — `wrangler` (spawns with **argv arrays**, never a shell
+string; `run()` captures output and never rejects, `exec()` inherits stdio for `wrangler dev`), `files`,
+`io`, `clock`. Commands orchestrate a **preflight → inspect (read-only) → confirm → apply** flow with live
+progress; `--dry-run` runs against a mocked wrangler and touches neither the account nor disk.
+
+It is a **separate build**: `tsconfig.deploy.json` (`types: ["node"]`) and a node-env vitest project
+(`test/vitest.deploy.config.ts`), kept apart from the app's workers-types config. `npm test` and
+`npm run typecheck` run both suites; tests live in `test/deploy/*` and assert on the fake wrangler's
+recorded argv and the fake filesystem (`npm run ui:preview` renders the console panels). `shellcheck`
+(CI, or `brew install shellcheck` locally) lints the thin bash wrappers.
 
 ## Architecture in one breath
 
@@ -80,6 +95,8 @@ Tests run inside the Workers runtime offline. Layout under `test/`:
   `access.ts` (a throwaway RS256 keypair signing real Access tokens against a stub JWKS), `worker.ts` /
   `adminWorker` (apps wired to the test env with overridable Deps), `db.ts` (`resetAll` in `beforeEach`),
   `clock.ts` (`fixedClock`), `email.ts` (recording sender).
+- `deploy/` — the deploy-CLI suite (node env, **not** workers-pool; see *The deploy CLI* above), run by
+  `npm run test:deploy` and as the second half of `npm test`.
 
 Notes: D1/Miniflare **enforces foreign keys**, so seed parent rows (e.g. a stream) before linking;
 assert time-dependent behavior with seeded timestamps (fake timers don't reach the R2/KV simulators).

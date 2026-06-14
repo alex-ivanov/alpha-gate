@@ -29,7 +29,7 @@ Legend: ☐ todo · ◐ in progress · ☑ done
 
 - ☑ **M0 — Scaffold.** npm + strict TS + Biome + vitest-pool-workers (offline). Migrations
   `0001`–`0006` (0006 = DMG columns, see decision 0003) transcribed from §5. `wrangler.template.toml`
-  from §18. Typed `src/env.ts`. **Gate met:** `npm test` 4/4 offline (smoke + migrations apply),
+  from §18 (later superseded by `renderConfig` in the deploy CLI — M26/decision 0009). Typed `src/env.ts`. **Gate met:** `npm test` 4/4 offline (smoke + migrations apply),
   `tsc --noEmit` clean, `biome check` clean. _Note: vitest-pool-workers 0.16 configures via the
   `cloudflareTest()` Vite plugin (no `defineWorkersConfig`); Biome no-`Date` rule deferred to M7
   (its allow-list targets don't exist yet)._
@@ -122,6 +122,14 @@ items below are tracked against the DESIGN.md §13 numbered list.
   binding (`cloudflare:email`, lazy import); `selectEmailSender` reads the env and falls back to
   copy-paste unless fully configured. Closes the M19 email follow-up. Actual delivery is
   real-infra-only (§23). **Gate met:** 254 tests.
+- ☑ **M26 — Deploy CLI rework (decision 0009).** Replaced the brittle text-scraping bash `deploy.sh`/
+  `teardown.sh`/`dev.sh` (and the `envsubst` template) with a TypeScript CLI under `src/deploy/`
+  (pure `core/` + `wrangler`/fs/io/clock `seams/` + `commands/`), run via `tsx` from three-line bash
+  wrappers — so the command surface is unchanged but the provisioning logic is now offline-testable
+  (`renderConfig`, defensive `wrangler`-output parsers, inspect→apply plan, state ledger, console UI).
+  Transparent preflight → inspect → confirm → apply flow with live progress; `--dry-run` touches neither
+  account nor disk. Dual build: `tsconfig.deploy.json` + node-env `test/vitest.deploy.config.ts`.
+  **Gate met:** 268 worker + 84 deploy-CLI tests; both `tsc` configs + Biome clean.
 
 **§13 status:** all 15 numbered back-office features are now implemented. Cloudflare email *delivery*
 (M25) is the only behavior not exercised offline — it requires live infra (Workers Paid + sending

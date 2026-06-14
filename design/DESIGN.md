@@ -418,7 +418,8 @@ For "the account was hacked, what was done," the Cloudflare-managed logs are the
 ```
 alpha-gate/
 ├── src/
-│   └── worker.ts                 # one codebase; ROLE var selects app vs admin routes
+│   ├── worker.ts                 # one codebase; ROLE var selects app vs admin routes
+│   └── deploy/                   # §19 deploy/teardown/dev CLI (core/ pure + seams/ + commands/), run via tsx
 ├── VERSION                       # tool version, stamped into TOOL_VERSION at deploy
 ├── migrations/
 │   ├── 0001_clients.sql
@@ -426,10 +427,10 @@ alpha-gate/
 │   ├── 0003_access_log.sql
 │   ├── 0004_meta.sql
 │   └── 0005_admin_audit.sql
-├── deploy/
-│   ├── wrangler.template.toml    # §18 — rendered twice (app, admin)
+├── deploy/                       # thin bash wrappers → the TS CLI (src/deploy, decision 0009)
 │   ├── deploy.sh                 # §19 — one command, two Workers
-│   └── teardown.sh
+│   ├── teardown.sh
+│   └── dev.sh                    # §23 — local Miniflare run
 ├── publish.sh                    # local macOS publish: build → sign → notarize → sign_update → upload + register
 ├── ci-publish.sh                 # portable: upload an already-built/signed archive + register (browser-less, for CI)
 ├── .github/
@@ -446,14 +447,13 @@ alpha-gate/
 
 ---
 
-## 18. Wrangler config template
+## 18. Wrangler config
 
-One template, rendered twice with different `NAME` and `ROLE`. Both Workers bind the same D1 and R2. No hostname or route — Workers derive their origin from requests; `workers_dev = true` exposes them.
+One config shape, rendered twice with different `name` and `ROLE`. Both Workers bind the same D1 and R2. No hostname or route — Workers derive their origin from requests; `workers_dev = true` exposes them. The deploy CLI's `renderConfig` (a pure, unit-tested function — `src/deploy/core/config.ts`) emits this in TypeScript, escaping interpolated values; it replaced the original `envsubst` template (decision [0009](decisions/0009-deploy-cli.md)). The placeholders below stand for the values the CLI substitutes per role.
 
 ```toml
-# deploy/wrangler.template.toml
 name = "${NAME}"
-main = "../src/worker.ts"
+main = "../src/worker.ts"          # admin local-dev run points this at src/dev/admin-entry.ts
 compatibility_date = "2025-01-01"
 workers_dev = true
 
@@ -495,7 +495,7 @@ crons = ["0 12 * * *"]                 # daily self-update check; admin Worker a
 Goal: run one script, get a working instance; anything a script can't do is printed as an explicit checklist. Deployment itself is **pure wrangler** — no Cloudflare API token, no DNS, no zone. Enabling Access is a one-time dashboard step (Access app creation isn't cleanly scriptable without an API token), which fits the printed-instructions fallback.
 
 ### Prerequisites
-- `node` + `wrangler` (`wrangler login` once), `jq`, `envsubst`.
+- `node` ≥ 20 + `wrangler` (`wrangler login` once). The operator commands are a TypeScript CLI run via `tsx` (a devDependency, so `npm install` is the only setup — **no `jq`/`envsubst`**); decision [0009](decisions/0009-deploy-cli.md).
 - macOS only for `publish.sh` (signing/notarization), not for deployment.
 
 ### Parameters
@@ -506,81 +506,19 @@ Goal: run one script, get a working instance; anything a script can't do is prin
 | `--email-provider` | no | `cloudflare`, or omit for copy-paste invites (only Cloudflare is implemented) |
 | `--email-from` | no | Sender address on your onboarded sending domain (required if `--email-provider cloudflare`) |
 
-### `deploy/deploy.sh`
+### `deploy/deploy.sh` → the deploy CLI
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
+`deploy/deploy.sh` is a thin wrapper that `exec`s the TypeScript CLI (`npx tsx src/deploy/cli.ts deploy "$@"`); the orchestration lives in `src/deploy/commands/deploy.ts` over the pure core (§18, decision [0009](decisions/0009-deploy-cli.md)). It follows a transparent **inspect → apply** model so nothing mutating happens unannounced:
 
-EMAIL_PROVIDER="none"; EMAIL_FROM=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --instance)        INSTANCE="$2"; shift 2;;
-    --email-provider)  EMAIL_PROVIDER="$2"; shift 2;;  # "cloudflare" or omit
-    --email-from)      EMAIL_FROM="$2"; shift 2;;
-    *) echo "unknown flag: $1" >&2; exit 1;;
-  esac
-done
-: "${INSTANCE:?--instance is required}"
+1. **Preflight** — Node ≥ 20 and `wrangler whoami` (or a `CLOUDFLARE_API_TOKEN` for CI). On failure it prints the reason and the exact fix (e.g. "run `npx wrangler login`") instead of dying mid-run.
+2. **Inspect (read-only)** — `d1 list --json`, `r2 bucket info`, and `secret list` reveal which resources already exist and whether the DB is fresh; defensive parsers (`core/parse.ts`) turn any garbled output into `null`/`[]` rather than throwing. The findings and the exact commands about to run are rendered as grouped panels.
+3. **First-init prompts** — on a fresh DB, interactively prompt for anything not passed as a flag (app name, activate scheme, optional branding; Enter accepts the shown default); skipped under `--dry-run`/non-TTY/`--yes`.
+4. **Apply (after a confirm gate)** — create the D1 database (capture its id) and R2 bucket only if absent; render the two configs with `renderConfig`; `d1 migrations apply` against the shared DB; seed `meta`/demo rows only on a fresh DB (`INSERT OR IGNORE`); `wrangler deploy` both Workers and extract their `*.workers.dev` URLs (validated — a null URL is a hard error, not a silent blank); write `.deploy/<slug>.state.json` (snake_case `instance`/`app_url`/`admin_url`/`d1_id`, kept compatible with `publish.sh`/`teardown.sh`). Live `→`/`✓` per-step progress throughout.
+5. **Access wiring** — given `--access-team-domain`/`--access-aud` (or `--secrets-file`), it sets the secrets and redeploys the admin Worker in one pass; otherwise it prints the manual dashboard step and **waits for the operator to confirm done**, then reads the values back.
 
-RES="alpha-gate-${INSTANCE}"
-TOOL_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
-UPDATE_MANIFEST_URL="${UPDATE_MANIFEST_URL:-https://raw.githubusercontent.com/your-org/alpha-gate/main/release.json}"
-mkdir -p .deploy
+`--dry-run` runs preflight + inspect and renders the plan against a mocked wrangler, touching neither the account nor the local filesystem. A second instance is just another `--instance` (everything is namespaced by the slug).
 
-# 1. D1 (create if absent, capture id)
-D1_ID=$(wrangler d1 list --json | jq -r --arg n "$RES" '.[]|select(.name==$n)|.uuid' || true)
-if [[ -z "$D1_ID" || "$D1_ID" == "null" ]]; then
-  wrangler d1 create "$RES" >/dev/null
-  D1_ID=$(wrangler d1 list --json | jq -r --arg n "$RES" '.[]|select(.name==$n)|.uuid')
-fi
-
-# 2. R2 (create if absent)
-wrangler r2 bucket list | grep -q "^${RES}\b" || wrangler r2 bucket create "$RES" >/dev/null
-
-# 3+4. render config + apply migrations once (against shared DB)
-render() { # role -> writes .deploy/<instance>.<role>.toml
-  local ROLE="$1" NAME="$2"
-  export INSTANCE D1_ID EMAIL_PROVIDER EMAIL_FROM ROLE NAME TOOL_VERSION UPDATE_MANIFEST_URL
-  envsubst < deploy/wrangler.template.toml > ".deploy/${INSTANCE}.${ROLE}.toml"
-}
-render app   "${RES}"
-render admin "${RES}-admin"
-wrangler d1 migrations apply "$RES" --config ".deploy/${INSTANCE}.app.toml" --remote
-
-# 5. deploy both Workers, capture URLs
-APP_URL=$(wrangler deploy --config ".deploy/${INSTANCE}.app.toml"   | grep -oE 'https://[a-z0-9.-]+\.workers\.dev' | head -n1)
-ADM_URL=$(wrangler deploy --config ".deploy/${INSTANCE}.admin.toml" | grep -oE 'https://[a-z0-9.-]+\.workers\.dev' | head -n1)
-
-# 6. state + checklist
-jq -n --arg i "$INSTANCE" --arg a "$APP_URL" --arg m "$ADM_URL" --arg d "$D1_ID" \
-  '{instance:$i, app_url:$a, admin_url:$m, d1_id:$d}' > ".deploy/${INSTANCE}.state.json"
-
-cat <<EOF
-
-Deployed:
-  App   (public) → ${APP_URL}     # users + Sparkle
-  Admin (gated)  → ${ADM_URL}     # back office
-
-Finish setup (manual, one-time):
-  1. Protect the admin Worker with Cloudflare Access:
-       Dashboard → the "${RES}-admin" Worker → Settings → Domains & Routes
-       → enable "Cloudflare Access", then add your email to the policy (one-time PIN).
-  2. Tell the admin Worker its Access identity (for JWT validation):
-       wrangler secret put ACCESS_TEAM_DOMAIN --config .deploy/${INSTANCE}.admin.toml   # yourteam.cloudflareaccess.com
-       wrangler secret put ACCESS_AUD         --config .deploy/${INSTANCE}.admin.toml   # the app's AUD tag
-       wrangler deploy --config .deploy/${INSTANCE}.admin.toml
-  3. Publish the first build (on macOS):  ./publish.sh --instance ${INSTANCE}
-  4. Email (v1, Cloudflare Email Service): to send invite links to arbitrary users,
-       - upgrade the account to Workers Paid,
-       - enable Email Routing and onboard a sending domain (add the DNS records Cloudflare prescribes),
-       - re-run deploy with: --email-provider cloudflare --email-from alpha@<your-sending-domain>
-     Without this, invites are copy-paste links from the admin page (free, no domain).
-
-EOF
-```
-
-The infrastructure is fully automatic; the checklist covers exactly what a script can't: create the Access app (dashboard), feed its AUD back to the Worker, produce a signed/notarized build (macOS), and optionally wire email. A second instance is just another `--instance`.
+The checklist covers exactly what the CLI can't: create the Access app (dashboard), feed its AUD back to the Worker, produce a signed/notarized build (macOS), and optionally wire email.
 
 ---
 
@@ -602,7 +540,7 @@ For a **rollback build**, build the previous code with a bumped `build_number` a
 
 ## 21. Teardown
 
-`deploy/teardown.sh --instance <slug>` reads the state file and removes both Workers, empties and deletes the R2 bucket, and deletes the D1 database (destructive — prompt for confirmation). The Access app is removed from the dashboard. Everything is namespaced, so other instances are untouched.
+`deploy/teardown.sh --instance <slug>` (the same TS CLI, decision [0009](decisions/0009-deploy-cli.md)) is destructive, so it confirms first (type the instance name, or `--yes`). It then **archives the database first** — a full `wrangler d1 export` to `.deploy/<slug>-<timestamp>.sql` (that dump holds live tokens; `--no-archive` skips it; an export failure aborts before anything is destroyed) — and removes both Workers, the D1 database, and the local `.deploy/<slug>.*` files. Everything is namespaced, so other instances are untouched. Two things pure wrangler can't do are printed as a closing checklist: **empty/delete a non-empty R2 bucket** (no bulk-list/empty API without the S3 API + an API token — left in place to empty in the dashboard) and **remove the Cloudflare Access application** for `<slug>-admin`.
 
 ---
 

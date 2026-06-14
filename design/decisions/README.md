@@ -13,3 +13,4 @@ When a decision changes, append to the record (don't silently rewrite) so histor
 | [0006](0006-access-jwt.md) | Access JWT verification: RS256-pinned, fail-closed, service-token scope | M11 |
 | [0007](0007-upload-size-boundary.md) | 100 MB body cap → full-upload vs metadata-only register | M15 |
 | [0008](0008-informational-sentinel.md) | Informational appcast item uses a fixed sentinel version, no enclosure | M4 |
+| [0009](0009-deploy-cli.md) | Deploy/teardown/dev are a TypeScript CLI (pure core + wrangler seam), not bash | §18–§19, §21, §23 |

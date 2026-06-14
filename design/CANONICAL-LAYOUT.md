@@ -72,10 +72,16 @@ src/
   routes/
     app/                    # public: get.ts appcast.ts download.ts assets.ts index.ts (mounts, 404s /admin/*)
     admin/                  # gated: middleware.ts (single mount) clients.ts builds.ts upload.ts branding.ts views.ts index.ts
+  dev/                      # LOCAL-DEV ONLY (never ships): admin-entry.ts — DEV_ADMIN-gated auth shim for dev.sh
+  deploy/                   # the deploy/teardown/dev CLI (decision 0009) — its own node build, run via tsx
+    cli.ts                  # entry: assemble real seams, dispatch deploy|teardown|dev
+    core/                   # PURE — args, config (renderConfig), parse (wrangler-output readers), plan, state, ui/table/colors
+    seams/                  # IMPURE — wrangler (argv spawn), files, io (prompts), clock
+    commands/               # orchestration — deploy.ts / teardown.ts / dev.ts (preflight → inspect → confirm → apply)
 
 migrations/                 # 0001..0006 (0006 = DMG columns, decision 0003)
 templates/invite-email.txt
-deploy/                     # wrangler.template.toml, deploy.sh, teardown.sh
+deploy/                     # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → src/deploy CLI (decision 0009)
 publish.sh  ci-publish.sh   .github/workflows/publish.yml
 VERSION
 

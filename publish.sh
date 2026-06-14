@@ -19,11 +19,12 @@ done
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Resolve the admin URL from the deploy state if not given explicitly.
+# Resolve the admin URL from the deploy state if not given explicitly. Read with node (already required
+# by the deploy CLI) so publish.sh has no extra dependency; a missing field yields "" (caught below).
 if [ -z "${ADMIN_URL}" ] && [ -n "${INSTANCE}" ]; then
   STATE="${ROOT}/.deploy/${INSTANCE}.state.json"
   [ -f "${STATE}" ] || { echo "no deploy state for instance '${INSTANCE}'; pass --admin-url" >&2; exit 1; }
-  ADMIN_URL="$(jq -r '.admin_url' "${STATE}")"
+  ADMIN_URL="$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).admin_url||""))' "${STATE}")"
 fi
 [ -n "${ADMIN_URL}" ] || { echo "--admin-url or --instance is required" >&2; exit 1; }
 

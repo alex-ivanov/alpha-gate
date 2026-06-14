@@ -31,7 +31,8 @@ architecture and rationale see [`../design/DESIGN.md`](../design/DESIGN.md); for
 
 ## Prerequisites
 
-- Node ≥ 20, npm; `jq` and `envsubst` (GNU gettext); a Cloudflare account.
+- Node ≥ 20, npm; a Cloudflare account. (`deploy`/`teardown`/`dev` are a TypeScript CLI run via `tsx`,
+  installed by `npm install` — no `jq`/`envsubst` needed.)
 - `npm install`, then `npx wrangler login` once.
 - macOS only for `publish.sh` (Apple signing/notarization).
 
@@ -42,17 +43,18 @@ architecture and rationale see [`../design/DESIGN.md`](../design/DESIGN.md); for
 ./deploy/deploy.sh --instance myalpha --dry-run # rehearse with wrangler mocked (no account touched)
 ```
 
-It creates the D1 database and R2 bucket if absent, renders `.deploy/myalpha.{app,admin}.toml` from the
-template, applies migrations, deploys both Workers, writes `.deploy/myalpha.state.json`, and prints the
-app + admin URLs and the one-time checklist. **Re-run it to update in place** after `git pull` — D1/R2
+It inspects the account (read-only), creates the D1 database and R2 bucket if absent, renders
+`.deploy/myalpha.{app,admin}.toml`, applies migrations, deploys both Workers, writes
+`.deploy/myalpha.state.json`, and prints the app + admin URLs and the one-time checklist. **Re-run it to update in place** after `git pull` — D1/R2
 are reused, pending migrations applied, both Workers redeployed; tokens/clients/builds/logs are
 preserved. The `--instance` slug must be lowercase letters, digits, and hyphens.
 
-Before doing anything the script runs a **preflight** and, on any failure, prints the reason plus a
-`→` line telling you exactly how to fix it: `jq` and `envsubst` must be installed (even for `--dry-run`),
-and for a real deploy Node ≥ 20 must be present and you must be authenticated to Cloudflare
-(`npx wrangler login`, or a `CLOUDFLARE_API_TOKEN` for CI) — so you get "run `npx wrangler login`"
-up front instead of a cryptic error mid-run. **First init is then guided**: anything you don't pass as a
+Before anything mutating, the CLI runs a **preflight** and, on any failure, prints the reason plus a
+`→` line telling you exactly how to fix it: Node ≥ 20 must be present and (for a real deploy) you must be
+authenticated to Cloudflare (`npx wrangler login`, or a `CLOUDFLARE_API_TOKEN` for CI) — so you get
+"run `npx wrangler login`" up front instead of a cryptic error mid-run. It then does a **read-only
+inspect** pass (which resources exist, whether the DB is fresh) and shows the exact commands it will run
+before the confirm gate. **First init is then guided**: anything you don't pass as a
 flag is prompted for when you run it interactively (press Enter for the shown default), so a new
 instance comes up working almost at once.
 The prompts/flags are:
