@@ -58,6 +58,21 @@ INSTANCE="local" D1_ID="local" EMAIL_PROVIDER="none" EMAIL_FROM="" \
   UPDATE_MANIFEST_URL="https://example.invalid/release.json" SEND_EMAIL="" \
   envsubst < "${ROOT}/deploy/wrangler.template.toml" > "${CFG}"
 
+# 1b. Admin role: there is no Cloudflare Access on localhost, so repoint `main` at the dev-only
+#     entrypoint (src/dev/admin-entry.ts). It runs the real admin app + verifier against a throwaway
+#     keypair and auto-injects a dev assertion so the UI is browser-usable. This rewrite is contained to
+#     dev.sh — the production template/deploy.sh never touch this entry, so it cannot ship.
+if [ "${ROLE}" = "admin" ]; then
+  TMP="$(mktemp)"
+  while IFS= read -r line; do
+    case "${line}" in
+      main\ =*) printf 'main = "../src/dev/admin-entry.ts"\n' ;;
+      *) printf '%s\n' "${line}" ;;
+    esac
+  done < "${CFG}" > "${TMP}"
+  mv "${TMP}" "${CFG}"
+fi
+
 # 2. Apply migrations to the LOCAL database.
 npx wrangler d1 migrations apply "${DB}" --config "${CFG}" --local --persist-to "${STATE_DIR}"
 
@@ -102,12 +117,19 @@ EOF
   fi
 else
   cat <<EOF
-The Admin Worker FAILS CLOSED (403) locally: it verifies a Cloudflare Access JWT that only exists with
-Access in front of the deployed hostname. There is no local auth bypass (by design). Exercise the admin
-logic with \`npm test\` (it stubs the verifier with a throwaway keypair), or deploy a throwaway instance.
+Open the back office: ${BASE}/admin
+LOCAL-DEV AUTH SHIM — there is no Cloudflare Access here, so every request is treated as admin
+'dev@local' (the real verifier runs against a throwaway in-process keypair). This is localhost-only and
+CANNOT ship: the dev entrypoint is never wired into worker.ts or the deploy template, and refuses to
+run without DEV_ADMIN=1. Anyone who can reach :${PORT} is admin while this is up.
 EOF
 fi
 echo "Ctrl-C to stop."
 echo
 
-exec npx wrangler dev --config "${CFG}" --port "${PORT}" --local --persist-to "${STATE_DIR}"
+if [ "${ROLE}" = "admin" ]; then
+  exec npx wrangler dev --config "${CFG}" --port "${PORT}" --local --persist-to "${STATE_DIR}" \
+    --var DEV_ADMIN:1
+else
+  exec npx wrangler dev --config "${CFG}" --port "${PORT}" --local --persist-to "${STATE_DIR}"
+fi

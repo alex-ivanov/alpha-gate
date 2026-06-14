@@ -23,9 +23,17 @@ npm run check      # the full gate: biome + tsc + vitest (all offline)
 `npm test` is the primary validation — it exercises the real handlers offline. `./deploy/dev.sh` is
 for poking the **live HTTP surface** in a browser/curl: it renders a local wrangler config, applies
 migrations to a local DB, seeds a demo client/build, and starts `wrangler dev`. Flags: `--port`,
-`--no-seed`, `--reset`, `--role admin` (the Admin Worker fails closed locally without Cloudflare
-Access — use `npm test` for admin logic). The four things that need a real (throwaway) deploy: Access
-login, Cloudflare email delivery, bucket-lock, and an end-to-end Sparkle client (see DESIGN.md §23).
+`--no-seed`, `--reset`, `--role admin`.
+
+`--role admin` opens the gated back office at `localhost/admin` via a **local-dev auth shim**
+(`src/dev/admin-entry.ts`): it runs the real admin app + Access verifier against a throwaway in-process
+keypair and auto-injects a dev assertion, so the UI (and mutations, audited as `dev@local`) work in a
+browser without Cloudflare Access. It is localhost-only and **cannot ship** — nothing in `worker.ts` or
+the deploy template references it, and it refuses to serve unless `DEV_ADMIN=1` (only `dev.sh` sets it).
+Production admin auth (decision 0006) is unchanged and still covered by `npm test`.
+
+The four things that need a real (throwaway) deploy: Access login (the genuine edge JWT), Cloudflare
+email delivery, bucket-lock, and an end-to-end Sparkle client (see DESIGN.md §23).
 
 `shellcheck` (CI, or `brew install shellcheck` locally) lints the bash scripts.
 
