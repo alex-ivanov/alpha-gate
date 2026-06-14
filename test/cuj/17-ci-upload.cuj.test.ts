@@ -38,6 +38,9 @@ describe("CUJ-17 publish via CI", () => {
       body: form,
     });
     expect(res.status).toBe(201);
+    // CI contract: a service token always gets machine JSON, never an HTML page.
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(await res.json()).toMatchObject({ ok: true, buildNumber: 1500 });
 
     const build = await getByBuildNumber(deps.db, 1500);
     expect(build?.objectKey).toBe("build/1500/App.zip");
@@ -107,5 +110,45 @@ describe("CUJ-17 publish via CI", () => {
     });
     expect(ok.status).toBe(201);
     expect((await getByBuildNumber(deps.db, 1600))?.length).toBe(10);
+  });
+
+  it("a browser upload (human + Accept: text/html) lands on a confirmation page, not JSON", async () => {
+    const form = new FormData();
+    form.set("archive", new File(["ZIPBYTES!"], "App.zip", { type: "application/zip" }));
+    form.set("short_version", "1.4.0");
+    form.set("build_number", "1500");
+    form.set("ed_signature", "ed-sig");
+
+    const res = await adminWorker(access).request("/admin/builds/upload", {
+      method: "POST",
+      headers: { ...tokenHeaders(await access.signValidUser()), Accept: "text/html" },
+      body: form,
+    });
+    expect(res.status).toBe(201);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain("Build published");
+    expect(html).toContain("1500"); // the build number is shown
+    expect(html).toContain("/admin/builds"); // a real way forward
+    expect(html).not.toContain('{"ok"'); // not the raw JSON the browser used to render
+    expect(await getByBuildNumber(deps.db, 1500)).not.toBeNull(); // and it really published
+  });
+
+  it("a browser upload with a bad field gets an HTML error page, not bare text", async () => {
+    const form = new FormData();
+    form.set("archive", new File(["x"], "App.zip"));
+    form.set("short_version", "1.4.0"); // build_number missing
+    form.set("ed_signature", "s");
+
+    const res = await adminWorker(access).request("/admin/builds/upload", {
+      method: "POST",
+      headers: { ...tokenHeaders(await access.signValidUser()), Accept: "text/html" },
+      body: form,
+    });
+    expect(res.status).toBe(400);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain("Upload failed");
+    expect(html).toContain("build_number"); // the specific validation message
   });
 });

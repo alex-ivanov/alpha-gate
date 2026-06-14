@@ -1,8 +1,29 @@
-import type { FC } from "hono/jsx";
+import type { Child, FC } from "hono/jsx";
 import { AdminLayout } from "./layout";
 
 // Result/confirmation pages for admin mutations. InvitePage surfaces the copy-paste link (§13 add
-// user); ConfirmPage is the §11 "this would strand these users — proceed?" gate.
+// user); ConfirmPage is the §11 "this would strand these users — proceed?" gate; ResultPage is the
+// generic success/error landing for a browser form post (the HTML half of content negotiation).
+
+/** Generic outcome page for a browser form submit: a status pill, a message, and a way back. */
+export const ResultPage: FC<{
+  title: string;
+  intent?: "success" | "error";
+  back?: { href: string; label: string };
+  children?: Child;
+}> = ({ title, intent = "success", back, children }) => (
+  <AdminLayout title={title}>
+    <span class={`badge ${intent === "error" ? "warn" : "ok"}`}>
+      {intent === "error" ? "Error" : "Done"}
+    </span>
+    {children}
+    {back ? (
+      <p>
+        <a href={back.href}>{back.label}</a>
+      </p>
+    ) : null}
+  </AdminLayout>
+);
 
 export const InvitePage: FC<{ email: string; getUrl: string }> = ({ email, getUrl }) => (
   <AdminLayout title="Invite created">
