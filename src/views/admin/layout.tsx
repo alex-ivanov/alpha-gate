@@ -28,6 +28,14 @@ const styles = `
   button, .btn { font-size: .8rem; padding: .3rem .6rem; border-radius: 6px; border: 1px solid #d2d2d7;
     background: #fff; cursor: pointer; }
   .empty { color: #6e6e73; padding: 1rem 0; }
+  .addform { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: 0 0 1rem; }
+  .panel { background: #fff; border-radius: 10px; padding: 1.25rem; margin: 1rem 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .panel h2 { font-size: 1rem; margin: 0 0 .75rem; }
+  input, select, textarea { font-size: .9rem; padding: .35rem .5rem; border: 1px solid #d2d2d7;
+    border-radius: 6px; font-family: inherit; }
+  textarea { width: 100%; min-height: 5rem; }
+  .actions a, .actions form { margin-right: .4rem; }
 `;
 
 const NAV = [
@@ -35,6 +43,8 @@ const NAV = [
   ["/admin/users", "Users"],
   ["/admin/builds", "Builds"],
   ["/admin/streams", "Channels"],
+  ["/admin/upload", "Upload"],
+  ["/admin/settings", "Settings"],
   ["/admin/activity", "Activity"],
   ["/admin/audit", "Audit"],
 ] as const;

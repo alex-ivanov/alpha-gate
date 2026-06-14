@@ -202,6 +202,14 @@ describe("computeAffectedUsers (§11 confirmation preview)", () => {
     const action: AdminAction = { type: "restore-build", buildId: 1500 };
     expect(computeAffectedUsers(world, action, installed)).toEqual([]);
   });
+
+  it("deleting a channel strands the users whose only build was served by it", () => {
+    const action: AdminAction = { type: "delete-stream", streamId: STABLE };
+    expect(computeAffectedUsers(baseWorld(), action, installed).sort()).toEqual([
+      "a@example.test",
+      "b@example.test",
+    ]);
+  });
 });
 
 describe("resolveForClient", () => {

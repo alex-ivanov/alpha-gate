@@ -20,13 +20,18 @@ import {
   unpinClient,
 } from "./clients";
 import { adminAuth } from "./middleware";
+import { createStream, deleteStream } from "./streams";
 import { registerBuild, uploadBuild } from "./upload";
 import {
   activityView,
   auditView,
+  buildManageView,
   buildsView,
   dashboardView,
+  settingsView,
   streamsView,
+  uploadView,
+  userManageView,
   usersView,
 } from "./views";
 
@@ -44,10 +49,18 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
 
   app.get("/admin", dashboardView);
   app.get("/admin/users", usersView);
+  app.get("/admin/users/:id", userManageView);
   app.get("/admin/builds", buildsView);
+  app.get("/admin/builds/:id", buildManageView);
   app.get("/admin/streams", streamsView);
+  app.get("/admin/upload", uploadView);
+  app.get("/admin/settings", settingsView);
   app.get("/admin/activity", activityView);
   app.get("/admin/audit", auditView);
+
+  // Channel mutations (§13)
+  app.post("/admin/streams", createStream);
+  app.post("/admin/streams/:id/delete", deleteStream);
 
   // Client mutations (§10/§13)
   app.post("/admin/clients", createClient);

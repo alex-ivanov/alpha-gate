@@ -20,7 +20,8 @@ export type AdminAction =
   | { type: "remove-build-from-stream"; buildId: number; streamId: number }
   | { type: "unassign-user-stream"; clientId: number; streamId: number }
   | { type: "pin-client"; clientId: number; buildId: number }
-  | { type: "unpin-client"; clientId: number };
+  | { type: "unpin-client"; clientId: number }
+  | { type: "delete-stream"; streamId: number };
 
 export type NoBuildState = "servable" | "empty" | "stranded";
 
@@ -125,6 +126,13 @@ export function applyAction(world: World, action: AdminAction): World {
       return { ...world, clients: withPin(world.clients, action.clientId, action.buildId) };
     case "unpin-client":
       return { ...world, clients: withPin(world.clients, action.clientId, null) };
+    case "delete-stream":
+      // The channel and all its assignments/links vanish: builds leave it, users are unassigned.
+      return {
+        ...world,
+        buildStreams: world.buildStreams.filter((link) => link.streamId !== action.streamId),
+        userStreams: world.userStreams.filter((link) => link.streamId !== action.streamId),
+      };
   }
 }
 

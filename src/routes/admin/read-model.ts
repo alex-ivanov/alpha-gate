@@ -1,12 +1,12 @@
 import type { AuditRow } from "../../core/audit-chain";
 import { type NoBuildState, noBuildState, type World } from "../../core/no-build";
-import type { Build } from "../../core/types";
+import type { Build, Client, Stream } from "../../core/types";
 import { type AccessLogEntry, countByBuild, currentBuild, recent } from "../../db/access-log";
 import { listInOrder } from "../../db/admin-audit";
-import { listAll, listBuildStreams } from "../../db/builds";
-import { list as listClients } from "../../db/clients";
+import { getById as getBuildById, listAll, listAvailable, listBuildStreams } from "../../db/builds";
+import { getById as getClientById, list as listClients } from "../../db/clients";
 import { getAll as getAllMeta } from "../../db/meta";
-import { list as listStreams, listUserStreams } from "../../db/streams";
+import { list as listStreams, listUserStreams, streamIdsForClient } from "../../db/streams";
 import type { Deps } from "../../deps";
 
 // Impure read-model assembly: queries the db and shapes view-ready data so the admin views stay pure.
@@ -127,6 +127,62 @@ export async function loadValidationWorld(
     if (build !== null) installed.set(client.id, build);
   }
   return { world, installed };
+}
+
+/** Users list + the channels the "Add user" form / assign controls need. */
+export async function loadUsersPage(
+  deps: Deps,
+): Promise<{ users: UserView[]; channels: Stream[] }> {
+  return { users: await loadUsers(deps), channels: await listStreams(deps.db) };
+}
+
+export interface UserDetail {
+  client: Client;
+  channels: Stream[];
+  assignedStreamIds: number[];
+  availableBuilds: Build[];
+  currentBuild: number | null;
+}
+
+/** One user with everything the manage page needs (channels to assign, builds to pin). */
+export async function loadUser(deps: Deps, id: number): Promise<UserDetail | null> {
+  const client = await getClientById(deps.db, id);
+  if (client === null) return null;
+  return {
+    client,
+    channels: await listStreams(deps.db),
+    assignedStreamIds: await streamIdsForClient(deps.db, id),
+    availableBuilds: await listAvailable(deps.db),
+    currentBuild: await currentBuild(deps.db, id),
+  };
+}
+
+export interface BuildDetail {
+  build: Build;
+  channels: Stream[];
+  linkedStreamIds: number[];
+}
+
+/** One build with all channels + which it's linked to (for the link/unlink controls). */
+export async function loadBuildDetail(deps: Deps, id: number): Promise<BuildDetail | null> {
+  const build = await getBuildById(deps.db, id);
+  if (build === null) return null;
+  const links = await listBuildStreams(deps.db);
+  return {
+    build,
+    channels: await listStreams(deps.db),
+    linkedStreamIds: links.filter((link) => link.buildId === id).map((link) => link.streamId),
+  };
+}
+
+/** Channels for the upload form's channel select. */
+export function loadChannels(deps: Deps): Promise<Stream[]> {
+  return listStreams(deps.db);
+}
+
+/** Current meta values to prefill the branding/settings form. */
+export function loadSettings(deps: Deps): Promise<Record<string, string>> {
+  return getAllMeta(deps.db);
 }
 
 export function loadActivity(deps: Deps): Promise<AccessLogEntry[]> {

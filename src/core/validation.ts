@@ -40,6 +40,8 @@ function guardAction(action: AdminAction): string | null {
         : "clientId and buildId must be positive integers";
     case "unpin-client":
       return isPositiveInt(action.clientId) ? null : "clientId must be a positive integer";
+    case "delete-stream":
+      return isPositiveInt(action.streamId) ? null : "streamId must be a positive integer";
   }
 }
 

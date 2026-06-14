@@ -1,11 +1,13 @@
 import type { FC } from "hono/jsx";
 import type { AuditRow } from "../../core/audit-chain";
+import type { Stream } from "../../core/types";
 import type { AccessLogEntry } from "../../db/access-log";
 import type { BuildView, Dashboard, StreamView, UserView } from "../../routes/admin/read-model";
+import { Post } from "./forms";
 import { AdminLayout, NoBuildBadge } from "./layout";
 
-// The §13 read-only back-office pages — pure tables over the read-model. Mutation forms (manage,
-// upload, branding) land with their handlers in M13+.
+// The §13 back-office list pages — tables over the read-model, now with the Add forms and per-row
+// action buttons that POST to the (tested) mutation handlers. Per-entity detail pages live in manage.tsx.
 
 export const DashboardPage: FC<{ data: Dashboard }> = ({ data }) => (
   <AdminLayout title="Dashboard">
@@ -35,8 +37,20 @@ export const DashboardPage: FC<{ data: Dashboard }> = ({ data }) => (
   </AdminLayout>
 );
 
-export const UsersPage: FC<{ users: UserView[] }> = ({ users }) => (
+export const UsersPage: FC<{ users: UserView[]; channels: Stream[] }> = ({ users, channels }) => (
   <AdminLayout title="Users">
+    <form method="post" action="/admin/clients" class="addform">
+      <input type="email" name="email" placeholder="email" required />
+      <input type="text" name="label" placeholder="label (optional)" />
+      <select name="streamId">
+        <option value="">— channel (optional) —</option>
+        {channels.map((s) => (
+          <option value={s.id}>{s.name}</option>
+        ))}
+      </select>
+      <button type="submit">Add user</button>
+    </form>
+
     {users.length === 0 ? (
       <p class="empty">No users yet.</p>
     ) : (
@@ -49,6 +63,7 @@ export const UsersPage: FC<{ users: UserView[] }> = ({ users }) => (
             <th>Installed</th>
             <th>Pinned</th>
             <th>State</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -62,6 +77,13 @@ export const UsersPage: FC<{ users: UserView[] }> = ({ users }) => (
               <td>
                 <NoBuildBadge state={u.noBuild} />
               </td>
+              <td class="actions">
+                <a href={`/admin/users/${u.id}`}>Manage</a>
+                {u.status === "active" ? (
+                  <Post action={`/admin/clients/${u.id}/revoke`} label="Revoke" />
+                ) : null}
+                <Post action={`/admin/clients/${u.id}/reissue`} label="Reissue" />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -73,7 +95,7 @@ export const UsersPage: FC<{ users: UserView[] }> = ({ users }) => (
 export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
   <AdminLayout title="Builds">
     {builds.length === 0 ? (
-      <p class="empty">No builds published yet.</p>
+      <p class="empty">No builds published yet. Use Upload (or CI) to publish one.</p>
     ) : (
       <table>
         <thead>
@@ -83,8 +105,9 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
             <th>Status</th>
             <th>Critical</th>
             <th>Channels</th>
-            <th>Downloads</th>
-            <th>Updates</th>
+            <th>DL</th>
+            <th>Upd</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -97,6 +120,19 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
               <td>{b.streams.join(", ") || <span class="muted">—</span>}</td>
               <td>{b.downloads}</td>
               <td>{b.updates}</td>
+              <td class="actions">
+                <a href={`/admin/builds/${b.build.id}`}>Manage</a>
+                {b.build.status === "available" ? (
+                  <Post action={`/admin/builds/${b.build.id}/withdraw`} label="Withdraw" />
+                ) : (
+                  <Post action={`/admin/builds/${b.build.id}/restore`} label="Restore" />
+                )}
+                <Post
+                  action={`/admin/builds/${b.build.id}/critical`}
+                  label={b.build.critical ? "Clear critical" : "Mark critical"}
+                  hidden={{ critical: b.build.critical ? "false" : "true" }}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -107,6 +143,11 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
 
 export const StreamsPage: FC<{ streams: StreamView[] }> = ({ streams }) => (
   <AdminLayout title="Channels">
+    <form method="post" action="/admin/streams" class="addform">
+      <input type="text" name="name" placeholder="channel name (e.g. stable)" required />
+      <button type="submit">Add channel</button>
+    </form>
+
     {streams.length === 0 ? (
       <p class="empty">No channels yet.</p>
     ) : (
@@ -116,6 +157,7 @@ export const StreamsPage: FC<{ streams: StreamView[] }> = ({ streams }) => (
             <th>Channel</th>
             <th>Builds</th>
             <th>Users</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -124,6 +166,9 @@ export const StreamsPage: FC<{ streams: StreamView[] }> = ({ streams }) => (
               <td>{s.name}</td>
               <td>{s.buildCount}</td>
               <td>{s.userCount}</td>
+              <td class="actions">
+                <Post action={`/admin/streams/${s.id}/delete`} label="Delete" />
+              </td>
             </tr>
           ))}
         </tbody>
