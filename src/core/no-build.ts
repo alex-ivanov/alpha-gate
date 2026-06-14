@@ -86,7 +86,19 @@ export function computeAffectedUsers(
   action: AdminAction,
   installed: ReadonlyMap<number, number> = new Map(),
 ): string[] {
-  const after = applyAction(world, action);
+  return computeAffectedUsersForActions(world, [action], installed);
+}
+
+/**
+ * Like {@link computeAffectedUsers} but for a batch applied together — the §13 #3 bulk withdraw shows
+ * the union of everyone the whole selection would strand, so the operator confirms once for the lot.
+ */
+export function computeAffectedUsersForActions(
+  world: World,
+  actions: readonly AdminAction[],
+  installed: ReadonlyMap<number, number> = new Map(),
+): string[] {
+  const after = applyActions(world, actions);
   const affected: string[] = [];
 
   for (const client of world.clients) {
@@ -99,6 +111,11 @@ export function computeAffectedUsers(
     }
   }
   return affected;
+}
+
+/** Fold a sequence of actions into the world (the bulk operations apply several at once). */
+export function applyActions(world: World, actions: readonly AdminAction[]): World {
+  return actions.reduce(applyAction, world);
 }
 
 /** Pure transform: a new World with `action` applied. */

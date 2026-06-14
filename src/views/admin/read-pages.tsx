@@ -178,48 +178,71 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
     {builds.length === 0 ? (
       <p class="empty">No builds published yet. Use Upload (or CI) to publish one.</p>
     ) : (
-      <table>
-        <thead>
-          <tr>
-            <th>Build</th>
-            <th>Version</th>
-            <th>Status</th>
-            <th>Critical</th>
-            <th>Channels</th>
-            <th>DL</th>
-            <th>Upd</th>
-            <th>Last activity</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {builds.map((b) => (
+      <div>
+        {/* Bulk-action bar (§13 #3). The row checkboxes live in the table but bind here via the HTML
+            `form` attribute — HTML forbids nesting the per-row action <form>s inside this one. */}
+        <form method="post" action="/admin/builds/bulk" id="bulk" class="addform">
+          <span class="muted">With checked builds:</span>
+          <button type="submit" name="op" value="withdraw">
+            Withdraw
+          </button>
+          <button type="submit" name="op" value="critical">
+            Mark critical
+          </button>
+          <button type="submit" name="op" value="uncritical">
+            Clear critical
+          </button>
+        </form>
+
+        <table>
+          <thead>
             <tr>
-              <td>{b.build.buildNumber}</td>
-              <td>{b.build.shortVersion}</td>
-              <td>{b.build.status}</td>
-              <td>{b.build.critical ? "yes" : <span class="muted">—</span>}</td>
-              <td>{b.streams.join(", ") || <span class="muted">—</span>}</td>
-              <td>{b.downloads}</td>
-              <td>{b.updates}</td>
-              <td class="muted">{b.lastActivity ?? "—"}</td>
-              <td class="actions">
-                <a href={`/admin/builds/${b.build.id}`}>Manage</a>
-                {b.build.status === "available" ? (
-                  <Post action={`/admin/builds/${b.build.id}/withdraw`} label="Withdraw" />
-                ) : (
-                  <Post action={`/admin/builds/${b.build.id}/restore`} label="Restore" />
-                )}
-                <Post
-                  action={`/admin/builds/${b.build.id}/critical`}
-                  label={b.build.critical ? "Clear critical" : "Mark critical"}
-                  hidden={{ critical: b.build.critical ? "false" : "true" }}
-                />
-              </td>
+              <th />
+              <th>Build</th>
+              <th>Version</th>
+              <th>Status</th>
+              <th>Critical</th>
+              <th>Rollback</th>
+              <th>Channels</th>
+              <th>DL</th>
+              <th>Upd</th>
+              <th>Last activity</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {builds.map((b) => (
+              <tr>
+                <td>
+                  <input type="checkbox" name="id" value={b.build.id} form="bulk" />
+                </td>
+                <td>{b.build.buildNumber}</td>
+                <td>{b.build.shortVersion}</td>
+                <td>{b.build.status}</td>
+                <td>{b.build.critical ? "yes" : <span class="muted">—</span>}</td>
+                <td>{b.build.rollbackTarget ? "target" : <span class="muted">—</span>}</td>
+                <td>{b.streams.join(", ") || <span class="muted">—</span>}</td>
+                <td>{b.downloads}</td>
+                <td>{b.updates}</td>
+                <td class="muted">{b.lastActivity ?? "—"}</td>
+                <td class="actions">
+                  <a href={`/admin/builds/${b.build.id}`}>Manage</a>
+                  {b.build.status === "available" ? (
+                    <Post action={`/admin/builds/${b.build.id}/withdraw`} label="Withdraw" />
+                  ) : (
+                    <Post action={`/admin/builds/${b.build.id}/restore`} label="Restore" />
+                  )}
+                  <Post
+                    action={`/admin/builds/${b.build.id}/critical`}
+                    label={b.build.critical ? "Clear critical" : "Mark critical"}
+                    hidden={{ critical: b.build.critical ? "false" : "true" }}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     )}
   </AdminLayout>
 );

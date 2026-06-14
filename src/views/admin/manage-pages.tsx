@@ -44,3 +44,34 @@ export const ConfirmPage: FC<{
     </p>
   </AdminLayout>
 );
+
+/** The §11 confirm for a bulk operation (§13 #3): re-posts the op and every selected id on confirm. */
+export const BulkConfirmPage: FC<{
+  op: string;
+  ids: number[];
+  affected: string[];
+  postTo: string;
+}> = ({ op, ids, affected, postTo }) => (
+  <AdminLayout title="Confirm">
+    <p>
+      Bulk <strong>{op}</strong> of {ids.length} build(s) would leave these users with no available
+      build:
+    </p>
+    <ul>
+      {affected.map((email) => (
+        <li>{email}</li>
+      ))}
+    </ul>
+    <form method="post" action={postTo}>
+      <input type="hidden" name="op" value={op} />
+      <input type="hidden" name="confirm" value="true" />
+      {ids.map((id) => (
+        <input type="hidden" name="id" value={String(id)} />
+      ))}
+      <button type="submit">Confirm anyway</button>
+    </form>
+    <p>
+      <a href="/admin/builds">Cancel</a>
+    </p>
+  </AdminLayout>
+);

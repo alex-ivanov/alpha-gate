@@ -31,6 +31,7 @@ export function aBuild(overrides: Partial<Build> = {}): Build {
     length: 1024,
     minOs: null,
     critical: false,
+    rollbackTarget: false,
     status: "available",
     dmgObjectKey: null,
     dmgLength: null,

@@ -31,6 +31,8 @@ export interface Build {
   length: number;
   minOs: string | null;
   critical: boolean;
+  /** §9/§13 operator marker: a designated rollback (roll-forward) target. Label only — see §9. */
+  rollbackTarget: boolean;
   status: BuildStatus;
   /** Optional first-install DMG (decision 0003); no EdDSA — notarization seals it. */
   dmgObjectKey: string | null;

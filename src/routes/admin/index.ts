@@ -4,8 +4,10 @@ import type { Env } from "../../env";
 import type { AdminEnv } from "./admin-context";
 import { saveBranding } from "./branding";
 import {
+  bulkBuilds,
   linkBuildStream,
   markCritical,
+  markRollbackTarget,
   restoreBuild,
   unlinkBuildStream,
   withdrawBuild,
@@ -88,10 +90,13 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   // Branding + invite template (§13) — human only
   app.post("/admin/branding", saveBranding);
 
-  // Build mutations (§9/§10/§11)
+  // Build mutations (§9/§10/§11). The literal /bulk is mounted before the :id forms (no collision —
+  // distinct paths — but kept adjacent to the per-build mutations it batches).
+  app.post("/admin/builds/bulk", bulkBuilds);
   app.post("/admin/builds/:id/withdraw", withdrawBuild);
   app.post("/admin/builds/:id/restore", restoreBuild);
   app.post("/admin/builds/:id/critical", markCritical);
+  app.post("/admin/builds/:id/rollback", markRollbackTarget);
   app.post("/admin/builds/:id/streams/link", linkBuildStream);
   app.post("/admin/builds/:id/streams/unlink", unlinkBuildStream);
 

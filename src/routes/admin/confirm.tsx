@@ -1,6 +1,6 @@
 import type { AdminAction } from "../../core/no-build";
-import { validateAction } from "../../core/validation";
-import { ConfirmPage } from "../../views/admin/manage-pages";
+import { validateAction, validateActions } from "../../core/validation";
+import { BulkConfirmPage, ConfirmPage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { loadValidationWorld } from "./read-model";
@@ -27,6 +27,28 @@ export async function guardStranding(
           postTo={postTo}
           hidden={{ ...hidden, confirm: "true" }}
         />,
+      ),
+    );
+  }
+  return null;
+}
+
+/** §11 gate for a batch applied together (the §13 #3 bulk withdraw). Same contract as guardStranding. */
+export async function guardStrandingBatch(
+  c: AdminContext,
+  actions: AdminAction[],
+  confirmed: boolean,
+  postTo: string,
+  op: string,
+  ids: number[],
+): Promise<Response | null> {
+  const { world, installed } = await loadValidationWorld(c.get("deps"));
+  const result = validateActions(world, actions, installed);
+  if (!result.ok) return c.text(result.error, 400);
+  if (result.needsConfirm && !confirmed) {
+    return c.html(
+      renderPage(
+        <BulkConfirmPage op={op} ids={ids} affected={result.affectedEmails} postTo={postTo} />,
       ),
     );
   }

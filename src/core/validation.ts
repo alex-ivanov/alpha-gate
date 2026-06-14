@@ -1,4 +1,4 @@
-import { type AdminAction, computeAffectedUsers, type World } from "./no-build";
+import { type AdminAction, computeAffectedUsersForActions, type World } from "./no-build";
 
 // §11 — pre-mutation validation. Actions that would strand users are confirmed, not blocked: the
 // caller computes the affected set up front, shows it, and proceeds only on confirm. This module also
@@ -13,10 +13,20 @@ export function validateAction(
   action: AdminAction,
   installed?: ReadonlyMap<number, number>,
 ): ValidationResult {
-  const guardError = guardAction(action);
-  if (guardError !== null) return { ok: false, error: guardError };
+  return validateActions(world, [action], installed);
+}
 
-  const affectedEmails = computeAffectedUsers(world, action, installed);
+/** Validate a batch applied together (§13 #3 bulk withdraw): one combined confirm for the selection. */
+export function validateActions(
+  world: World,
+  actions: readonly AdminAction[],
+  installed?: ReadonlyMap<number, number>,
+): ValidationResult {
+  for (const action of actions) {
+    const guardError = guardAction(action);
+    if (guardError !== null) return { ok: false, error: guardError };
+  }
+  const affectedEmails = computeAffectedUsersForActions(world, actions, installed);
   return { ok: true, needsConfirm: affectedEmails.length > 0, affectedEmails };
 }
 

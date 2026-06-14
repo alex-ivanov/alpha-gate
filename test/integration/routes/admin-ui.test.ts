@@ -48,12 +48,25 @@ describe("admin operation pages", () => {
     expect(html).toContain("/reissue");
   });
 
-  it("builds page has withdraw/critical actions and a manage link", async () => {
+  it("builds page has withdraw/critical actions, a manage link, and the bulk bar", async () => {
     await seedServableClient(deps, { buildNumber: 1500 });
     const html = await getAdmin("/admin/builds");
     expect(html).toContain("/withdraw");
     expect(html).toContain("/critical");
     expect(html).toContain("/admin/builds/");
+    expect(html).toContain('action="/admin/builds/bulk"'); // bulk form
+    expect(html).toContain('name="id"'); // selection checkboxes
+    expect(html).toContain('value="withdraw"'); // bulk op button
+    expect(html).toContain("Rollback"); // rollback column header
+  });
+
+  it("build manage page shows the EdDSA signature, length, and the rollback toggle", async () => {
+    const { build } = await seedServableClient(deps, { buildNumber: 1500 });
+    const html = await getAdmin(`/admin/builds/${build.id}`);
+    expect(html).toContain("ed-sig"); // the EdDSA signature value
+    expect(html).toContain("Enclosure length");
+    expect(html).toContain(`/admin/builds/${build.id}/rollback`); // rollback toggle form
+    expect(html).toContain("rollback target"); // designate label
   });
 
   it("upload page renders a multipart upload form to the upload endpoint", async () => {

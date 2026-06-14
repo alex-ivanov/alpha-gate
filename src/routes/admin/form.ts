@@ -12,4 +12,19 @@ export function toId(raw: string | null | undefined): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/**
+ * Collects repeated form values for `name` into deduped positive-int ids — the bulk checkboxes post
+ * the same field name N times, so the handler must parse with parseBody({ all: true }) (arrays).
+ */
+export function idList(body: Record<string, unknown>, name: string): number[] {
+  const raw = body[name];
+  const values = Array.isArray(raw) ? raw : raw === undefined ? [] : [raw];
+  const ids = new Set<number>();
+  for (const value of values) {
+    const id = toId(typeof value === "string" ? value : undefined);
+    if (id !== null) ids.add(id);
+  }
+  return [...ids];
+}
+
 export { isEmail } from "../../lib/text";

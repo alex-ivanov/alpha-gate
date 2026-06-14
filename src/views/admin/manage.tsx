@@ -84,7 +84,56 @@ export const BuildManagePage: FC<{ detail: BuildDetail }> = ({ detail }) => {
     <AdminLayout title={`Build · ${build.buildNumber}`}>
       <p class="muted">
         {build.shortVersion} · {build.status} · {build.critical ? "critical" : "not critical"}
+        {build.rollbackTarget ? " · rollback target" : ""}
       </p>
+
+      <div class="panel">
+        <h2>Artifact (§13 #7)</h2>
+        <table class="kv">
+          <tbody>
+            <tr>
+              <td>Build number</td>
+              <td>{build.buildNumber}</td>
+            </tr>
+            <tr>
+              <td>Short version</td>
+              <td>{build.shortVersion}</td>
+            </tr>
+            <tr>
+              <td>Minimum macOS</td>
+              <td>{build.minOs ?? <span class="muted">—</span>}</td>
+            </tr>
+            <tr>
+              <td>Enclosure length</td>
+              <td>{build.length} bytes</td>
+            </tr>
+            <tr>
+              <td>EdDSA signature</td>
+              <td>
+                <code>{build.edSignature}</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Archive key</td>
+              <td>
+                <code>{build.objectKey}</code>
+              </td>
+            </tr>
+            <tr>
+              <td>First-install DMG</td>
+              <td>
+                {build.dmgObjectKey ? (
+                  <code>
+                    {build.dmgObjectKey} ({build.dmgLength ?? "?"} bytes)
+                  </code>
+                ) : (
+                  <span class="muted">—</span>
+                )}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="panel actions">
         <h2>State</h2>
@@ -97,6 +146,11 @@ export const BuildManagePage: FC<{ detail: BuildDetail }> = ({ detail }) => {
           action={`/admin/builds/${build.id}/critical`}
           label={build.critical ? "Clear critical" : "Mark critical"}
           hidden={{ critical: build.critical ? "false" : "true" }}
+        />
+        <Post
+          action={`/admin/builds/${build.id}/rollback`}
+          label={build.rollbackTarget ? "Clear rollback target" : "Designate rollback target"}
+          hidden={{ rollback: build.rollbackTarget ? "false" : "true" }}
         />
       </div>
 

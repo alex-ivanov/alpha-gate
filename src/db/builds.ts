@@ -13,6 +13,7 @@ interface BuildRow {
   length: number;
   min_os: string | null;
   critical: number;
+  rollback_target: number;
   status: string;
   dmg_object_key: string | null;
   dmg_length: number | null;
@@ -29,6 +30,7 @@ function toBuild(row: BuildRow): Build {
     length: row.length,
     minOs: row.min_os,
     critical: row.critical !== 0,
+    rollbackTarget: row.rollback_target !== 0,
     status: row.status as BuildStatus,
     dmgObjectKey: row.dmg_object_key,
     dmgLength: row.dmg_length,
@@ -102,6 +104,17 @@ export async function setStatus(db: D1Database, id: number, status: BuildStatus)
 
 export async function setCritical(db: D1Database, id: number, critical: boolean): Promise<void> {
   await execute(db, "UPDATE builds SET critical = ? WHERE id = ?", [critical ? 1 : 0, id]);
+}
+
+export async function setRollbackTarget(
+  db: D1Database,
+  id: number,
+  rollbackTarget: boolean,
+): Promise<void> {
+  await execute(db, "UPDATE builds SET rollback_target = ? WHERE id = ?", [
+    rollbackTarget ? 1 : 0,
+    id,
+  ]);
 }
 
 export async function linkStream(db: D1Database, buildId: number, streamId: number): Promise<void> {

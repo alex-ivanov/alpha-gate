@@ -9,6 +9,7 @@ import {
   listAvailable,
   listBuildStreams,
   setCritical,
+  setRollbackTarget,
   setStatus,
   unlinkStream,
 } from "../../../src/db/builds";
@@ -64,6 +65,15 @@ describe("builds db", () => {
     const a = await insert(db, newBuild(1500));
     await setCritical(db, a.id, true);
     expect((await getById(db, a.id))?.critical).toBe(true);
+  });
+
+  it("toggles the rollback-target marker (defaults off)", async () => {
+    const a = await insert(db, newBuild(1500));
+    expect(a.rollbackTarget).toBe(false);
+    await setRollbackTarget(db, a.id, true);
+    expect((await getById(db, a.id))?.rollbackTarget).toBe(true);
+    await setRollbackTarget(db, a.id, false);
+    expect((await getById(db, a.id))?.rollbackTarget).toBe(false);
   });
 
   it("links and unlinks streams (idempotent insert) and lists the links", async () => {
