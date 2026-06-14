@@ -14,7 +14,19 @@ export const DashboardPage: FC<{ data: Dashboard }> = ({ data }) => (
   <AdminLayout title="Dashboard">
     {data.selfUpdate.available ? (
       <p class="badge warn">
-        Alpha Gate {data.selfUpdate.latest} is available — re-run deploy.sh to update.
+        Alpha Gate {data.selfUpdate.latest} is available
+        {data.selfUpdate.breaking ? " (breaking changes)" : ""} — re-run deploy.sh to update.
+        {data.selfUpdate.notesUrl ? (
+          <>
+            {" "}
+            <a href={data.selfUpdate.notesUrl}>Release notes</a>.
+          </>
+        ) : null}
+      </p>
+    ) : null}
+    {data.selfUpdate.belowMinSupported ? (
+      <p class="badge warn">
+        This version is below the minimum supported — update soon to stay secure.
       </p>
     ) : null}
     <div class="cards">

@@ -47,6 +47,11 @@ app + admin URLs and the one-time checklist. **Re-run it to update in place** af
 are reused, pending migrations applied, both Workers redeployed; tokens/clients/builds/logs are
 preserved. The `--instance` slug must be lowercase letters, digits, and hyphens.
 
+The script checks its prerequisites (`jq`, `envsubst`, and — outside `--dry-run` — `npx`) before doing
+anything. To enable email add `--email-provider cloudflare --email-from alpha@<your-domain>`;
+`--email-from` is **required** in that mode (delivery would silently fail without a verified sender).
+The Cloudflare Email Service binding is rendered onto the **admin Worker only**, never the public app.
+
 ## Enable Cloudflare Access
 
 The admin URL is public until you put Cloudflare Access in front of it.
@@ -192,8 +197,15 @@ Sparkle can't downgrade, so "withdraw a bad version" is a **roll-forward**:
 
 Each deployment is stamped with `TOOL_VERSION` (from `VERSION`) and a daily cron checks
 `UPDATE_MANIFEST_URL` (default: the repo's `release.json`). When a newer version exists, the admin
-dashboard shows a banner and — if email is configured — the operator is emailed once per version. To
-update: `git pull` and re-run `deploy.sh --instance <slug>`. Forks repoint or disable the manifest.
+dashboard shows a banner — noting **breaking changes** and a **release-notes link** when the manifest
+supplies them — and a separate warning if the running version is **below `min_supported`**. If email
+is configured, the operator is emailed once per version (with the notes link). To update: `git pull`
+and re-run `deploy.sh --instance <slug>`. Forks repoint or disable the manifest.
+
+**`release.json`** is the manifest this project publishes for its *own* self-update: `latest`,
+`min_supported`, `notes_url`, `breaking`. Keep `latest` in sync with `VERSION` on each release, and
+set `breaking` / bump `min_supported` when an upgrade needs manual steps. `notes_url` is treated as
+untrusted — only `http(s)` links are surfaced.
 
 ## Audit & breach detection
 

@@ -98,18 +98,24 @@ export interface AccessVerifier {
   verify(headers: Headers): Promise<AccessResult>;
 }
 
+/** A JWKS fetcher: returns the team keys, optionally told which `kid` is wanted (cache refetch hint). */
+export type JwksFetcher = (
+  teamDomain: string,
+  sel?: { kid?: string | null },
+) => Promise<readonly Jwk[]>;
+
 export interface AccessConfig {
   teamDomain: string | undefined;
   aud: string | undefined;
-  fetchJwks: (teamDomain: string) => Promise<readonly Jwk[]>;
+  fetchJwks: JwksFetcher;
   now: () => number;
 }
 
 /**
- * The Deps seam. Reads the Access assertion header, fetches the team JWKS (behind fetchJwks), and
- * verifies — failing closed on missing config, a missing header, or a JWKS fetch failure. (A
- * cross-request JWKS cache is a perf optimization deferred for the alpha; fetching fresh per request
- * is correct and naturally handles key rotation.)
+ * The Deps seam. Reads the Access assertion header, fetches the team JWKS (behind fetchJwks — in
+ * production a Worker-global cache, see createCachedJwksFetcher), and verifies — failing closed on
+ * missing config, a missing header, or a JWKS fetch failure. The token's `kid` is passed to the
+ * fetcher so the cache can force a refetch when an unknown key id appears (Cloudflare key rotation).
  */
 export function createAccessVerifier(config: AccessConfig): AccessVerifier {
   return {
@@ -122,7 +128,7 @@ export function createAccessVerifier(config: AccessConfig): AccessVerifier {
 
       let jwks: readonly Jwk[];
       try {
-        jwks = await config.fetchJwks(config.teamDomain);
+        jwks = await config.fetchJwks(config.teamDomain, { kid: extractKid(token) });
       } catch {
         return reject("JWKS fetch failed");
       }
@@ -137,11 +143,57 @@ export function createAccessVerifier(config: AccessConfig): AccessVerifier {
   };
 }
 
+/** Reads the unverified `kid` from a JWT header (drives the cache refetch); null if absent/garbled. */
+export function extractKid(token: string): string | null {
+  const dot = token.indexOf(".");
+  if (dot <= 0) return null;
+  try {
+    const header = JSON.parse(decodeText(token.slice(0, dot))) as Record<string, unknown>;
+    return typeof header.kid === "string" ? header.kid : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function defaultFetchJwks(teamDomain: string): Promise<readonly Jwk[]> {
   const res = await fetch(`https://${teamDomain}/cdn-cgi/access/certs`);
   if (!res.ok) throw new Error(`JWKS fetch returned ${res.status}`);
   const body = (await res.json()) as { keys?: Jwk[] };
   return body.keys ?? [];
+}
+
+export interface CachedJwksOptions {
+  /** The clock seam (unix seconds) — kept injectable so the TTL is deterministic in tests. */
+  now: () => number;
+  /** The underlying network fetch; defaults to defaultFetchJwks. */
+  fetchJwks?: (teamDomain: string) => Promise<readonly Jwk[]>;
+  /** Cache lifetime; decision 0006 calls for ~10–15 min. Default 600s. */
+  ttlSeconds?: number;
+}
+
+/**
+ * decision 0006 — a JWKS fetcher with a cache keyed by team domain and a short TTL, plus a forced
+ * refetch when the requested `kid` is absent from the cached set (so a Cloudflare key rotation is
+ * picked up at once instead of failing for up to the TTL). Create ONCE at module scope so the cache
+ * lives in Worker-global scope and survives across requests in the same isolate.
+ */
+export function createCachedJwksFetcher(options: CachedJwksOptions): JwksFetcher {
+  const fetchJwks = options.fetchJwks ?? defaultFetchJwks;
+  const ttlSeconds = options.ttlSeconds ?? 600;
+  const cache = new Map<string, { keys: readonly Jwk[]; fetchedAt: number }>();
+
+  return async (teamDomain, sel) => {
+    const entry = cache.get(teamDomain);
+    const fresh = entry !== undefined && options.now() - entry.fetchedAt < ttlSeconds;
+    const wantedKid = sel?.kid ?? null;
+    const hasKid =
+      entry !== undefined && (wantedKid === null || entry.keys.some((k) => k.kid === wantedKid));
+    if (entry !== undefined && fresh && hasKid) return entry.keys;
+
+    const keys = await fetchJwks(teamDomain);
+    cache.set(teamDomain, { keys, fetchedAt: options.now() });
+    return keys;
+  };
 }
 
 function decodeBytes(base64url: string): Uint8Array {

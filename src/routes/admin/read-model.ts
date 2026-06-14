@@ -53,13 +53,32 @@ export interface StreamView {
   userCount: number;
 }
 
+export interface SelfUpdateView {
+  available: boolean;
+  latest: string | null;
+  breaking: boolean;
+  belowMinSupported: boolean;
+  notesUrl: string | null;
+}
+
 export interface Dashboard {
   users: number;
   builds: number;
   streams: number;
   noBuild: number;
   pendingRequests: number;
-  selfUpdate: { available: boolean; latest: string | null };
+  selfUpdate: SelfUpdateView;
+}
+
+/** Reads the §22 self-update status the daily cron persisted into `meta`. */
+export function selfUpdateView(m: Record<string, string>): SelfUpdateView {
+  return {
+    available: m.selfupdate_available === "1",
+    latest: m.selfupdate_latest || null,
+    breaking: m.selfupdate_breaking === "1",
+    belowMinSupported: m.selfupdate_below_min === "1",
+    notesUrl: m.selfupdate_notes_url || null,
+  };
 }
 
 async function loadWorld(deps: Deps) {
@@ -134,7 +153,7 @@ export async function loadDashboard(deps: Deps): Promise<Dashboard> {
     streams: streams.length,
     noBuild: users.filter((user) => user.noBuild !== "servable").length,
     pendingRequests: await countPending(deps.db),
-    selfUpdate: { available: m.selfupdate_available === "1", latest: m.selfupdate_latest ?? null },
+    selfUpdate: selfUpdateView(m),
   };
 }
 

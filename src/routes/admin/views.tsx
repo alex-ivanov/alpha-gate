@@ -32,6 +32,7 @@ import {
   loadStreams,
   loadUser,
   loadUsersPage,
+  selfUpdateView,
 } from "./read-model";
 
 // §13 — the admin GET pages. Each loads its read-model and renders the matching pure view.
@@ -103,10 +104,7 @@ export async function settingsView(c: AdminContext): Promise<Response> {
     emailFrom: env.EMAIL_FROM,
     accessTeam: env.ACCESS_TEAM_DOMAIN ?? null,
     accessAud: env.ACCESS_AUD ?? null,
-    selfUpdate: {
-      available: settings.selfupdate_available === "1",
-      latest: settings.selfupdate_latest ?? null,
-    },
+    selfUpdate: selfUpdateView(settings),
   };
   return c.html(renderPage(<SettingsPage settings={settings} info={info} />));
 }

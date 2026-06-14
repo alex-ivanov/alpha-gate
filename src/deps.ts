@@ -1,4 +1,8 @@
-import { type AccessVerifier, createAccessVerifier, defaultFetchJwks } from "./auth/access-jwt";
+import {
+  type AccessVerifier,
+  createAccessVerifier,
+  createCachedJwksFetcher,
+} from "./auth/access-jwt";
 import type { Env } from "./env";
 import { type Clock, nowSeconds, systemClock } from "./lib/clock";
 import { type EmailSender, selectEmailSender } from "./services/email";
@@ -6,6 +10,10 @@ import { type EmailSender, selectEmailSender } from "./services/email";
 // The dependency-injection container (CANONICAL-LAYOUT rule 1). Handlers and services receive `Deps`
 // and never import bindings or seams directly, so tests swap each seam. It grows as consumers land:
 // `email` arrives in M12, `fetch` (self-update) in M16.
+
+// decision 0006 — ONE JWKS cache for the whole isolate (module scope, not per-request), so Access
+// verification reuses fetched keys across requests and only re-fetches on TTL expiry or an unknown kid.
+const cachedFetchJwks = createCachedJwksFetcher({ now: nowSeconds });
 
 export interface Deps {
   db: D1Database;
@@ -25,7 +33,7 @@ export function buildDeps(env: Env): Deps {
     access: createAccessVerifier({
       teamDomain: env.ACCESS_TEAM_DOMAIN,
       aud: env.ACCESS_AUD,
-      fetchJwks: defaultFetchJwks,
+      fetchJwks: cachedFetchJwks,
       now: nowSeconds,
     }),
     email: selectEmailSender(env.EMAIL_PROVIDER),

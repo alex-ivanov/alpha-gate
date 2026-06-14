@@ -35,6 +35,47 @@ describe("CUJ-15 self-update", () => {
     expect(email.outbox).toHaveLength(1);
   });
 
+  it("records notes_url, breaking, and below-min, and links the notes in the email", async () => {
+    const email = recordingEmailSender();
+    const deps = {
+      ...base,
+      email,
+      fetch: manifestFetch({
+        latest: "2.0.0",
+        min_supported: "1.5.0",
+        notes_url: "https://example.com/notes",
+        breaking: true,
+      }),
+    };
+    await checkSelfUpdate(deps, {
+      toolVersion: "1.2.0",
+      manifestUrl: "https://x",
+      ownerEmail: "owner@x",
+    });
+
+    expect(await metaGet(deps.db, "selfupdate_breaking")).toBe("1");
+    expect(await metaGet(deps.db, "selfupdate_below_min")).toBe("1");
+    expect(await metaGet(deps.db, "selfupdate_notes_url")).toBe("https://example.com/notes");
+    expect(email.outbox[0]?.body).toContain("https://example.com/notes");
+    expect(email.outbox[0]?.body).toContain("breaking");
+  });
+
+  it("ignores an unsafe (javascript:) notes_url — stores empty, never links it", async () => {
+    const email = recordingEmailSender();
+    const deps = {
+      ...base,
+      email,
+      fetch: manifestFetch({ latest: "2.0.0", notes_url: "javascript:alert(1)" }),
+    };
+    await checkSelfUpdate(deps, {
+      toolVersion: "1.2.0",
+      manifestUrl: "https://x",
+      ownerEmail: "owner@x",
+    });
+    expect(await metaGet(deps.db, "selfupdate_notes_url")).toBe("");
+    expect(email.outbox[0]?.body).not.toContain("javascript:");
+  });
+
   it("reports no update and sends nothing when already current", async () => {
     const email = recordingEmailSender();
     const deps = { ...base, email, fetch: manifestFetch({ latest: "1.3.0" }) };

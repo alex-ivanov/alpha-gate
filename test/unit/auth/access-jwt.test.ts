@@ -1,5 +1,10 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { type Jwk, verifyAccessJwt } from "../../../src/auth/access-jwt";
+import {
+  createCachedJwksFetcher,
+  extractKid,
+  type Jwk,
+  verifyAccessJwt,
+} from "../../../src/auth/access-jwt";
 import {
   setupTestAccess,
   TEST_AUD,
@@ -96,5 +101,74 @@ describe("verifyAccessJwt", () => {
   it("rejects a structurally malformed token", async () => {
     expect((await verifyAccessJwt("not.a.jwt", opts())).kind).toBe("reject");
     expect((await verifyAccessJwt("garbage", opts())).kind).toBe("reject");
+  });
+});
+
+describe("extractKid", () => {
+  it("reads the kid from a real signed token's header", async () => {
+    expect(extractKid(await access.signValidUser())).toBe("test-kid");
+  });
+
+  it("returns null for a token with no kid or a garbled header", () => {
+    expect(extractKid("garbage")).toBeNull();
+    expect(extractKid("")).toBeNull();
+  });
+});
+
+describe("createCachedJwksFetcher (decision 0006)", () => {
+  const KEYS: Jwk[] = [{ kid: "k1" }, { kid: "k2" }];
+
+  function counter() {
+    const state = { calls: 0 };
+    const fetchJwks = async () => {
+      state.calls++;
+      return KEYS;
+    };
+    return { state, fetchJwks };
+  }
+
+  it("serves from cache within the TTL (one network fetch for repeated calls)", async () => {
+    const { state, fetchJwks } = counter();
+    let clock = 1000;
+    const get = createCachedJwksFetcher({ now: () => clock, fetchJwks, ttlSeconds: 600 });
+
+    await get("team", { kid: "k1" });
+    clock = 1500; // still within 600s
+    await get("team", { kid: "k2" });
+
+    expect(state.calls).toBe(1);
+  });
+
+  it("refetches once the TTL has elapsed", async () => {
+    const { state, fetchJwks } = counter();
+    let clock = 1000;
+    const get = createCachedJwksFetcher({ now: () => clock, fetchJwks, ttlSeconds: 600 });
+
+    await get("team", { kid: "k1" });
+    clock = 1000 + 601; // past the TTL
+    await get("team", { kid: "k1" });
+
+    expect(state.calls).toBe(2);
+  });
+
+  it("forces a refetch when an unknown kid is requested, even within the TTL", async () => {
+    const { state, fetchJwks } = counter();
+    const get = createCachedJwksFetcher({ now: () => 1000, fetchJwks, ttlSeconds: 600 });
+
+    await get("team", { kid: "k1" }); // populates cache
+    await get("team", { kid: "rotated-in" }); // not in cached set → refetch
+
+    expect(state.calls).toBe(2);
+  });
+
+  it("caches per team domain independently", async () => {
+    const { state, fetchJwks } = counter();
+    const get = createCachedJwksFetcher({ now: () => 1000, fetchJwks });
+
+    await get("team-a", { kid: "k1" });
+    await get("team-b", { kid: "k1" });
+    await get("team-a", { kid: "k1" });
+
+    expect(state.calls).toBe(2); // one per domain; the third is a cache hit
   });
 });

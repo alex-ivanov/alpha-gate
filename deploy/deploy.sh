@@ -27,6 +27,26 @@ case "${INSTANCE}" in
     exit 1 ;;
 esac
 
+# Email config validation. Cloudflare delivery needs a verified From address on the onboarded sending
+# domain; without one, invites/notifications would silently fail to send — so require it up front.
+case "${EMAIL_PROVIDER}" in
+  none|cloudflare) ;;
+  *) echo "invalid --email-provider: expected 'none' or 'cloudflare'" >&2; exit 1 ;;
+esac
+if [ "${EMAIL_PROVIDER}" = "cloudflare" ] && [ -z "${EMAIL_FROM}" ]; then
+  echo "--email-from is required when --email-provider is cloudflare" >&2
+  exit 1
+fi
+
+# Prerequisite tooling. jq + envsubst are used even in --dry-run (state/config render); the wrangler
+# CLI (via npx) is only needed for a real deploy. Fail fast with a clear message rather than mid-run.
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { echo "missing required command: $1" >&2; exit 1; }
+}
+require_cmd jq
+require_cmd envsubst
+[ "${DRY_RUN}" -eq 1 ] || require_cmd npx
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RES="alpha-gate-${INSTANCE}"
 TOOL_VERSION="$(cat "${ROOT}/VERSION" 2>/dev/null || echo "0.0.0")"
@@ -59,12 +79,20 @@ if [ "${DRY_RUN}" -eq 0 ]; then
   wrangler r2 bucket list | grep -q "^${RES}\b" || wrangler r2 bucket create "${RES}" >/dev/null
 fi
 
-# 3. Render the wrangler config for both roles from the one template.
+# 3. Render the wrangler config for both roles from the one template. The Cloudflare Email Service
+# binding is rendered ONLY for the admin Worker, and only when email delivery is on — the public app
+# Worker never sends mail, so it must not carry (or be able to use) the send_email binding.
 render() {
   role="$1"
   name="$2"
+  if [ "${role}" = "admin" ] && [ "${EMAIL_PROVIDER}" = "cloudflare" ]; then
+    SEND_EMAIL=$'[[send_email]]\nname = "EMAIL"'
+  else
+    SEND_EMAIL=""
+  fi
   INSTANCE="${INSTANCE}" D1_ID="${D1_ID}" EMAIL_PROVIDER="${EMAIL_PROVIDER}" EMAIL_FROM="${EMAIL_FROM}" \
     ROLE="${role}" NAME="${name}" TOOL_VERSION="${TOOL_VERSION}" UPDATE_MANIFEST_URL="${UPDATE_MANIFEST_URL}" \
+    SEND_EMAIL="${SEND_EMAIL}" \
     envsubst < "${ROOT}/deploy/wrangler.template.toml" > "${DEPLOY_DIR}/${INSTANCE}.${role}.toml"
 }
 render app "${RES}"

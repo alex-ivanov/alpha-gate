@@ -24,10 +24,10 @@ EMAIL_FROM = "${EMAIL_FROM}"           # for cloudflare: an address on the onboa
 TOOL_VERSION = "${TOOL_VERSION}"
 UPDATE_MANIFEST_URL = "${UPDATE_MANIFEST_URL}"
 
-# Admin Worker only: Cloudflare Email Service binding (used when EMAIL_PROVIDER = "cloudflare").
-# Requires Email Routing enabled + a sending domain onboarded; needs Workers Paid for arbitrary recipients.
-[[send_email]]
-name = "EMAIL"
+# Cloudflare Email Service binding — rendered by deploy.sh ONLY for the admin Worker and only when
+# EMAIL_PROVIDER = "cloudflare" (the public app Worker never sends mail). Requires Email Routing
+# enabled + a sending domain onboarded; needs Workers Paid for arbitrary recipients.
+${SEND_EMAIL}
 
 [triggers]
 crons = ["0 12 * * *"]                 # daily self-update check; admin Worker acts, app Worker no-ops
@@ -35,4 +35,4 @@ crons = ["0 12 * * *"]                 # daily self-update check; admin Worker a
 # Admin-Worker secrets/vars, set after Access is enabled (§19):
 #   ACCESS_TEAM_DOMAIN  — e.g. yourteam.cloudflareaccess.com
 #   ACCESS_AUD          — the Access application's AUD tag
-# (Cloudflare email uses the send_email binding above — no API key needed.)
+# (When email is on, the admin Worker's send_email binding above sends mail — no API key needed.)

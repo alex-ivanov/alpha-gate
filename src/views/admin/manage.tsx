@@ -1,6 +1,11 @@
 import type { FC } from "hono/jsx";
 import type { Stream } from "../../core/types";
-import type { BuildDetail, StreamDetail, UserDetail } from "../../routes/admin/read-model";
+import type {
+  BuildDetail,
+  SelfUpdateView,
+  StreamDetail,
+  UserDetail,
+} from "../../routes/admin/read-model";
 import { Post } from "./forms";
 import { AdminLayout } from "./layout";
 
@@ -306,7 +311,7 @@ export interface SettingsInfo {
   emailFrom: string;
   accessTeam: string | null;
   accessAud: string | null;
-  selfUpdate: { available: boolean; latest: string | null };
+  selfUpdate: SelfUpdateView;
 }
 
 export const SettingsPage: FC<{ settings: Record<string, string>; info: SettingsInfo }> = ({
@@ -348,9 +353,18 @@ export const SettingsPage: FC<{ settings: Record<string, string>; info: Settings
             <td>Self-update</td>
             <td>
               {info.selfUpdate.available ? (
-                <span class="badge warn">
-                  {info.selfUpdate.latest} available — re-run deploy.sh
-                </span>
+                <>
+                  <span class="badge warn">
+                    {info.selfUpdate.latest} available
+                    {info.selfUpdate.breaking ? " (breaking)" : ""} — re-run deploy.sh
+                  </span>
+                  {info.selfUpdate.notesUrl ? (
+                    <>
+                      {" "}
+                      <a href={info.selfUpdate.notesUrl}>notes</a>
+                    </>
+                  ) : null}
+                </>
               ) : (
                 <span class="badge ok">up to date</span>
               )}

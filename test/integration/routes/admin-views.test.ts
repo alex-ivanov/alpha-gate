@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import * as meta from "../../../src/db/meta";
 import { buildDeps } from "../../../src/deps";
 import { recordAudit } from "../../../src/services/audit";
 import { adminWorker, setupTestAccess, type TestAccess, withToken } from "../../support/access";
@@ -24,6 +25,17 @@ describe("admin read views", () => {
     const html = await (await getAdmin("/admin")).text();
     expect(html).toContain("users");
     expect(html).toContain("channels");
+  });
+
+  it("dashboard surfaces the self-update banner with breaking note + release-notes link (§22)", async () => {
+    await meta.set(deps.db, "selfupdate_available", "1");
+    await meta.set(deps.db, "selfupdate_latest", "9.9.9");
+    await meta.set(deps.db, "selfupdate_breaking", "1");
+    await meta.set(deps.db, "selfupdate_notes_url", "https://example.com/notes");
+    const html = await (await getAdmin("/admin")).text();
+    expect(html).toContain("9.9.9 is available");
+    expect(html).toContain("breaking");
+    expect(html).toContain('href="https://example.com/notes"');
   });
 
   it("users list shows the seeded client and its servable state", async () => {
