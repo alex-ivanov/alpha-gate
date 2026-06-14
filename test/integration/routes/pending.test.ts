@@ -1,7 +1,12 @@
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { countPending, listByStatus } from "../../../src/db/access-requests";
-import { findByEmail, insert as insertClient, list as listClients } from "../../../src/db/clients";
+import {
+  findByEmail,
+  insert as insertClient,
+  list as listClients,
+  setStatus,
+} from "../../../src/db/clients";
 import { buildDeps } from "../../../src/deps";
 import {
   adminWorker,
@@ -79,11 +84,12 @@ describe("admin pending requests", () => {
     expect(await countPending(deps.db)).toBe(0);
   });
 
-  it("invite re-issues an existing client (the revoked-user re-access path)", async () => {
-    await insertClient(deps.db, {
+  it("invite re-issues AND re-activates a revoked client (the revoked-user re-access path, §12)", async () => {
+    const created = await insertClient(deps.db, {
       email: "back@example.test",
       token: "OLD00000000000000000000000000001",
     });
+    await setStatus(deps.db, created.id, "revoked"); // they were revoked; now they re-request access
     await appWorker().request("/access", form({ email: "back@example.test" }));
 
     await adminWorker(access).request(
@@ -91,12 +97,12 @@ describe("admin pending requests", () => {
       withTokenForm(await userToken(), {}),
     );
 
+    const back = await findByEmail(deps.db, "back@example.test");
     expect(
       (await listClients(deps.db)).filter((c) => c.email === "back@example.test"),
-    ).toHaveLength(1);
-    expect((await findByEmail(deps.db, "back@example.test"))?.token).not.toBe(
-      "OLD00000000000000000000000000001",
-    );
+    ).toHaveLength(1); // re-grant, not a duplicate row
+    expect(back?.token).not.toBe("OLD00000000000000000000000000001"); // fresh token
+    expect(back?.status).toBe("active"); // re-activated — the new /get link is live, not dead on arrival
   });
 
   it("dismiss marks the request dismissed", async () => {

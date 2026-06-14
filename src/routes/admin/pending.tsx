@@ -25,7 +25,11 @@ export async function invitePending(c: AdminContext): Promise<Response> {
   const token = generateToken();
   const existing = await clients.findByEmail(deps.db, request.email);
   if (existing !== null) {
-    await clients.setToken(deps.db, existing.id, token); // re-grant (the revoked-user path, §12)
+    // Re-grant to an existing client (the revoked-user re-access path, §12). Reissue the token AND
+    // re-activate — without flipping status back to "active" a revoked re-requester's new /get link is
+    // dead on arrival (every public route gates on kind === "active").
+    await clients.setToken(deps.db, existing.id, token);
+    if (existing.status !== "active") await clients.setStatus(deps.db, existing.id, "active");
   } else {
     await clients.insert(deps.db, { email: request.email, token });
   }
