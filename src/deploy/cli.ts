@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type DeployEnv, runDeploy } from "./commands/deploy";
@@ -17,6 +18,22 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, "../.."); // repo root (src/deploy → ../../)
 
 const DEFAULT_MANIFEST = "https://raw.githubusercontent.com/your-org/alpha-gate/main/release.json";
+
+// True if something already listens on 127.0.0.1:port (a successful TCP connect). Used by `dev` to
+// catch a stale/orphaned server before wrangler falsely reports "Ready" on a port it doesn't own.
+function portInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.connect({ port, host: "127.0.0.1" });
+    const done = (busy: boolean) => {
+      socket.destroy();
+      resolve(busy);
+    };
+    socket.setTimeout(1000);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
+}
 
 const shared = (rest: readonly string[]) => ({
   wrangler: createWrangler({ dryRun: rest.includes("--dry-run") }),
@@ -58,6 +75,7 @@ async function main(): Promise<number> {
       ...shared(rest),
       toolVersion,
       updateManifestUrl: process.env.UPDATE_MANIFEST_URL ?? DEFAULT_MANIFEST,
+      portInUse,
     };
     return runDev(rest, env);
   }

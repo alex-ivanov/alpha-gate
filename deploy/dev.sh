@@ -10,4 +10,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Run the local tsx binary DIRECTLY, not via `npx`: `npx` can stall on a registry round-trip, and
+# running under npx/npm-exec makes the child `npx wrangler` a NESTED npm-exec that can deadlock on
+# npm's lock — a silent hang where `wrangler dev` never binds. Fall back to `npx tsx` only when the
+# local binary is missing (run `npm install`).
+TSX="${ROOT}/node_modules/.bin/tsx"
+[ -x "${TSX}" ] && exec "${TSX}" "${ROOT}/src/deploy/cli.ts" dev "$@"
 exec npx tsx "${ROOT}/src/deploy/cli.ts" dev "$@"

@@ -74,4 +74,21 @@ describe("runDev", () => {
     expect(await runDev(["--role", "bogus"], makeEnv(createFakeWrangler()).env)).toBe(1);
     expect(await runDev(["--port", "0"], makeEnv(createFakeWrangler()).env)).toBe(1);
   });
+
+  it("aborts with a clear message when the port is already in use, never starting wrangler dev", async () => {
+    const w = createFakeWrangler();
+    const { env, out } = makeEnv(w);
+    const code = await runDev(["--port", "8787"], { ...env, portInUse: async () => true });
+    expect(code).toBe(1);
+    expect(out.join("\n").toLowerCase()).toContain("in use");
+    expect(cmds(w).some((x) => x.startsWith("dev --config"))).toBe(false);
+    expect(cmds(w).some((x) => x.startsWith("d1 migrations"))).toBe(false); // failed fast
+  });
+
+  it("proceeds when the port is free", async () => {
+    const w = createFakeWrangler();
+    const { env } = makeEnv(w);
+    await runDev([], { ...env, portInUse: async () => false });
+    expect(cmds(w).some((x) => x.startsWith("dev --config"))).toBe(true);
+  });
 });

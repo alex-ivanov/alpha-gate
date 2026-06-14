@@ -10,4 +10,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Run the local tsx binary directly, not via `npx` (avoids a registry round-trip and a nested
+# npm-exec deadlock when the CLI shells out to wrangler — see deploy/dev.sh). npx tsx is the fallback.
+TSX="${ROOT}/node_modules/.bin/tsx"
+[ -x "${TSX}" ] && exec "${TSX}" "${ROOT}/src/deploy/cli.ts" teardown "$@"
 exec npx tsx "${ROOT}/src/deploy/cli.ts" teardown "$@"

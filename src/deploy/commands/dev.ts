@@ -19,6 +19,8 @@ export interface DevEnv {
   rootDir: string;
   toolVersion: string;
   updateManifestUrl: string;
+  /** Probe whether something already listens on a TCP port (injected; real net check in cli.ts). */
+  portInUse?: (port: number) => Promise<boolean>;
 }
 
 const INSTANCE = "local";
@@ -42,6 +44,17 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
   const wr = env.wrangler;
 
   env.out(renderHeader(`${INSTANCE} (${args.role})`, env.palette));
+
+  // Fail fast if the port is already taken. wrangler 4.x does NOT report EADDRINUSE — it prints
+  // "Ready on http://localhost:PORT" while a stale/orphaned listener actually owns the port, so the
+  // browser hits a dead server. An orphaned workerd from a prior Ctrl-C'd run is the usual cause.
+  if (env.portInUse && (await env.portInUse(args.port))) {
+    return fail(
+      env,
+      `port ${args.port} is already in use`,
+      `another dev server or an orphaned workerd holds it — free it (pkill -f workerd) or use --port N`,
+    );
+  }
 
   if (args.reset) {
     await env.fs.remove(stateDir);
