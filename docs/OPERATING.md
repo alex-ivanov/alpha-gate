@@ -88,7 +88,14 @@ manual step (a Zero Trust dashboard action — there is no `wrangler` command fo
    `.deploy/myalpha.admin.toml`, then `wrangler deploy`.)
 
 The Worker verifies the JWT itself (defense-in-depth) and fails **closed**: with these unset, every
-admin request is rejected.
+admin request is rejected. `ACCESS_TEAM_DOMAIN` must be the **bare** team domain (no `https://`, no
+trailing slash) — deploy.sh normalises a pasted URL, but the secret must end up as `yourteam.cloudflareaccess.com`.
+
+> **If you rename your Zero Trust team**, the team domain changes (`<new>.cloudflareaccess.com`). The
+> Worker still checks the old issuer and fetches keys from the old domain, so **admin login starts
+> returning 403**. Fix it by re-running `deploy.sh --instance <slug> --access-team-domain <new-domain>
+> --access-aud <AUD>` (the AUD usually stays the same, since it's tied to the application, not the team
+> name). The same applies if you delete and recreate the Access application (the AUD changes).
 
 For **CI publishing**, also add a **Service Auth** rule to the same Access application and create a
 **service token**; its Client ID/Secret become `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` for

@@ -170,12 +170,36 @@ if [ "${FRESH_DB}" -eq 1 ]; then
 elif [ "${INTERACTIVE}" -eq 1 ]; then
   echo "Instance '${INSTANCE}' already exists — app name/branding are managed in the admin Settings page."
 fi
-# Access prompts only on a re-run (a fresh deploy can't know the AUD — the Access app doesn't exist
-# yet). Flags work on any run. Blank skips and prints the manual instructions instead.
-if [ "${FRESH_DB}" -eq 0 ] && [ "${INTERACTIVE}" -eq 1 ] && [ -z "${ACCESS_TEAM_DOMAIN}" ]; then
-  echo "Cloudflare Access (leave blank to set up later):"
-  ask ACCESS_TEAM_DOMAIN "Access team domain (e.g. team.cloudflareaccess.com)" ""
-  [ -n "${ACCESS_TEAM_DOMAIN}" ] && ask ACCESS_AUD "Access application AUD tag" ""
+# Access can be wired on any run via --access-team-domain/--access-aud. Otherwise, on an interactive
+# re-run where it isn't configured yet, prompt for it — and DO NOT accept an empty value (the old
+# blank-able prompt silently set nothing, leaving admin 403ing with no hint). A fresh first run can't
+# do this (the Access app doesn't exist yet), so it's skipped there; the closing checklist guides it.
+access_configured() {  # true if the admin Worker already has the ACCESS_TEAM_DOMAIN secret
+  [ "${DRY_RUN}" -eq 1 ] && return 1
+  npx wrangler secret list --config "${DEPLOY_DIR}/${INSTANCE}.admin.toml" 2>/dev/null \
+    | jq -e 'any(.[]?; .name == "ACCESS_TEAM_DOMAIN")' >/dev/null 2>&1
+}
+if [ "${FRESH_DB}" -eq 0 ] && [ "${INTERACTIVE}" -eq 1 ] && [ -z "${ACCESS_TEAM_DOMAIN}" ] \
+   && ! access_configured; then
+  echo "Cloudflare Access isn't wired yet — the admin UI returns 403 until it is. Where to find these:"
+  echo "  • Team domain — Zero Trust → Settings (e.g. yourteam.cloudflareaccess.com; no https://)"
+  echo "  • AUD tag     — Zero Trust → Access → Applications → your app → Overview"
+  echo "  (Don't have them yet? Press Ctrl-C, finish the Access setup, then re-run.)"
+  while [ -z "${ACCESS_TEAM_DOMAIN}" ]; do
+    read -r -p "  Access team domain: " ACCESS_TEAM_DOMAIN </dev/tty || true
+    [ -n "${ACCESS_TEAM_DOMAIN}" ] || echo "    (required — it can't be empty)"
+  done
+  while [ -z "${ACCESS_AUD}" ]; do
+    read -r -p "  Access AUD tag: " ACCESS_AUD </dev/tty || true
+    [ -n "${ACCESS_AUD}" ] || echo "    (required — it can't be empty)"
+  done
+fi
+# Normalise a pasted team domain (strip scheme / trailing slash) so the issuer check can't silently
+# fail on a value like "https://team.cloudflareaccess.com/".
+if [ -n "${ACCESS_TEAM_DOMAIN}" ]; then
+  ACCESS_TEAM_DOMAIN="${ACCESS_TEAM_DOMAIN#https://}"
+  ACCESS_TEAM_DOMAIN="${ACCESS_TEAM_DOMAIN#http://}"
+  ACCESS_TEAM_DOMAIN="${ACCESS_TEAM_DOMAIN%/}"
 fi
 
 # 4. Render the wrangler config for both roles from the one template. The Cloudflare Email Service
@@ -262,19 +286,27 @@ Remaining:
   - Ensure the Access application is enabled on "${RES}-admin" and your email is on its policy
     (Cloudflare Zero Trust -> Access -> Applications). The admin login is dead until it is.
   - Publish the first build (on macOS):  ./publish.sh --instance ${INSTANCE}
+
+Note: if you ever RENAME your Zero Trust team, ACCESS_TEAM_DOMAIN changes and admin login will 403
+until you re-run this script with the new --access-team-domain (and --access-aud if it changed too).
 EOF
 else
   cat <<EOF
 Finish setup:
   1. Protect the admin Worker with Cloudflare Access (one-time, dashboard-only):
        Cloudflare Zero Trust -> Access -> Applications -> Add an application (Self-hosted),
-       hostname = ${ADM_URL#https://}, add a policy allowing your email (one-time PIN),
-       and note the application's AUD tag.
+       hostname = ${ADM_URL#https://}, add a policy allowing your email (one-time PIN).
+     Then collect the two values the Worker verifies against:
+       • Team domain — Zero Trust -> Settings  (e.g. yourteam.cloudflareaccess.com; no https://)
+       • AUD tag     — Access -> Applications -> your app -> Overview
   2. Re-run to wire Access automatically (no manual secret-put):
        ./deploy/deploy.sh --instance ${INSTANCE} \\
-         --access-team-domain <team>.cloudflareaccess.com --access-aud <AUD>
+         --access-team-domain yourteam.cloudflareaccess.com --access-aud <AUD>
   3. Publish the first build (on macOS):  ./publish.sh --instance ${INSTANCE}
   4. (optional) Email: upgrade to Workers Paid, onboard a sending domain, then re-run with
        --email-provider cloudflare --email-from alpha@<your-domain>
+
+Note: if you later RENAME your Zero Trust team, the team domain changes — admin login will 403 until
+you re-run with the new --access-team-domain.
 EOF
 fi
