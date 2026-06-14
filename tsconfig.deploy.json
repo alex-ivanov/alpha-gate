@@ -1,0 +1,10 @@
+{
+  "//": "The deploy CLI (src/deploy) runs on Node and shells out to wrangler. It is typed against Node, NOT @cloudflare/workers-types — kept separate from the app's tsconfig so the workers type env can't accidentally reach for Node APIs that don't exist in workerd.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "lib": ["ESNext"]
+  },
+  "include": ["src/deploy", "test/deploy"],
+  "exclude": ["node_modules"]
+}

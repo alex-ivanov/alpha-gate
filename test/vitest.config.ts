@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(here, "..");
@@ -34,6 +34,9 @@ export default defineConfig(async () => {
     ],
     test: {
       include: [path.join(here, "**/*.test.{ts,tsx}")],
+      // The deploy/ CLI tests are Node code (node:child_process etc.) and run in their own Node-env
+      // project (test/vitest.deploy.config.ts); they must NOT load into this workerd/Miniflare pool.
+      exclude: [...configDefaults.exclude, path.join(here, "deploy/**")],
       setupFiles: [path.join(here, "setup.ts")],
     },
   };

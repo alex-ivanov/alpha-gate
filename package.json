@@ -5,12 +5,14 @@
   "type": "module",
   "description": "Self-hosted Cloudflare distribution gate for a Sparkle-updated macOS app",
   "scripts": {
-    "test": "vitest run --config test/vitest.config.ts",
+    "test": "vitest run --config test/vitest.config.ts && vitest run --config test/vitest.deploy.config.ts",
+    "test:app": "vitest run --config test/vitest.config.ts",
+    "test:deploy": "vitest run --config test/vitest.deploy.config.ts",
     "test:watch": "vitest --config test/vitest.config.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.deploy.json",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "check": "biome check . && tsc --noEmit && vitest run --config test/vitest.config.ts"
+    "check": "biome check . && npm run typecheck && npm run test"
   },
   "engines": {
     "node": ">=20"
@@ -22,6 +24,8 @@
     "@biomejs/biome": "^2.5.0",
     "@cloudflare/vitest-pool-workers": "^0.16.15",
     "@cloudflare/workers-types": "^4.20260613.1",
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8",
     "wrangler": "^4.100.0"
