@@ -263,6 +263,8 @@ Admin actions that can create the no-build state — withdrawing a build, removi
 
 This replaces the earlier hard block: the operator can deliberately leave users without a build, but only knowingly, with the affected set shown up front and the state always visible afterward.
 
+The no-build state is **operator-facing**: from the client's side a no-build *active* user simply has no update, so `/appcast` returns an **empty feed** (no `<item>`) and Sparkle stays "up to date" — they keep whatever is installed. The reactivation notice (§15) is **never** served to a valid token; it is for revoked/unknown only (decision [0010](decisions/0010-no-build-appcast.md)). The remedy for a stranded user is roll-forward (a higher build, §9), reassignment, or unpin — not a client prompt.
+
 ---
 
 ## 12. Critical user journeys
@@ -308,7 +310,7 @@ This replaces the earlier hard block: the operator can deliberately leave users 
 | Method | Path | Auth | Behavior |
 |---|---|---|---|
 | GET | `/get?token=` | token | Token-gated landing page: download, activate, paste, instructions. |
-| GET | `/appcast?token=` | token | Resolver (§8). Active → appcast item; revoked/unknown → informational update. Logs `check`. |
+| GET | `/appcast?token=` | token | Resolver (§8). Active → target item, or empty feed if no-build (§11); revoked/unknown → reactivation notice. Logs `check` for active. |
 | GET | `/download?token=&via=` | token | Validate, stream the archive from R2. Logs `download` (`via=install`) or `update` (`via=update`). |
 | GET | `/access` | none | Public "request access" page; target of revoked-user info link; submits a pending request. |
 | GET | `/assets/*` | none | Public branding assets (e.g. the app icon) from R2; used by the `/get` page. |
@@ -385,7 +387,7 @@ Three signatures, none performed by a Worker:
 
 ## 15. Revocation notice via Sparkle
 
-For revoked/unknown tokens, `/appcast` returns an **informational-only** update instead of a 403: an item with a higher `sparkle:version`, a `<link>` to the access page, and no enclosure. Sparkle shows a notice without an "Install and Relaunch" button, directing the user to renew. A bare 403 would only surface a generic error on manual checks and nothing on background checks.
+For revoked/unknown tokens **only**, `/appcast` returns an **informational-only** update instead of a 403: an item with a higher `sparkle:version`, a `<link>` to the access page, and no enclosure. Sparkle shows a notice without an "Install and Relaunch" button, directing the user to renew. A bare 403 would only surface a generic error on manual checks and nothing on background checks. A *valid* token with no servable build is **not** revoked — it gets an empty feed, never this notice (§11, decision [0010](decisions/0010-no-build-appcast.md)); otherwise a working user would be wrongly told to reactivate.
 
 ---
 

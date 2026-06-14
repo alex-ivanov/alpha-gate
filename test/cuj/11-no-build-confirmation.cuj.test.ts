@@ -9,7 +9,8 @@ import { appWorker } from "../support/worker";
 
 // CUJ-11 (§11) — A withdraw that would strand users is confirmed, not blocked. Without confirm it
 // returns the affected list and makes NO change; with confirm it proceeds and the user is knowingly
-// left no-build (their /appcast then returns the informational notice).
+// left no-build. Their /appcast is then an EMPTY feed (Sparkle stays "up to date") — the reactivation
+// notice is for revoked/unknown tokens only, never a valid user (§8/§15, decision 0010).
 const deps = buildDeps(env);
 let access: TestAccess;
 beforeAll(async () => {
@@ -41,8 +42,11 @@ describe("CUJ-11 no-build confirmation", () => {
     expect(done.status).toBe(303);
     expect((await getById(deps.db, build.id))?.status).toBe("withdrawn");
 
+    // A valid user with nothing to serve gets an EMPTY feed: no item, no reactivation sentinel, no
+    // enclosure. Sparkle reads this as "up to date" and shows no prompt (the user keeps what's installed).
     const xml = await (await appWorker().request(`/appcast?token=${token}`)).text();
-    expect(xml).toContain("999000000"); // informational — no build to serve
+    expect(xml).not.toContain("<item>");
+    expect(xml).not.toContain("999000000");
     expect(xml).not.toContain("<enclosure");
   });
 });

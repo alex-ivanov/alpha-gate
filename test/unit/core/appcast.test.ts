@@ -106,6 +106,19 @@ describe("renderInformationalItem", () => {
 });
 
 describe("renderAppcast", () => {
+  it("with no items renders an empty channel — Sparkle reads it as 'up to date' (golden, §11)", () => {
+    expect(renderAppcast({ title: "MyApp", items: [] })).toBe(
+      `${[
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">',
+        "  <channel>",
+        "    <title>MyApp</title>",
+        "  </channel>",
+        "</rss>",
+      ].join("\n")}\n`,
+    );
+  });
+
   it("wraps items in an rss/channel with the sparkle namespace declared (golden)", () => {
     const build = aBuild({
       buildNumber: 1500,

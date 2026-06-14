@@ -5,9 +5,10 @@ import { loadBranding } from "../../services/branding";
 import type { AppContext } from "./app-context";
 import { resolveServed } from "./resolve";
 
-// §8/§15 — the per-user appcast. Gate → resolve → emit a target item or the informational notice
-// (revoked/unknown), and log a `check` recording the installed build the app reports. Never a 403:
-// an unknown token gets the informational item so background checks still surface a notice.
+// §8/§15 — the per-user appcast. Gate → resolve → one of three feeds: a target item (a servable
+// build), an EMPTY feed (active but no-build, §11 — Sparkle stays "up to date"), or the reactivation
+// notice (revoked/unknown only). Active checks log a `check` with the installed build the app reports.
+// Never a 403: an unknown token still gets the notice so background checks surface it (decision 0010).
 export async function appcastRoute(c: AppContext): Promise<Response> {
   const deps = c.get("deps");
   const origin = new URL(c.req.url).origin;
@@ -16,21 +17,26 @@ export async function appcastRoute(c: AppContext): Promise<Response> {
 
   const gate = await gateToken(deps, c.req.query("token"));
 
-  let item: string;
+  let items: readonly string[];
   if (gate.kind !== "active") {
     // Revoked AND unknown take the identical path — same item, same (no) resolve/log work — so the
     // response can't reveal whether a token exists (§6/§16): no DB write is gated on token existence.
-    item = renderInformationalItem(accessUrl);
+    items = [renderInformationalItem(accessUrl)];
   } else {
     const client = gate.client;
-    const result = await resolveServed(deps, client); // resolve maps revoked → informational
-    item =
+    const result = await resolveServed(deps, client);
+    // Active client: the resolved build, or an EMPTY feed when nothing is servable (the §11 no-build
+    // state) so Sparkle reports "up to date" rather than prompting. The reactivation notice is for
+    // revoked/unknown tokens only (§8/§15, decision 0010) — a valid user is never told to reactivate.
+    items =
       result.kind === "target"
-        ? renderUpdateItem(
-            result.build,
-            `${origin}/download?token=${encodeURIComponent(client.token)}&via=update`,
-          )
-        : renderInformationalItem(accessUrl);
+        ? [
+            renderUpdateItem(
+              result.build,
+              `${origin}/download?token=${encodeURIComponent(client.token)}&via=update`,
+            ),
+          ]
+        : [];
 
     await insertEvent(deps.db, {
       clientId: client.id,
@@ -43,7 +49,7 @@ export async function appcastRoute(c: AppContext): Promise<Response> {
     });
   }
 
-  return c.body(renderAppcast({ title, items: [item] }), 200, {
+  return c.body(renderAppcast({ title, items }), 200, {
     "Content-Type": "application/rss+xml; charset=utf-8",
   });
 }
