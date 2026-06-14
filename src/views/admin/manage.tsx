@@ -6,6 +6,7 @@ import type {
   StreamDetail,
   UserDetail,
 } from "../../routes/admin/read-model";
+import type { EmailStatus } from "../../services/email";
 import { Post } from "./forms";
 import { AdminLayout } from "./layout";
 
@@ -307,12 +308,72 @@ export const UploadPage: FC<{ channels: Stream[] }> = ({ channels }) => (
 export interface SettingsInfo {
   instance: string;
   toolVersion: string;
-  emailProvider: string;
-  emailFrom: string;
+  email: EmailStatus;
   accessTeam: string | null;
   accessAud: string | null;
   selfUpdate: SelfUpdateView;
 }
+
+// The Email row of the instance panel: a status the admin can trust, because it's the same check that
+// decides whether mail actually sends (services/email emailStatus). "incomplete" is the dangerous case —
+// the provider says cloudflare but delivery silently falls back to copy-paste — so it's a warning.
+const EmailStatusCell: FC<{ email: EmailStatus }> = ({ email }) =>
+  email.mode === "active" ? (
+    <>
+      <span class="badge ok">sending</span> via Cloudflare · <code>{email.from}</code>
+    </>
+  ) : email.mode === "incomplete" ? (
+    <span class="badge warn">misconfigured — falling back to copy-paste</span>
+  ) : (
+    <span class="muted">copy-paste links (no email sent)</span>
+  );
+
+// Shown below the instance panel whenever email isn't actively sending: what's missing (if anything) and
+// the exact deploy command to turn it on. Hidden once email is "active" — nothing to do.
+const EmailSetupPanel: FC<{ instance: string; email: EmailStatus }> = ({ instance, email }) => {
+  if (email.mode === "active") return null;
+  const cmd = `./deploy/deploy.sh --instance ${instance} --email-provider cloudflare --email-from alpha@<your-sending-domain>`;
+  return (
+    <div class="panel">
+      <h2>Set up email delivery</h2>
+      {email.mode === "incomplete" ? (
+        <p class="badge warn">
+          Provider is set to Cloudflare but {email.missing.join(" and ")}{" "}
+          {email.missing.length > 1 ? "are" : "is"} missing — invites silently fall back to
+          copy-paste links until this is fixed.
+        </p>
+      ) : (
+        <p class="muted">
+          Right now invites are <strong>copy-paste links</strong>: when you add a user (or invite a
+          request), the back office shows the <code>/get</code> link for you to send manually — no
+          email leaves the Worker. To send invites automatically:
+        </p>
+      )}
+      <ol class="muted">
+        <li>
+          Cloudflare Email Service needs the <strong>Workers Paid plan</strong> and an{" "}
+          <strong>onboarded sending domain</strong> (Cloudflare dashboard → Email → Email Routing →
+          add and verify the DNS records).
+        </li>
+        <li>
+          Re-run deploy with email turned on — this adds the <code>EMAIL</code> send_email binding
+          to this admin Worker and sets the From address:
+          <pre>
+            <code>{cmd}</code>
+          </pre>
+        </li>
+        <li>
+          Reload this page: the status above should read <span class="badge ok">sending</span>. Add
+          a user with your own address to receive a test invite.
+        </li>
+      </ol>
+      <p class="muted">
+        The invite wording is the template below ({"{app_name}"}, {"{get_url}"}, {"{token}"}); it
+        feeds both copy-paste and real email.
+      </p>
+    </div>
+  );
+};
 
 export const SettingsPage: FC<{ settings: Record<string, string>; info: SettingsInfo }> = ({
   settings,
@@ -334,11 +395,7 @@ export const SettingsPage: FC<{ settings: Record<string, string>; info: Settings
           <tr>
             <td>Email</td>
             <td>
-              {info.emailProvider === "none" ? (
-                <span class="muted">not configured</span>
-              ) : (
-                `${info.emailProvider} · ${info.emailFrom || "—"}`
-              )}
+              <EmailStatusCell email={info.email} />
             </td>
           </tr>
           <tr>
@@ -376,6 +433,8 @@ export const SettingsPage: FC<{ settings: Record<string, string>; info: Settings
         Publishing from CI? See <a href="/admin/ci">CI publishing</a>.
       </p>
     </div>
+
+    <EmailSetupPanel instance={info.instance} email={info.email} />
 
     <form method="post" action="/admin/branding" enctype="multipart/form-data" class="panel">
       <h2>Download-page branding</h2>

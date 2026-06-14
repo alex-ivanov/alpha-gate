@@ -89,6 +89,16 @@ describe("admin operation pages", () => {
     expect(html).toContain("Self-update");
   });
 
+  it("settings page reports email as copy-paste and shows how to enable real delivery", async () => {
+    // The test env runs EMAIL_PROVIDER=none → copy-paste; the panel must say so AND show the deploy
+    // command (scoped to this instance) so the admin isn't left guessing how to turn email on.
+    const html = await getAdmin("/admin/settings");
+    expect(html).toContain("copy-paste links (no email sent)");
+    expect(html).toContain("Set up email delivery");
+    expect(html).toContain("--email-provider cloudflare");
+    expect(html).toContain("--instance test"); // command scoped to this instance
+  });
+
   it("CI page documents the service-token publish flow for this instance", async () => {
     const html = await getAdmin("/admin/ci");
     expect(html).toContain("CF_ACCESS_CLIENT_ID");

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Env } from "../../../src/env";
-import { noopEmailSender, selectEmailSender } from "../../../src/services/email";
+import { emailStatus, noopEmailSender, selectEmailSender } from "../../../src/services/email";
 import {
   composeMimeMessage,
   createCloudflareEmailSender,
@@ -67,15 +67,56 @@ describe("makeMessageId", () => {
   });
 });
 
-describe("selectEmailSender", () => {
-  const fakeBinding = { send: async () => ({}) } as unknown as NonNullable<Env["EMAIL"]>;
+const fakeBinding = { send: async () => ({}) } as unknown as NonNullable<Env["EMAIL"]>;
 
+function emailEnv(overrides: Partial<Env>): Env {
+  return { EMAIL_PROVIDER: "none", EMAIL_FROM: "", ...overrides } as Env;
+}
+
+describe("emailStatus", () => {
+  it("is copy-paste when the provider is none (the intentional free-tier default)", () => {
+    const s = emailStatus(emailEnv({ EMAIL_PROVIDER: "none" }));
+    expect(s.mode).toBe("copy-paste");
+    expect(s.missing).toEqual([]);
+  });
+
+  it("is active only when provider, binding, and From are all present", () => {
+    const s = emailStatus(
+      emailEnv({
+        EMAIL_PROVIDER: "cloudflare",
+        EMAIL_FROM: "alpha@example.com",
+        EMAIL: fakeBinding,
+      }),
+    );
+    expect(s.mode).toBe("active");
+    expect(s.from).toBe("alpha@example.com");
+    expect(s.missing).toEqual([]);
+  });
+
+  it("is incomplete (not active) when cloudflare is set but the binding is absent", () => {
+    const s = emailStatus(emailEnv({ EMAIL_PROVIDER: "cloudflare", EMAIL_FROM: "a@x.com" }));
+    expect(s.mode).toBe("incomplete");
+    expect(s.missing).toContain("the EMAIL send_email binding");
+  });
+
+  it("is incomplete when cloudflare is set but From is empty", () => {
+    const s = emailStatus(
+      emailEnv({ EMAIL_PROVIDER: "cloudflare", EMAIL_FROM: "", EMAIL: fakeBinding }),
+    );
+    expect(s.mode).toBe("incomplete");
+    expect(s.missing).toContain("a From address (EMAIL_FROM)");
+  });
+
+  it("lists every missing prerequisite when cloudflare is set with nothing wired", () => {
+    const s = emailStatus(emailEnv({ EMAIL_PROVIDER: "cloudflare", EMAIL_FROM: "" }));
+    expect(s.mode).toBe("incomplete");
+    expect(s.missing).toHaveLength(2);
+  });
+});
+
+describe("selectEmailSender", () => {
   function env(overrides: Partial<Env>): Env {
-    return {
-      EMAIL_PROVIDER: "none",
-      EMAIL_FROM: "",
-      ...overrides,
-    } as Env;
+    return emailEnv(overrides);
   }
 
   it("falls back to copy-paste when the provider is none", () => {

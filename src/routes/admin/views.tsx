@@ -1,5 +1,6 @@
 import type { AccessEvent } from "../../core/types";
 import { adminToAppOrigin } from "../../lib/hosts";
+import { emailStatus } from "../../services/email";
 import { CiPage } from "../../views/admin/ci-page";
 import {
   BuildManagePage,
@@ -113,8 +114,7 @@ export async function settingsView(c: AdminContext): Promise<Response> {
   const info = {
     instance: env.INSTANCE,
     toolVersion: env.TOOL_VERSION,
-    emailProvider: env.EMAIL_PROVIDER,
-    emailFrom: env.EMAIL_FROM,
+    email: emailStatus(env),
     accessTeam: env.ACCESS_TEAM_DOMAIN ?? null,
     accessAud: env.ACCESS_AUD ?? null,
     selfUpdate: selfUpdateView(settings),
