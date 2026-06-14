@@ -44,42 +44,68 @@ while [ "$#" -gt 0 ]; do
     *) echo "unknown flag: $1" >&2; exit 1 ;;
   esac
 done
-[ -n "${INSTANCE}" ] || { echo "--instance is required" >&2; exit 1; }
+# Every check fails with a one-line reason plus a "→ what to do" remedy, so the user is never left
+# guessing how to fix a missing prerequisite or bad flag.
+fail() {
+  echo "deploy.sh: ${1}" >&2
+  [ -n "${2:-}" ] && echo "  → ${2}" >&2
+  exit 1
+}
+
+[ -n "${INSTANCE}" ] || fail "--instance is required" "e.g. ./deploy/deploy.sh --instance myalpha"
 # Validate the slug: it names resources, is interpolated into the rendered TOML, and is part of file
 # paths. Restricting it to the Cloudflare naming charset also prevents config injection / path traversal.
 case "${INSTANCE}" in
   *[!a-z0-9-]* | -* | *- )
-    echo "invalid --instance: lowercase letters, digits and hyphens only (no leading/trailing hyphen)" >&2
-    exit 1 ;;
+    fail "invalid --instance '${INSTANCE}'" \
+      "use lowercase letters, digits and hyphens only (no leading/trailing hyphen), e.g. 'myalpha'" ;;
 esac
 
 # Email config validation. Cloudflare delivery needs a verified From address on the onboarded sending
 # domain; without one, invites/notifications would silently fail to send — so require it up front.
 case "${EMAIL_PROVIDER}" in
   none|cloudflare) ;;
-  *) echo "invalid --email-provider: expected 'none' or 'cloudflare'" >&2; exit 1 ;;
+  *) fail "invalid --email-provider '${EMAIL_PROVIDER}'" "expected 'none' or 'cloudflare'" ;;
 esac
 if [ "${EMAIL_PROVIDER}" = "cloudflare" ] && [ -z "${EMAIL_FROM}" ]; then
-  echo "--email-from is required when --email-provider is cloudflare" >&2
-  exit 1
+  fail "--email-from is required when --email-provider is cloudflare" \
+    "pass --email-from alpha@<your-onboarded-sending-domain>"
 fi
 # Access is all-or-nothing: a domain without an AUD (or vice versa) can't verify a token.
 if { [ -n "${ACCESS_TEAM_DOMAIN}" ] && [ -z "${ACCESS_AUD}" ]; } ||
    { [ -z "${ACCESS_TEAM_DOMAIN}" ] && [ -n "${ACCESS_AUD}" ]; }; then
-  echo "--access-team-domain and --access-aud must be provided together" >&2
-  exit 1
+  fail "--access-team-domain and --access-aud must be provided together" \
+    "find both in Cloudflare Zero Trust → Access → Applications → your app → Overview"
 fi
 
-# Prerequisite tooling. jq + envsubst are used even in --dry-run (state/config render); the wrangler
-# CLI (via npx) is only needed for a real deploy. Fail fast with a clear message rather than mid-run.
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || { echo "missing required command: $1" >&2; exit 1; }
+# --- Preflight: verify the tooling and Cloudflare auth, telling the user exactly how to fix each gap.
+# jq + envsubst are needed even in --dry-run (state render / config render); Node + wrangler auth only
+# for a real deploy. Fail fast here rather than mid-run with a cryptic wrangler error.
+need() {  # need <command> <how-to-install>
+  command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1" "$2"
 }
-require_cmd jq
-require_cmd envsubst
-[ "${DRY_RUN}" -eq 1 ] || require_cmd npx
+need jq "install jq — macOS: brew install jq · Debian/Ubuntu: sudo apt-get install -y jq · https://jqlang.github.io/jq/"
+need envsubst "install GNU gettext (provides envsubst) — macOS: brew install gettext · Debian/Ubuntu: sudo apt-get install -y gettext-base"
+
+if [ "${DRY_RUN}" -eq 0 ]; then
+  need node "install Node.js ≥ 20 — https://nodejs.org (macOS: brew install node)"
+  need npx "npx ships with Node.js ≥ 20 — reinstall Node from https://nodejs.org"
+  NODE_MAJOR="$(node -v 2>/dev/null | sed -E 's/^v([0-9]+).*/\1/')"
+  case "${NODE_MAJOR}" in
+    '' | *[!0-9]*) fail "could not read the Node.js version (node -v: $(node -v 2>/dev/null || echo none))" \
+      "install Node.js ≥ 20 — https://nodejs.org" ;;
+  esac
+  [ "${NODE_MAJOR}" -ge 20 ] || fail "Node.js ≥ 20 is required (found $(node -v))" \
+    "upgrade Node — https://nodejs.org or 'brew upgrade node'"
+  # whoami exits non-zero when not logged in AND no valid CLOUDFLARE_API_TOKEN is set.
+  npx wrangler whoami >/dev/null 2>&1 || fail "not authenticated to Cloudflare" \
+    "run once: npx wrangler login   (opens a browser; for CI set CLOUDFLARE_API_TOKEN instead)"
+  echo "Prerequisites OK — deploying to your authenticated Cloudflare account."
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+[ -f "${ROOT}/deploy/wrangler.template.toml" ] || fail "missing deploy/wrangler.template.toml" \
+  "run deploy.sh from a checkout of the Alpha Gate repository"
 RES="alpha-gate-${INSTANCE}"
 TOOL_VERSION="$(cat "${ROOT}/VERSION" 2>/dev/null || echo "0.0.0")"
 UPDATE_MANIFEST_URL="${UPDATE_MANIFEST_URL:-https://raw.githubusercontent.com/your-org/alpha-gate/main/release.json}"

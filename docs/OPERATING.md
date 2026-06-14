@@ -47,9 +47,13 @@ app + admin URLs and the one-time checklist. **Re-run it to update in place** af
 are reused, pending migrations applied, both Workers redeployed; tokens/clients/builds/logs are
 preserved. The `--instance` slug must be lowercase letters, digits, and hyphens.
 
-The script checks its prerequisites (`jq`, `envsubst`, and — outside `--dry-run` — `npx`) before doing
-anything. **First init is guided**: anything you don't pass as a flag is prompted for when you run it
-interactively (press Enter for the shown default), so a new instance comes up working almost at once.
+Before doing anything the script runs a **preflight** and, on any failure, prints the reason plus a
+`→` line telling you exactly how to fix it: `jq` and `envsubst` must be installed (even for `--dry-run`),
+and for a real deploy Node ≥ 20 must be present and you must be authenticated to Cloudflare
+(`npx wrangler login`, or a `CLOUDFLARE_API_TOKEN` for CI) — so you get "run `npx wrangler login`"
+up front instead of a cryptic error mid-run. **First init is then guided**: anything you don't pass as a
+flag is prompted for when you run it interactively (press Enter for the shown default), so a new
+instance comes up working almost at once.
 The prompts/flags are:
 
 - **App identity** — `--app-name` and `--activate-scheme` (your macOS app's URL scheme, §7), plus
