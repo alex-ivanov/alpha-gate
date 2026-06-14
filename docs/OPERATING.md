@@ -245,14 +245,23 @@ own Access application; repeat the one-time checklist per instance.
 ## Teardown
 
 ```bash
-./deploy/teardown.sh --instance myalpha           # prompts for confirmation
-./deploy/teardown.sh --instance myalpha --dry-run # rehearse
+./deploy/teardown.sh --instance myalpha              # archives D1, prompts, then destroys
+./deploy/teardown.sh --instance myalpha --no-archive # skip the backup
+./deploy/teardown.sh --instance myalpha --dry-run    # rehearse
 ```
 
-Removes both Workers, the D1 database, and the R2 bucket for that slug (other instances untouched), and
-deletes the local `.deploy/<slug>.*` files. **Remove the Cloudflare Access application from the dashboard
-separately.** If the R2 bucket is non-empty the delete is reported (not silently skipped) — empty it via
-the dashboard or `wrangler r2 object delete`, then re-run.
+After a confirmation (type the instance name, or `--yes`) it **archives the database first** — a full
+`wrangler d1 export` to `.deploy/<slug>-<timestamp>.sql` (override the location with `--archive-dir`),
+unless you pass `--no-archive`. **That dump contains live access tokens** — store it securely or delete
+it. If the export fails it aborts without destroying anything (re-run with `--no-archive` to force).
+
+It then deletes both Workers and the D1 database and removes the local `.deploy/<slug>.*` configs. Two
+things it **cannot** do with pure wrangler, printed as a closing checklist:
+
+- **Empty/delete a non-empty R2 bucket** — wrangler has no bulk-list/empty API (that needs the S3 API +
+  an API token, which this tool avoids). A bucket holding build archives is left in place; empty it in
+  the dashboard (R2 → the bucket → delete objects) or via `wrangler r2 object delete`, then delete it.
+- **Remove the Cloudflare Access application** for `<slug>-admin` (Zero Trust → Access → Applications).
 
 ## Email delivery
 
