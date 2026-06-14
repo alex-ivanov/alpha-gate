@@ -93,6 +93,12 @@ breach detection): [`docs/OPERATING.md`](docs/OPERATING.md).
 
 ## Publishing a build
 
+**First, wire Sparkle into your app once** (the app-side contract): generate the EdDSA key with
+Sparkle's `generate_keys`, set `SUPublicEDKey` + your `CFBundleURLTypes` activate scheme in Info.plist,
+and have the updater delegate build the feed URL from the stored token —
+`https://<app-worker>/appcast?token=…`. Full walkthrough:
+[Set up Sparkle in your app](docs/OPERATING.md#set-up-sparkle-in-your-app).
+
 Producing a build always happens on macOS (build → sign → notarize → staple → `sign_update` for the
 Sparkle EdDSA signature). Only the **upload + registration** varies, and all paths hit one endpoint:
 

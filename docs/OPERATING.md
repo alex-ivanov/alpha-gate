@@ -18,6 +18,7 @@ architecture and rationale see [`../design/DESIGN.md`](../design/DESIGN.md); for
 - [Enable Cloudflare Access](#enable-cloudflare-access)
 - [Create a release channel](#create-a-release-channel)
 - [Invite a user](#invite-a-user)
+- [Set up Sparkle in your app](#set-up-sparkle-in-your-app)
 - [Publish a build](#publish-a-build)
 - [Endpoint reference](#endpoint-reference)
 - [Common admin tasks](#common-admin-tasks)
@@ -114,10 +115,66 @@ the client, optionally assigns the channel, records an audit row, and responds w
 `/get?token=` link (and emails it if Cloudflare email is configured). Send that one link to the user;
 it's durable — they revisit it to re-download or re-activate while the token is active.
 
+## Set up Sparkle in your app
+
+This is the **one-time, app-side** wiring that connects your macOS app to this instance. Two facts
+to keep straight:
+
+- Your app's Sparkle feed points at the **App (public) Worker** — the `app_url` in
+  `.deploy/<slug>.state.json` (no Cloudflare Access in front; Sparkle reaches it freely). *Publishing*
+  (next section) talks to the **admin** Worker. They are different hostnames.
+- **Sparkle never sees the token.** Your app holds the per-user token and builds the feed URL from it;
+  the token is never embedded in the binary (it would break notarization, §7).
+
+**1 · Generate the Sparkle EdDSA key (once).** Use Sparkle 2's bundled tool:
+```bash
+./bin/generate_keys          # stores the PRIVATE key in your login Keychain; prints the PUBLIC key
+./bin/generate_keys -x sparkle_private.pem   # export the private key for CI secrets (keep it safe)
+```
+The private key is what `sign_update` uses at publish time (and a CI secret). **The Worker never holds
+it** — it only stores the signature string each build produces.
+
+**2 · Info.plist keys** (in your app):
+
+| Key | Value |
+|---|---|
+| `SUPublicEDKey` | the public key `generate_keys` printed — Sparkle verifies every downloaded archive against it |
+| `SUFeedURL` | **leave unset** — the feed is per-user and supplied at runtime (step 3). Don't hard-code it. |
+| `CFBundleURLTypes` → `CFBundleURLSchemes` | your activate scheme, e.g. `myapp` — **must equal** the *Activate URL scheme* in admin Settings |
+| `SURequireSignedFeed` | **off / unset** — incompatible with per-user dynamic feeds; per-archive EdDSA still blocks tampered binaries (§14) |
+
+**3 · Point Sparkle at the per-user feed (runtime).** Implement the updater delegate so each check
+carries the stored token and the installed build number (illustrative — this lives in *your* app):
+```swift
+// SPUUpdaterDelegate
+func feedURLString(for updater: SPUUpdater) -> String? {
+    guard let token = Keychain.token else { return nil }   // no token yet → don't check
+    return "https://<APP_WORKER_HOST>/appcast?token=\(token)"
+}
+func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[String: String]] {
+    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+    return [["key": "installed", "value": build]]   // powers "current version" + no-downgrade (§8)
+}
+```
+`<APP_WORKER_HOST>` is the `app_url` host from your deploy state. Don't start update checks until a
+token exists (with no feed, Sparkle errors).
+
+**4 · Activation — get the token into the app.** First launch has no token, so show an "Activate"
+prompt. Both paths are app-side and Sparkle-agnostic (§7):
+- **Deep link:** handle `myapp://activate?token=XYZ` (the scheme from step 2) → store the token in the
+  Keychain → allow update checks.
+- **Paste:** a field where the user pastes the key shown on their `/get` page.
+
+From here, every check hits `/appcast?token=…`, downloads via `/download?token=…&via=update`, and
+verifies the archive against `SUPublicEDKey`. A revoked/unknown token gets an informational
+"re-activate" notice instead of an update (§11), so the app self-heals after a reissue — no reinstall.
+
 ## Publish a build
 
 Build on macOS (build → sign Developer ID → notarize → staple → archive → `sign_update` for the Sparkle
-EdDSA signature). The Worker never signs. Then upload + register via one of:
+EdDSA signature, using the private key from the previous section). The Worker never signs. `build_number`
+must **increase on every publish** — Sparkle compares it and won't offer a lower one. Then upload +
+register via one of:
 
 **Local (solo dev):**
 ```bash
@@ -143,6 +200,14 @@ then register metadata-only — the Worker HEADs the object and rejects a length
 
 `build_number` is the machine-comparable monotonic key (Sparkle's `sparkle:version`); `short_version`
 is the human string. Add `--critical` to mark a mandatory update.
+
+**Verify the first build end to end:** the build appears on the admin **Builds** page (with its
+download/update counts). Then [invite yourself](#invite-a-user), open the `/get?token=` link, install,
+activate, and let the app check for updates — the access **Activity** log should show a `check`
+carrying your installed build, and a `download`/`update`. A quick raw check (replace the host + token):
+```bash
+curl "https://<app_url-host>/appcast?token=<TOKEN>&installed=1"   # should list a <item> for your build
+```
 
 ## Endpoint reference
 
