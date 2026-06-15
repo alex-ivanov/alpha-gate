@@ -12,6 +12,9 @@
 # filename, so Sparkle recognizes the .dmg and uses the disk-image installer. Sparkle 2 verifies the
 # EdDSA, mounts, and installs the .app. Needs Sparkle's `sign_update` — on PATH, via --sign-update /
 # $SIGN_UPDATE (its path is often inside the Sparkle package, not PATH), or bypass by passing ED_SIGNATURE.
+#
+# The Cloudflare Access service token is read from the macOS Keychain, keyed by instance — entered once
+# on the first run for that instance (the script tells you how to create it), then reused automatically.
 set -euo pipefail
 
 DMG=""; INSTANCE=""; ADMIN_URL=""; STREAM_ID=""; CRITICAL_FLAG=""; DRY_RUN=0
@@ -41,6 +44,53 @@ if [ -z "${ADMIN_URL}" ] && [ -n "${INSTANCE}" ]; then
   ADMIN_URL="$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).admin_url||""))' "${STATE}")"
 fi
 [ -n "${ADMIN_URL}" ] || { echo "--admin-url or --instance is required" >&2; exit 1; }
+
+# ─── Cloudflare Access service token, from the macOS Keychain ──────────────────────────────────────
+# The admin Worker is behind Access; reaching it from a script needs a service token. We keep it in the
+# login Keychain keyed by instance (the host, if no --instance), so it's entered ONCE — not pasted into
+# the shell or env each time. Resolution order: explicit env > Keychain > first-run prompt (then store).
+# Skipped for a localhost admin (the §23 dev shim auto-authenticates) and for --dry-run (no side effects).
+case "${ADMIN_URL}" in
+  http://localhost*|http://127.0.0.1*|http://0.0.0.0*|"http://[::1]"*) LOCAL=1 ;;
+  *) LOCAL=0 ;;
+esac
+
+if [ "${LOCAL}" -eq 0 ] && [ "${DRY_RUN}" -eq 0 ]; then
+  KEY="${INSTANCE:-$(printf '%s' "${ADMIN_URL}" | sed -E 's#^https?://([^/]+).*#\1#')}"
+  KC_SERVICE="alpha-gate-access"
+  kc_get() { security find-generic-password -s "${KC_SERVICE}" -a "$1" -w 2>/dev/null || true; }
+
+  FROM_KC=0
+  if [ -z "${CF_ACCESS_CLIENT_ID:-}" ]; then
+    CF_ACCESS_CLIENT_ID="$(kc_get "${KEY}-client-id")"; [ -n "${CF_ACCESS_CLIENT_ID}" ] && FROM_KC=1
+  fi
+  if [ -z "${CF_ACCESS_CLIENT_SECRET:-}" ]; then
+    CF_ACCESS_CLIENT_SECRET="$(kc_get "${KEY}-client-secret")"; [ -n "${CF_ACCESS_CLIENT_SECRET}" ] && FROM_KC=1
+  fi
+
+  if [ -n "${CF_ACCESS_CLIENT_ID}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET}" ]; then
+    [ "${FROM_KC}" -eq 1 ] && echo "Using stored Access service token for '${KEY}'." >&2
+  elif [ -t 0 ]; then
+    # First run for this instance: tell the operator how to create the token, then capture + store it.
+    echo "" >&2
+    echo "No Access service token stored for '${KEY}'. Create one:" >&2
+    echo "  1. Cloudflare Zero Trust -> Access -> Service Auth -> 'Create service token'." >&2
+    echo "  2. On the admin Access application, add a policy (Action: Service Auth) allowing it." >&2
+    echo "  (The /admin/ci page documents this.) Then paste the credentials here:" >&2
+    printf 'Service Token Client ID: ' >&2;     IFS= read -r CF_ACCESS_CLIENT_ID || true
+    printf 'Service Token Client Secret: ' >&2; IFS= read -rs CF_ACCESS_CLIENT_SECRET || true; echo "" >&2
+    [ -n "${CF_ACCESS_CLIENT_ID}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET}" ] \
+      || { echo "both the client id and secret are required" >&2; exit 1; }
+    security add-generic-password -U -s "${KC_SERVICE}" -a "${KEY}-client-id"     -w "${CF_ACCESS_CLIENT_ID}"     >/dev/null
+    security add-generic-password -U -s "${KC_SERVICE}" -a "${KEY}-client-secret" -w "${CF_ACCESS_CLIENT_SECRET}" >/dev/null
+    echo "Stored in your login Keychain (service '${KC_SERVICE}', account '${KEY}-*'); future runs read it automatically." >&2
+  else
+    echo "No service token stored for '${KEY}' and no TTY to prompt. Run once interactively to store it," >&2
+    echo "or set CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET in the environment." >&2
+    exit 1
+  fi
+  export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET
+fi
 
 # ─── Read the app version from inside the DMG ─────────────────────────────────────────────────────
 # Mount read-only with no UI, find the .app, read its Info.plist, then always detach (trap on exit).
