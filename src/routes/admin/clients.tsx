@@ -6,7 +6,7 @@ import * as streams from "../../db/streams";
 import { inviteUrl } from "../../lib/hosts";
 import { recordAudit } from "../../services/audit";
 import { loadBranding, loadInviteTemplate } from "../../services/branding";
-import { InvitePage } from "../../views/admin/manage-pages";
+import { InvitePage, ResultPage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
@@ -33,6 +33,28 @@ export async function createClient(c: AdminContext): Promise<Response> {
   if (email === null || !isEmail(email)) return c.text("A valid email is required", 400);
   const label = field(body, "label");
   const streamId = toId(field(body, "streamId"));
+
+  // email is UNIQUE; a re-add would otherwise hit the DB constraint and surface as a bare 500. Tell the
+  // admin the user already exists and point at managing them (Reissue resends a fresh link) — §12.
+  const existing = await clients.findByEmail(deps.db, email);
+  if (existing !== null) {
+    return c.html(
+      renderPage(
+        <ResultPage
+          title="User already exists"
+          intent="error"
+          back={{ href: "/admin/users", label: "← Back to users" }}
+        >
+          <p>
+            A user with <strong>{email}</strong> already exists. Open their{" "}
+            <a href={`/admin/users/${existing.id}`}>user page</a> — use <strong>Reissue</strong> to
+            send a fresh invite link, or <strong>Revoke</strong> to disable access.
+          </p>
+        </ResultPage>,
+      ),
+      409,
+    );
+  }
 
   const token = generateToken();
   const client = await clients.insert(deps.db, { email, token, label });

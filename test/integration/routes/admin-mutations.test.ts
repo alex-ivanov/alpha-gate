@@ -47,6 +47,22 @@ describe("createClient", () => {
     expect(res.status).toBe(400);
     expect(await clients.list(deps.db)).toHaveLength(0);
   });
+
+  it("re-adding an existing email is a clear 409, not a 500, and creates no second user", async () => {
+    await clients.insert(deps.db, { email: "dup@example.test", token: "T".repeat(32) });
+
+    const res = await adminWorker(access).request(
+      "/admin/clients",
+      withTokenForm(await userToken(), { email: "dup@example.test" }),
+    );
+    expect(res.status).toBe(409); // not a bare 500 "internal error"
+    const html = await res.text();
+    expect(html).toContain("User already exists");
+    expect(html).toContain("Reissue"); // points at the way forward
+    expect(await clients.list(deps.db)).toHaveLength(1); // no duplicate row
+    // The failed add must not have written an audit row either.
+    expect((await listInOrder(deps.db)).some((r) => r.action === "client.create")).toBe(false);
+  });
 });
 
 describe("unpinClient §11 confirmation", () => {
