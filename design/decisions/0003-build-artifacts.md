@@ -28,3 +28,19 @@ append-only, but never give the exact key template.
   artifacts.
 - Alternative deferred: a one-artifact MVP (same zip for install + update). Rejected here in favor of the
   doc's DMG-first-install UX; the two-artifact path is a small, additive schema change.
+
+## Amendment (2026-06-14) — the enclosure is format-agnostic; a DMG can be the update artifact
+
+The "the enclosure is always the zip" framing above is about the *common* path, not a constraint. Nothing
+in the resolver, appcast, or download is zip-specific: the appcast `<enclosure type>` is
+`application/octet-stream`, the enclosure URL is the extension-less `/download?token=…&via=update`, and
+`/download` already sets `Content-Disposition: filename="<object-key basename>"` (`sanitizeFilename`
+preserves the extension). So a **single signed `.dmg`** can serve as both the first-install download and
+the Sparkle **update** enclosure: Sparkle 2 verifies the EdDSA, sees the `.dmg` name from the
+Content-Disposition, and uses the disk-image installer. In that mode `object_key` is the `.dmg`,
+`dmg_object_key` stays null, and `via=install`/`via=update` both stream the one artifact.
+
+Driven by `publish-dmg.sh` (§20): mount the DMG read-only, read `CFBundleShortVersionString` /
+`CFBundleVersion` / `LSMinimumSystemVersion` from the app's `Info.plist`, `sign_update` the DMG for the
+EdDSA, and upload it via `ci-publish.sh`. Covered by `test/integration/routes/dmg-enclosure.test.ts`. The
+EdDSA over the DMG is still produced on macOS — the Worker never signs.

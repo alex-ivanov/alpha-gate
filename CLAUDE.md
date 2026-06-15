@@ -49,6 +49,8 @@ npm run check                                 # the full gate: biome + typecheck
 ./deploy/teardown.sh --instance <slug>        # destructive: archives D1 first, removes both Workers + D1 (R2/Access manual)
 
 ./publish.sh   --instance <slug>              # macOS: build → sign → notarize → staple → sign_update → upload + register
+./publish-dmg.sh MyApp.dmg --instance <slug>  # macOS: mount DMG → read version from Info.plist → sign_update → upload
+                                              #   the DMG itself as the Sparkle enclosure (format-agnostic; decision 0003)
 ./ci-publish.sh                               # portable: upload an already-signed archive + register (browser-less, CI)
 ```
 
