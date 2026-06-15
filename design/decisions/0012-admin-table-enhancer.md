@@ -54,3 +54,15 @@ defined; `__pow`/`__spreadValues`/`__async`/… never appear).
   no per-table JS. Keep pure helpers inner-function-free so the `toString()` injection stays browser-safe.
 - Not covered by the worker suite at runtime (workerd blocks `new Function`/`eval`); covered instead by
   pure-logic unit tests + markup-contract integration tests + manual headless-browser verification.
+
+## Reuse: upload-form version autofill (`plist-extract.ts`)
+The same `toString()`-injection pattern powers the §13 upload form's autofill: picking the signed `.app`
+zip reads `CFBundleVersion`/`CFBundleShortVersionString`/`LSMinimumSystemVersion` from the archive's
+`Info.plist` and prefills `build_number`/`short_version`/`min_os` (mirroring what `publish.sh` extracts on
+macOS). `locateInfoPlist` (zip central-directory random access) and `parseInfoPlist` (binary `bplist00`
+**and** XML) are pure and fixture-tested; only the async glue (file read + `DecompressionStream`
+inflate + field fill) is hand-written. Fields stay editable and a typed value is never clobbered — the
+register path never reaches this code and a §9 rollback deliberately diverges `build_number` from the
+binary. Same pitfall, one more lesson: a serialised function must reference **nothing** at module scope —
+the `__name` shim handles bundler helpers, but the wanted-keys constant had to be moved *inside* the
+function or it threw `WANTED_KEYS is not defined` in the browser.
