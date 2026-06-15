@@ -41,6 +41,17 @@ describe("admin operation pages", () => {
     expect(html).toContain("/admin/users/"); // Manage link
   });
 
+  it("list tables ship the sortable-table contract and the enhancer script", async () => {
+    await seedServableClient(deps, { email: "alice@example.test" });
+    const html = await getAdmin("/admin/users");
+    expect(html).toContain("<table data-enhance="); // table opts into the enhancer
+    expect(html).toContain('data-sort="text"'); // a text-sortable header (Email/Status/…)
+    expect(html).toContain('data-sort="num"'); // a numeric-sortable header (Installed/Pinned)
+    expect(html).toContain("table[data-enhance]"); // the injected enhancer script is on the page
+    // The Actions column stays unsortable — no data-sort on its header.
+    expect(html).toMatch(/<th>Actions<\/th>/);
+  });
+
   it("user manage page renders the unassign/pin/access forms", async () => {
     const { client } = await seedServableClient(deps);
     const html = await getAdmin(`/admin/users/${client.id}`);

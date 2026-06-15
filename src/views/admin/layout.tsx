@@ -1,4 +1,5 @@
 import type { Child, FC } from "hono/jsx";
+import { TABLE_ENHANCE_SCRIPT } from "./table-enhance";
 
 // Shared chrome for the gated back office: a left sidebar + content area, built on a CSS custom-property
 // design system (one token set, light/dark via prefers-color-scheme). Pure JSX over props; rendered to a
@@ -62,6 +63,15 @@ const styles = `
   th { background: var(--surface-2); font-weight: 600; color: var(--text-muted); font-size: .8rem;
     text-transform: uppercase; letter-spacing: .03em; }
   tbody tr:hover { background: var(--surface-2); }
+  tr[hidden] { display: none; }
+
+  /* Click-to-sort headers (progressive enhancement: the JS adds .th-sort + aria-sort; without it these
+     are plain headers). The glyph shows sort state — neutral ↕, then ↑/↓ on the active column. */
+  th.th-sort { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.th-sort::after { content: "↕"; opacity: .3; margin-left: .35em; font-weight: 400; }
+  th.th-sort[aria-sort="ascending"]::after { content: "↑"; opacity: .9; }
+  th.th-sort[aria-sort="descending"]::after { content: "↓"; opacity: .9; }
+  .table-status { margin: .6rem 0 0; font-size: .8rem; }
 
   .cards { display: flex; gap: 1rem; flex-wrap: wrap; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
@@ -181,6 +191,7 @@ export const AdminLayout: FC<{ title: string; children?: Child }> = ({ title, ch
         {children}
       </main>
       <script dangerouslySetInnerHTML={{ __html: activeNavScript }} />
+      <script dangerouslySetInnerHTML={{ __html: TABLE_ENHANCE_SCRIPT }} />
     </body>
   </html>
 );

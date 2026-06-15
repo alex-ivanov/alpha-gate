@@ -1,4 +1,4 @@
-import type { FC } from "hono/jsx";
+import type { Child, FC } from "hono/jsx";
 import type { AuditRow } from "../../core/audit-chain";
 import type { Stream } from "../../core/types";
 import type { AccessLogEntry } from "../../db/access-log";
@@ -9,6 +9,20 @@ import { AdminLayout, NoBuildBadge } from "./layout";
 
 // The §13 back-office list pages — tables over the read-model, now with the Add forms and per-row
 // action buttons that POST to the (tested) mutation handlers. Per-entity detail pages live in manage.tsx.
+
+// A header cell wired for the client-side table enhancer (table-enhance.ts): `sort` makes it
+// click-to-sort ("text" | "num"); `col` is the key a filter control targets. Both are omitted from the
+// markup when unset (a plain <th> stays unsortable), so the enhancer only touches columns we opt in.
+const Th: FC<{ col?: string; sort?: "text" | "num"; children?: Child }> = ({
+  col,
+  sort,
+  children,
+}) => {
+  const attrs: Record<string, string> = {};
+  if (col) attrs["data-key"] = col;
+  if (sort) attrs["data-sort"] = sort;
+  return <th {...attrs}>{children}</th>;
+};
 
 export const DashboardPage: FC<{ data: Dashboard }> = ({ data }) => (
   <AdminLayout title="Dashboard">
@@ -61,11 +75,11 @@ export const PendingPage: FC<{ requests: AccessRequest[] }> = ({ requests }) => 
     {requests.length === 0 ? (
       <p class="empty">No pending access requests.</p>
     ) : (
-      <table>
+      <table data-enhance>
         <thead>
           <tr>
-            <th>Email</th>
-            <th>When</th>
+            <Th sort="text">Email</Th>
+            <Th sort="text">When</Th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -143,18 +157,18 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
     {users.length === 0 ? (
       <p class="empty">No users match.</p>
     ) : (
-      <table>
+      <table data-enhance>
         <thead>
           <tr>
-            <th>Email</th>
-            <th>Label</th>
-            <th>Status</th>
-            <th>Channels</th>
-            <th>Installed</th>
-            <th>Last install</th>
-            <th>Last update</th>
-            <th>Pinned</th>
-            <th>State</th>
+            <Th sort="text">Email</Th>
+            <Th sort="text">Label</Th>
+            <Th sort="text">Status</Th>
+            <Th sort="text">Channels</Th>
+            <Th sort="num">Installed</Th>
+            <Th sort="text">Last install</Th>
+            <Th sort="text">Last update</Th>
+            <Th sort="num">Pinned</Th>
+            <Th sort="text">State</Th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -210,19 +224,25 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
           </button>
         </form>
 
-        <table>
+        <table data-enhance>
           <thead>
             <tr>
               <th />
-              <th>Build</th>
-              <th>Version</th>
-              <th>Status</th>
-              <th>Critical</th>
-              <th>Rollback</th>
-              <th>Channels</th>
-              <th>DL</th>
-              <th>Upd</th>
-              <th>Last activity</th>
+              <Th sort="num">Build</Th>
+              <Th sort="text">Version</Th>
+              <Th col="status" sort="text">
+                Status
+              </Th>
+              <Th col="critical" sort="text">
+                Critical
+              </Th>
+              <Th sort="text">Rollback</Th>
+              <Th col="channels" sort="text">
+                Channels
+              </Th>
+              <Th sort="num">DL</Th>
+              <Th sort="num">Upd</Th>
+              <Th sort="text">Last activity</Th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -235,7 +255,9 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
                 <td>{b.build.buildNumber}</td>
                 <td>{b.build.shortVersion}</td>
                 <td>{b.build.status}</td>
-                <td>{b.build.critical ? "yes" : <span class="muted">—</span>}</td>
+                <td data-value={b.build.critical ? "yes" : "no"}>
+                  {b.build.critical ? "yes" : <span class="muted">—</span>}
+                </td>
                 <td>{b.build.rollbackTarget ? "target" : <span class="muted">—</span>}</td>
                 <td>{b.streams.join(", ") || <span class="muted">—</span>}</td>
                 <td>{b.downloads}</td>
@@ -275,12 +297,12 @@ export const StreamsPage: FC<{ streams: StreamView[] }> = ({ streams }) => (
     {streams.length === 0 ? (
       <p class="empty">No channels yet.</p>
     ) : (
-      <table>
+      <table data-enhance>
         <thead>
           <tr>
-            <th>Channel</th>
-            <th>Builds</th>
-            <th>Users</th>
+            <Th sort="text">Channel</Th>
+            <Th sort="num">Builds</Th>
+            <Th sort="num">Users</Th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -333,13 +355,13 @@ export const ActivityPage: FC<{ events: AccessLogEntry[]; filter: ActivityFilter
     {events.length === 0 ? (
       <p class="empty">No activity matches.</p>
     ) : (
-      <table>
+      <table data-enhance>
         <thead>
           <tr>
-            <th>When</th>
-            <th>Email</th>
-            <th>Event</th>
-            <th>Build</th>
+            <Th sort="text">When</Th>
+            <Th sort="text">Email</Th>
+            <Th sort="text">Event</Th>
+            <Th sort="num">Build</Th>
           </tr>
         </thead>
         <tbody>
@@ -379,15 +401,15 @@ export const AuditPage: FC<{ rows: AuditRow[]; filter: AuditFilterView }> = ({ r
     {rows.length === 0 ? (
       <p class="empty">No admin actions match.</p>
     ) : (
-      <table>
+      <table data-enhance>
         <thead>
           <tr>
-            <th>When</th>
-            <th>Actor</th>
-            <th>Action</th>
-            <th>Target</th>
-            <th>IP</th>
-            <th>Ray ID</th>
+            <Th sort="text">When</Th>
+            <Th sort="text">Actor</Th>
+            <Th sort="text">Action</Th>
+            <Th sort="text">Target</Th>
+            <Th sort="text">IP</Th>
+            <Th sort="text">Ray ID</Th>
           </tr>
         </thead>
         <tbody>
