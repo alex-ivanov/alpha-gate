@@ -113,9 +113,20 @@ hdiutil attach -nobrowse -readonly -noautoopen -mountpoint "${MOUNTPOINT}" "${DM
 APP="$(/bin/ls -d "${MOUNTPOINT}"/*.app 2>/dev/null | head -1 || true)"
 [ -n "${APP}" ] || { echo "no .app found in ${DMG}" >&2; exit 1; }
 APP_NAME="${APP##*/}"
+echo "mounted ${DMG##*/} at ${MOUNTPOINT}; reading ${APP_NAME}/Contents/Info.plist" >&2
+
+# If the .app in the DMG is a SYMLINK, PlistBuddy would follow it OUT of the image — typically to an
+# already-installed /Applications copy — and report THAT version, not the DMG's. Refuse to read through
+# it (that's almost certainly why an installed 0.0.3 showed up instead of the DMG's real build).
+if [ -L "${APP}" ]; then
+  echo "error: '${APP_NAME}' in the DMG is a symlink -> $(readlink "${APP}")." >&2
+  echo "       The version would come from the link target (e.g. the installed app), not the DMG." >&2
+  echo "       Rebuild the DMG containing the real .app bundle, or pass --build-number/--short-version." >&2
+  exit 1
+fi
+
 # Read with PlistBuddy, NOT `defaults read`: `defaults` can return a stale value from the cfprefsd cache
-# (Apple advises against it for Info.plist), which is why a freshly-built app could read an old version.
-# PlistBuddy parses the file on disk, matching `plutil`/Xcode.
+# (Apple advises against it for Info.plist). PlistBuddy parses the file on disk, matching `plutil`/Xcode.
 PLIST="${APP}/Contents/Info.plist"
 pb() { /usr/libexec/PlistBuddy -c "Print :$1" "${PLIST}" 2>/dev/null || true; }
 # Precedence: --build-number/--short-version flag > env > the DMG's Info.plist.
