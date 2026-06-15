@@ -34,8 +34,15 @@ if [ "${DRY_RUN}" -eq 1 ]; then
   CF_ACCESS_CLIENT_ID="${CF_ACCESS_CLIENT_ID:-dry-run-id}"
   CF_ACCESS_CLIENT_SECRET="${CF_ACCESS_CLIENT_SECRET:-dry-run-secret}"
 else
-  : "${CF_ACCESS_CLIENT_ID:?CF_ACCESS_CLIENT_ID env var is required}"
-  : "${CF_ACCESS_CLIENT_SECRET:?CF_ACCESS_CLIENT_SECRET env var is required}"
+  # A local dev admin (the §23 dev surface) isn't behind Cloudflare Access — the dev shim auto-
+  # authenticates — so a real service token isn't needed; default the creds so the guard doesn't block.
+  case "${ADMIN_URL}" in
+    http://localhost*|http://127.0.0.1*|http://0.0.0.0*|"http://[::1]"*)
+      CF_ACCESS_CLIENT_ID="${CF_ACCESS_CLIENT_ID:-dev-local}"
+      CF_ACCESS_CLIENT_SECRET="${CF_ACCESS_CLIENT_SECRET:-dev-local}" ;;
+  esac
+  : "${CF_ACCESS_CLIENT_ID:?Set CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET (an Access service token). Create one in Zero Trust -> Access -> Service Auth, allow it on the admin app, then export both. See the admin /admin/ci page.}"
+  : "${CF_ACCESS_CLIENT_SECRET:?CF_ACCESS_CLIENT_SECRET env var is required (the service token secret).}"
 fi
 
 # post: the real curl adds the Access service-token headers; dry-run echoes the args WITHOUT the
