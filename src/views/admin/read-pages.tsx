@@ -203,7 +203,10 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
   </AdminLayout>
 );
 
-export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
+export const BuildsPage: FC<{ builds: BuildView[]; channels: Stream[] }> = ({
+  builds,
+  channels,
+}) => (
   <AdminLayout title="Builds">
     {builds.length === 0 ? (
       <p class="empty">No builds published yet. Use Upload (or CI) to publish one.</p>
@@ -223,6 +226,32 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
             Clear critical
           </button>
         </form>
+
+        {/* Client-side instant filters (table-enhance.ts) — all build rows are on the page, so these
+            narrow without a reload. Each select targets a column by its header key (data-filter-col). */}
+        <div class="addform">
+          <select data-filter-col="status" aria-label="Filter by status">
+            <option value="">any status</option>
+            <option value="available">available</option>
+            <option value="withdrawn">withdrawn</option>
+          </select>
+          <select data-filter-col="critical" aria-label="Filter by critical">
+            <option value="">any</option>
+            <option value="yes">critical</option>
+            <option value="no">not critical</option>
+          </select>
+          <select
+            data-filter-col="channels"
+            data-filter-match="contains"
+            aria-label="Filter by channel"
+          >
+            <option value="">any channel</option>
+            {channels.map((s) => (
+              <option value={s.name}>{s.name}</option>
+            ))}
+          </select>
+          <span class="table-status muted" data-table-status />
+        </div>
 
         <table data-enhance>
           <thead>
@@ -282,6 +311,9 @@ export const BuildsPage: FC<{ builds: BuildView[] }> = ({ builds }) => (
             ))}
           </tbody>
         </table>
+        <p class="empty" data-table-empty hidden>
+          No builds match the filters.
+        </p>
       </div>
     )}
   </AdminLayout>

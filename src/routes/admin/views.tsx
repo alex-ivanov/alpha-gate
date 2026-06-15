@@ -68,7 +68,9 @@ export async function userManageView(c: AdminContext): Promise<Response> {
 }
 
 export async function buildsView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<BuildsPage builds={await loadBuilds(c.get("deps"))} />));
+  const deps = c.get("deps");
+  const [builds, channels] = await Promise.all([loadBuilds(deps), loadChannels(deps)]);
+  return c.html(renderPage(<BuildsPage builds={builds} channels={channels} />));
 }
 
 export async function buildManageView(c: AdminContext): Promise<Response> {

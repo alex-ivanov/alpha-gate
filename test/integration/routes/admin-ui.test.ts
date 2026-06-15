@@ -70,6 +70,13 @@ describe("admin operation pages", () => {
     expect(html).toContain('name="id"'); // selection checkboxes
     expect(html).toContain('value="withdraw"'); // bulk op button
     expect(html).toContain("Rollback"); // rollback column header
+    // Client-side filter controls target columns by their header key; the Critical cell carries a
+    // canonical data-value so the filter matches "yes"/"no", not the "—" it displays.
+    expect(html).toContain('data-filter-col="status"');
+    expect(html).toContain('data-filter-col="critical"');
+    expect(html).toContain('data-filter-col="channels"');
+    expect(html).toMatch(/data-key="critical"/);
+    expect(html).toMatch(/<td data-value="(yes|no)">/);
   });
 
   it("build manage page shows the EdDSA signature, length, and the rollback toggle", async () => {
