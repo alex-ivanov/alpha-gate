@@ -46,16 +46,36 @@ else
 fi
 
 # post: the real curl adds the Access service-token headers; dry-run echoes the args WITHOUT the
-# secret (the credentials are never expanded into the printed command).
+# secret (the credentials are never expanded into the printed command). We capture the HTTP status
+# ourselves rather than rely on `curl -f`, because a rejected service token comes back as a 3xx redirect
+# to the Access login (NOT a 4xx) — `-f` would treat it as success and we'd wrongly report "published".
 post() {
   if [ "${DRY_RUN}" -eq 1 ]; then
-    echo "[dry-run] curl -fsS -X POST -H 'CF-Access-Client-Id: <redacted>' -H 'CF-Access-Client-Secret: <redacted>' $*" >&2
+    echo "[dry-run] curl -X POST -H 'CF-Access-Client-Id: <redacted>' -H 'CF-Access-Client-Secret: <redacted>' $*" >&2
     return 0
   fi
-  curl -fsS -X POST \
+  local body status
+  body="$(mktemp)"
+  status="$(curl -sS -o "${body}" -w '%{http_code}' -X POST \
     -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}" \
     -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}" \
-    "$@"
+    "$@")" || { echo "could not reach ${ADMIN_URL} (network error)" >&2; rm -f "${body}"; return 1; }
+
+  if [ "${status}" -ge 200 ] && [ "${status}" -lt 300 ]; then
+    cat "${body}"; rm -f "${body}"; return 0
+  fi
+
+  echo "publish failed: HTTP ${status}" >&2
+  if [ "${status}" -ge 300 ] && [ "${status}" -lt 400 ]; then
+    echo "  Cloudflare Access rejected the service token (redirect to its login page). Check that:" >&2
+    echo "    1. CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET are correct (re-enter: publish-dmg.sh --reset-token)." >&2
+    echo "    2. The admin Access application has a policy with Action 'Service Auth' that INCLUDES this" >&2
+    echo "       token — an email/one-time-PIN policy alone does NOT admit service tokens. See /admin/ci." >&2
+  else
+    sed 's/^/  /' "${body}" >&2   # 4xx/5xx: show the Worker's own error (e.g. duplicate build_number)
+  fi
+  rm -f "${body}"
+  return 1
 }
 
 if [ -n "${OBJECT_KEY}" ]; then

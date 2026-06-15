@@ -17,7 +17,7 @@
 # on the first run for that instance (the script tells you how to create it), then reused automatically.
 set -euo pipefail
 
-DMG=""; INSTANCE=""; ADMIN_URL=""; STREAM_ID=""; CRITICAL_FLAG=""; DRY_RUN=0
+DMG=""; INSTANCE=""; ADMIN_URL=""; STREAM_ID=""; CRITICAL_FLAG=""; DRY_RUN=0; RESET_TOKEN=0
 SIGN_UPDATE="${SIGN_UPDATE:-}"   # path to Sparkle's sign_update; env default, --sign-update overrides
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -26,6 +26,7 @@ while [ "$#" -gt 0 ]; do
     --stream-id)   STREAM_ID="${2:-}"; shift 2 ;;
     --sign-update) SIGN_UPDATE="${2:-}"; shift 2 ;;
     --critical)    CRITICAL_FLAG="--critical"; shift ;;
+    --reset-token) RESET_TOKEN=1; shift ;;      # forget the stored service token and re-enter it
     --dry-run)     DRY_RUN=1; shift ;;
     -*) echo "unknown flag: $1" >&2; exit 1 ;;
     *)  DMG="$1"; shift ;;          # the positional DMG path
@@ -59,6 +60,13 @@ if [ "${LOCAL}" -eq 0 ] && [ "${DRY_RUN}" -eq 0 ]; then
   KEY="${INSTANCE:-$(printf '%s' "${ADMIN_URL}" | sed -E 's#^https?://([^/]+).*#\1#')}"
   KC_SERVICE="alpha-gate-access"
   kc_get() { security find-generic-password -s "${KC_SERVICE}" -a "$1" -w 2>/dev/null || true; }
+
+  if [ "${RESET_TOKEN}" -eq 1 ]; then
+    security delete-generic-password -s "${KC_SERVICE}" -a "${KEY}-client-id"     >/dev/null 2>&1 || true
+    security delete-generic-password -s "${KC_SERVICE}" -a "${KEY}-client-secret" >/dev/null 2>&1 || true
+    CF_ACCESS_CLIENT_ID=""; CF_ACCESS_CLIENT_SECRET=""
+    echo "Forgot the stored token for '${KEY}'; you'll be asked to enter it again." >&2
+  fi
 
   FROM_KC=0
   if [ -z "${CF_ACCESS_CLIENT_ID:-}" ]; then
@@ -108,6 +116,17 @@ MIN_OS="${MIN_OS:-$(defaults read "${PLIST}" LSMinimumSystemVersion 2>/dev/null 
 
 cleanup; trap - EXIT   # release the image before signing/uploading — neither needs it mounted
 echo "read ${SHORT_VERSION} (build ${BUILD_NUMBER}${MIN_OS:+, min macOS ${MIN_OS}}) from ${DMG##*/}" >&2
+
+# Sparkle's sparkle:version (= CFBundleVersion = build_number) must be a positive integer the resolver
+# can compare; the server rejects anything else. Catch a non-integer CFBundleVersion before uploading.
+case "${BUILD_NUMBER}" in
+  ''|*[!0-9]*)
+    echo "error: build number '${BUILD_NUMBER}' (the app's CFBundleVersion) is not a positive integer." >&2
+    echo "       Sparkle compares sparkle:version numerically, so set CFBundleVersion to a monotonic" >&2
+    echo "       integer (e.g. 3) — CFBundleShortVersionString stays your human version. Or pass" >&2
+    echo "       BUILD_NUMBER=<n> to override for this publish." >&2
+    exit 1 ;;
+esac
 
 # ─── Sparkle EdDSA signature over the DMG ─────────────────────────────────────────────────────────
 # `sign_update` output differs by Sparkle version: newer prints `sparkle:edSignature="..." length="..."`,
