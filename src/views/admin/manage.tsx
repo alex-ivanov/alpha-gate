@@ -331,10 +331,12 @@ export const UploadPage: FC<{ channels: Stream[]; recentBuilds: RecentBuild[] }>
         <p>
           <input type="file" name="archive" required />
         </p>
-        <p class="muted" data-autofill-note hidden>
-          Version and build number filled from the archive's Info.plist — edit if you're rolling
-          forward.
+        <p class="muted hint">
+          Pick the signed <code>.app</code> <code>.zip</code> and we'll fill version + build from
+          its Info.plist (editable). A <code>.dmg</code>/<code>.tar</code> can't be read — type them
+          in.
         </p>
+        <p data-autofill-status hidden />
         <p>
           <input name="short_version" placeholder="short version (e.g. 1.4.0)" required />
         </p>

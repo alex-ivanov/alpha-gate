@@ -167,47 +167,60 @@ export function parseInfoPlist(bytes: Uint8Array): InfoPlist {
   };
 }
 
-// Hand-written async glue: read the picked file, locate + inflate Info.plist, prefill the form. Best
-// effort — any failure leaves the fields for manual entry. Fills only empty or still-auto-filled fields,
-// so a value the admin typed (e.g. a rollback build_number) is never clobbered when they pick the file.
+// Hand-written async glue: read the picked file, locate + inflate Info.plist, prefill the form, and
+// ALWAYS report the outcome (success or "couldn't read this — type it") so a failed autofill is never
+// silent. Fills only empty or still-auto-filled fields, so a value the admin typed (e.g. a rollback
+// build_number) is never clobbered when they pick the file.
 const GLUE = `
 (function () {
   var form = document.querySelector("[data-archive-autofill]");
-  if (!form || typeof DecompressionStream === "undefined") return;
+  if (!form) return;
   var file = form.querySelector('input[type="file"]');
-  var note = form.querySelector("[data-autofill-note]");
+  var status = form.querySelector("[data-autofill-status]");
   if (!file) return;
 
+  function say(msg, ok) {
+    if (!status) return;
+    status.textContent = msg;
+    status.className = ok ? "hint muted" : "callout callout-warn";
+    status.hidden = false;
+  }
   form.addEventListener("input", function (e) {
     if (e.target && e.target !== file && e.target.dataset) e.target.dataset.autofilled = "";
   });
   function set(name, value) {
     var el = form.querySelector('[name="' + name + '"]');
-    if (!el) return;
+    if (!el || !value) return;
     if (el.value && el.dataset.autofilled !== "1") return; // keep what the admin typed
     el.value = value;
     el.dataset.autofilled = "1";
   }
 
   file.addEventListener("change", function () {
+    if (status) status.hidden = true;
     var f = file.files && file.files[0];
     if (!f) return;
+    if (typeof DecompressionStream === "undefined") return; // ancient browser; stay silent
     f.arrayBuffer().then(function (buf) {
       var zip = new Uint8Array(buf);
       var loc = locateInfoPlist(zip);
-      if (!loc) return null;
+      if (!loc) throw new Error("not-an-app-zip");
       var slice = zip.subarray(loc.start, loc.start + loc.length);
       if (loc.method === 0) return slice;
       var stream = new Blob([slice]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
       return new Response(stream).arrayBuffer().then(function (b) { return new Uint8Array(b); });
     }).then(function (plist) {
-      if (!plist) return;
       var info = parseInfoPlist(plist);
-      if (info.shortVersion) set("short_version", info.shortVersion);
-      if (info.buildNumber) set("build_number", info.buildNumber);
-      if (info.minOs) set("min_os", info.minOs);
-      if (note && (info.shortVersion || info.buildNumber)) note.hidden = false;
-    }).catch(function () { /* best effort — leave the fields for manual entry */ });
+      if (!info.shortVersion && !info.buildNumber) throw new Error("no-version-keys");
+      set("short_version", info.shortVersion);
+      set("build_number", info.buildNumber);
+      set("min_os", info.minOs);
+      say("Filled version " + (info.shortVersion || "?") + " / build " + (info.buildNumber || "?") +
+        " from the archive — edit if you're rolling forward.", true);
+    }).catch(function () {
+      say("Couldn't read the version from this archive. Autofill needs the signed .app .zip " +
+        "(a .dmg or .tar can't be read) — enter version and build below.", false);
+    });
   });
 })();
 `;

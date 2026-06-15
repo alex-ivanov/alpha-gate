@@ -96,6 +96,8 @@ describe("admin operation pages", () => {
     // Version/build autofill from the picked archive: the form opts in and the extractor script ships.
     expect(html).toContain("data-archive-autofill");
     expect(html).toContain("locateInfoPlist");
+    expect(html).toContain("data-autofill-status"); // visible success/failure feedback element
+    expect(html).toContain("Info.plist"); // the hint tells you to pick the signed .app .zip
     // Two modes: a Normal release / Rollback toggle, with the §9 roll-forward guidance in the rollback block.
     expect(html).toContain('id="mode-normal"');
     expect(html).toContain('id="mode-rollback"');
