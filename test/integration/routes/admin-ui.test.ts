@@ -96,6 +96,23 @@ describe("admin operation pages", () => {
     // Version/build autofill from the picked archive: the form opts in and the extractor script ships.
     expect(html).toContain("data-archive-autofill");
     expect(html).toContain("locateInfoPlist");
+    // Two modes: a Normal release / Rollback toggle, with the §9 roll-forward guidance in the rollback block.
+    expect(html).toContain('id="mode-normal"');
+    expect(html).toContain('id="mode-rollback"');
+    expect(html).toContain("roll-forward");
+    expect(html).toContain("rollback-only");
+    // No-channel hint so a build published to no channel isn't a silent dead end.
+    expect(html).toContain("offered to no one");
+  });
+
+  it("flags a user with no channel (and no pin) as receiving no updates", async () => {
+    await adminWorker(access).request(
+      "/admin/clients",
+      withTokenForm(await access.signValidUser(), { email: "lonely@example.test" }),
+    );
+    const html = await getAdmin("/admin/users");
+    expect(html).toContain("no channel"); // the warn badge in the Channels column
+    expect(html).toContain("receives no updates"); // the add-user tip
   });
 
   it("settings page renders the branding form, header upload, and the instance info panel", async () => {

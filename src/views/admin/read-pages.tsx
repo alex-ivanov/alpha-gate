@@ -124,6 +124,10 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
       </select>
       <button type="submit">Add user</button>
     </form>
+    <p class="muted hint">
+      Tip: a user with no channel receives no updates until you assign one — leave it blank only if
+      you mean to.
+    </p>
 
     <form method="get" action="/admin/users" class="addform">
       <select name="status">
@@ -178,7 +182,20 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
               <td>{u.email}</td>
               <td>{u.label ?? <span class="muted">—</span>}</td>
               <td>{u.status}</td>
-              <td>{u.streams.join(", ") || <span class="muted">—</span>}</td>
+              <td data-value={u.streams.join(",")}>
+                {u.streams.length > 0 ? (
+                  u.streams.join(", ")
+                ) : u.pinnedBuildId !== null ? (
+                  <span class="muted">— (pinned)</span>
+                ) : (
+                  <span
+                    class="badge warn"
+                    title="No channel — receives no updates until assigned one"
+                  >
+                    no channel
+                  </span>
+                )}
+              </td>
               <td>{u.currentBuild ?? <span class="muted">—</span>}</td>
               <td class="muted">{u.lastInstalled ?? "—"}</td>
               <td class="muted">{u.lastUpdated ?? "—"}</td>

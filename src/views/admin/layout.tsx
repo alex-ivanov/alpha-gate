@@ -96,7 +96,19 @@ const styles = `
   .btn-danger:hover { background: var(--danger-weak); }
 
   .empty { color: var(--text-muted); padding: 1rem 0; }
+  .hint { margin: -.4rem 0 1rem; font-size: .82rem; }
+  .callout { border-radius: var(--radius-sm); padding: .7rem .9rem; margin: 0 0 .85rem;
+    font-size: .85rem; line-height: 1.5; }
+  .callout-warn { background: var(--warn-weak); color: var(--warn-text);
+    border: 1px solid color-mix(in srgb, var(--warn-text) 30%, transparent); }
   .addform { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: 0 0 1rem; }
+
+  /* Upload mode toggle (Normal release / Rollback) — pure CSS so it works with no JS: the radio reveals
+     the rollback-only guidance via :has(). */
+  .modes { display: flex; gap: 1.25rem; margin: 0 0 1.1rem; }
+  .modes label { display: inline-flex; align-items: center; gap: .4rem; font-weight: 500; }
+  .rollback-only { display: none; }
+  form:has(#mode-rollback:checked) .rollback-only { display: block; }
   .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 1.25rem 1.35rem; margin: 1rem 0; box-shadow: var(--shadow); }
   .panel h2 { font-size: .95rem; margin: 0 0 .85rem; font-weight: 650; }

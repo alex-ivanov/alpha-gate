@@ -263,59 +263,116 @@ export const StreamManagePage: FC<{ detail: StreamDetail }> = ({ detail }) => {
   );
 };
 
-export const UploadPage: FC<{ channels: Stream[] }> = ({ channels }) => (
-  <AdminLayout title="Upload build">
-    <p class="muted">
-      Upload an already-signed, notarized archive and paste its Sparkle EdDSA signature. Archives
-      over ~90 MB use the CI register path (see docs/OPERATING.md).
-    </p>
-    <form
-      method="post"
-      action="/admin/builds/upload"
-      enctype="multipart/form-data"
-      class="panel"
-      data-archive-autofill
-    >
+export interface RecentBuild {
+  buildNumber: number;
+  shortVersion: string;
+}
+
+export const UploadPage: FC<{ channels: Stream[]; recentBuilds: RecentBuild[] }> = ({
+  channels,
+  recentBuilds,
+}) => {
+  const topBuild = recentBuilds[0]?.buildNumber ?? null;
+  return (
+    <AdminLayout title="Upload build">
+      <p class="muted">
+        Upload an already-signed, notarized archive and paste its Sparkle EdDSA signature. Archives
+        over ~90 MB use the CI register path (see docs/OPERATING.md).
+      </p>
+      <form
+        method="post"
+        action="/admin/builds/upload"
+        enctype="multipart/form-data"
+        class="panel"
+        data-archive-autofill
+      >
+        {/* Two modes, toggled with no JS (CSS :has, see layout). Both publish via the same endpoint;
+            rollback only adds §9 guidance, since a rollback IS a normal upload of a rebuilt artifact. */}
+        <div class="modes">
+          <label>
+            <input type="radio" name="mode" value="normal" id="mode-normal" checked /> Normal
+            release
+          </label>
+          <label>
+            <input type="radio" name="mode" value="rollback" id="mode-rollback" /> Rollback
+          </label>
+        </div>
+
+        <div class="rollback-only">
+          <p class="callout callout-warn">
+            Rollback = roll-forward (§9). Sparkle can't downgrade, so rebuild the previous good code
+            with a <strong>higher build number</strong> while keeping its old short version, then
+            upload it here.
+            {topBuild !== null ? (
+              <>
+                {" "}
+                The current highest is <strong>{topBuild}</strong> — your rollback build number must
+                exceed it.
+              </>
+            ) : null}
+          </p>
+          {recentBuilds.length > 0 ? (
+            <p class="muted">
+              Recent builds:{" "}
+              {recentBuilds.map((b, i) => (
+                <>
+                  {i > 0 ? ", " : ""}
+                  <code>
+                    {b.buildNumber} ({b.shortVersion})
+                  </code>
+                </>
+              ))}
+              . Withdraw the bad one on the <a href="/admin/builds">Builds</a> page after
+              publishing.
+            </p>
+          ) : null}
+        </div>
+
+        <p>
+          <input type="file" name="archive" required />
+        </p>
+        <p class="muted" data-autofill-note hidden>
+          Version and build number filled from the archive's Info.plist — edit if you're rolling
+          forward.
+        </p>
+        <p>
+          <input name="short_version" placeholder="short version (e.g. 1.4.0)" required />
+        </p>
+        <p>
+          <input name="build_number" placeholder="build number (e.g. 1500)" required />
+        </p>
+        <p>
+          <input name="ed_signature" placeholder="sparkle:edSignature" required />
+        </p>
+        <p>
+          <input name="min_os" placeholder="minimum macOS (optional)" />
+        </p>
+        <p>
+          <label>
+            <input type="checkbox" name="critical" value="true" /> mark critical
+          </label>
+        </p>
+        <p>
+          <select name="stream_id">
+            <option value="">— channel (optional) —</option>
+            {channels.map((s) => (
+              <option value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </p>
+        <p class="muted hint">
+          No channel: the build is published but offered to no one until you link it to a channel
+          (Builds → Manage) that users are assigned to.
+        </p>
+        <button type="submit">Upload build</button>
+      </form>
       <p>
-        <input type="file" name="archive" required />
+        <a href="/admin/builds">← Builds</a>
       </p>
-      <p class="muted" data-autofill-note hidden>
-        Version and build number filled from the archive's Info.plist — edit if you're rolling
-        forward.
-      </p>
-      <p>
-        <input name="short_version" placeholder="short version (e.g. 1.4.0)" required />
-      </p>
-      <p>
-        <input name="build_number" placeholder="build number (e.g. 1500)" required />
-      </p>
-      <p>
-        <input name="ed_signature" placeholder="sparkle:edSignature" required />
-      </p>
-      <p>
-        <input name="min_os" placeholder="minimum macOS (optional)" />
-      </p>
-      <p>
-        <label>
-          <input type="checkbox" name="critical" value="true" /> mark critical
-        </label>
-      </p>
-      <p>
-        <select name="stream_id">
-          <option value="">— channel (optional) —</option>
-          {channels.map((s) => (
-            <option value={s.id}>{s.name}</option>
-          ))}
-        </select>
-      </p>
-      <button type="submit">Upload build</button>
-    </form>
-    <p>
-      <a href="/admin/builds">← Builds</a>
-    </p>
-    <script dangerouslySetInnerHTML={{ __html: ARCHIVE_AUTOFILL_SCRIPT }} />
-  </AdminLayout>
-);
+      <script dangerouslySetInnerHTML={{ __html: ARCHIVE_AUTOFILL_SCRIPT }} />
+    </AdminLayout>
+  );
+};
 
 export interface SettingsInfo {
   instance: string;

@@ -92,7 +92,14 @@ export async function streamManageView(c: AdminContext): Promise<Response> {
 }
 
 export async function uploadView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<UploadPage channels={await loadChannels(c.get("deps"))} />));
+  const deps = c.get("deps");
+  const [channels, builds] = await Promise.all([loadChannels(deps), loadBuilds(deps)]);
+  // The rollback guidance needs the floor (current highest build number) + a few recents for reference.
+  const recentBuilds = builds
+    .map((b) => ({ buildNumber: b.build.buildNumber, shortVersion: b.build.shortVersion }))
+    .sort((a, b) => b.buildNumber - a.buildNumber)
+    .slice(0, 5);
+  return c.html(renderPage(<UploadPage channels={channels} recentBuilds={recentBuilds} />));
 }
 
 export async function ciView(c: AdminContext): Promise<Response> {
