@@ -109,13 +109,18 @@ hdiutil attach -nobrowse -readonly -noautoopen -mountpoint "${MOUNTPOINT}" "${DM
 
 APP="$(/bin/ls -d "${MOUNTPOINT}"/*.app 2>/dev/null | head -1 || true)"
 [ -n "${APP}" ] || { echo "no .app found in ${DMG}" >&2; exit 1; }
-PLIST="${APP}/Contents/Info"
-SHORT_VERSION="${SHORT_VERSION:-$(defaults read "${PLIST}" CFBundleShortVersionString)}"
-BUILD_NUMBER="${BUILD_NUMBER:-$(defaults read "${PLIST}" CFBundleVersion)}"
-MIN_OS="${MIN_OS:-$(defaults read "${PLIST}" LSMinimumSystemVersion 2>/dev/null || true)}"
+APP_NAME="${APP##*/}"
+# Read with PlistBuddy, NOT `defaults read`: `defaults` can return a stale value from the cfprefsd cache
+# (Apple advises against it for Info.plist), which is why a freshly-built app could read an old version.
+# PlistBuddy parses the file on disk, matching `plutil`/Xcode.
+PLIST="${APP}/Contents/Info.plist"
+pb() { /usr/libexec/PlistBuddy -c "Print :$1" "${PLIST}" 2>/dev/null || true; }
+SHORT_VERSION="${SHORT_VERSION:-$(pb CFBundleShortVersionString)}"
+BUILD_NUMBER="${BUILD_NUMBER:-$(pb CFBundleVersion)}"
+MIN_OS="${MIN_OS:-$(pb LSMinimumSystemVersion)}"
 
 cleanup; trap - EXIT   # release the image before signing/uploading — neither needs it mounted
-echo "read ${SHORT_VERSION} (build ${BUILD_NUMBER}${MIN_OS:+, min macOS ${MIN_OS}}) from ${DMG##*/}" >&2
+echo "read ${SHORT_VERSION} (build ${BUILD_NUMBER}${MIN_OS:+, min macOS ${MIN_OS}}) from ${APP_NAME} in ${DMG##*/}" >&2
 
 # Sparkle's sparkle:version (= CFBundleVersion = build_number) must be a positive integer the resolver
 # can compare; the server rejects anything else. Catch a non-integer CFBundleVersion before uploading.
