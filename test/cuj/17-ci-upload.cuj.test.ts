@@ -151,4 +151,61 @@ describe("CUJ-17 publish via CI", () => {
     expect(html).toContain("Upload failed");
     expect(html).toContain("build_number"); // the specific validation message
   });
+
+  it("re-uploading an existing build_number is a clear 409, not a 500 — and leaves no orphan in R2", async () => {
+    async function upload(name: string, accept = "text/html"): Promise<Response> {
+      const form = new FormData();
+      form.set("archive", new File(["ZIPBYTES!"], name, { type: "application/zip" }));
+      form.set("short_version", "1.4.0");
+      form.set("build_number", "1500");
+      form.set("ed_signature", "ed-sig");
+      return adminWorker(access).request("/admin/builds/upload", {
+        method: "POST",
+        headers: { ...tokenHeaders(await access.signValidUser()), Accept: accept },
+        body: form,
+      });
+    }
+
+    expect((await upload("App.zip")).status).toBe(201);
+
+    // Second upload of the SAME build number, with a different archive name so an orphan would be visible.
+    const dup = await upload("App-take-two.zip");
+    expect(dup.status).toBe(409); // not a bare 500 "internal error"
+    const html = await dup.text();
+    expect(html).toContain("Upload failed");
+    expect(html).toContain("already exists"); // actionable, names the conflict
+    // The duplicate was rejected BEFORE the R2 PUT, so no second archive was written.
+    expect(await getObject(deps.r2, "build/1500/App-take-two.zip")).toBeNull();
+  });
+
+  it("registering a duplicate build_number returns 409 text for CI (not a 500)", async () => {
+    await putArchive(deps.r2, 1700, "App.zip", "TEN_BYTES!");
+    const params = () =>
+      new URLSearchParams({
+        object_key: "build/1700/App.zip",
+        size: "10",
+        short_version: "1.7.0",
+        build_number: "1700",
+        ed_signature: "s",
+      }).toString();
+    const headers = async () => ({
+      ...tokenHeaders(await access.signValidService()),
+      "Content-Type": "application/x-www-form-urlencoded",
+    });
+
+    const first = await adminWorker(access).request("/admin/builds/register", {
+      method: "POST",
+      headers: await headers(),
+      body: params(),
+    });
+    expect(first.status).toBe(201);
+
+    const dup = await adminWorker(access).request("/admin/builds/register", {
+      method: "POST",
+      headers: await headers(),
+      body: params(),
+    });
+    expect(dup.status).toBe(409);
+    expect(await dup.text()).toContain("already exists"); // CI gets plain text, but still actionable
+  });
 });

@@ -59,7 +59,7 @@ function parseBuildMeta(
 // Content-negotiated responses (decision 0006 — both routes serve a human form AND a CI service token).
 // A browser gets a page; CI keeps the machine JSON/text contract. See ./negotiate.
 
-function fail(c: AdminContext, status: 400 | 413, message: string): Response {
+function fail(c: AdminContext, status: 400 | 409 | 413, message: string): Response {
   if (!wantsHtml(c)) return c.text(message, status);
   return c.html(
     renderPage(
@@ -72,6 +72,20 @@ function fail(c: AdminContext, status: 400 | 413, message: string): Response {
       </ResultPage>,
     ),
     status,
+  );
+}
+
+// build_number is UNIQUE (Sparkle's monotonic key). A re-upload of an existing one would hit the DB
+// constraint and surface as a bare 500; pre-check so the admin gets an actionable message instead. In
+// uploadBuild this runs BEFORE the R2 PUT, so a rejected duplicate never leaves an orphan archive.
+async function duplicateBuild(c: AdminContext, buildNumber: number): Promise<Response | null> {
+  const existing = await builds.getByBuildNumber(c.get("deps").db, buildNumber);
+  if (existing === null) return null;
+  return fail(
+    c,
+    409,
+    `Build number ${buildNumber} already exists (published as ${existing.shortVersion}). Each ` +
+      `build_number is unique — to publish a corrected build, give it a higher number (roll-forward, §9).`,
   );
 }
 
@@ -111,6 +125,9 @@ export async function uploadBuild(c: AdminContext): Promise<Response> {
   const meta = parseBuildMeta(body);
   if (!meta.ok) return fail(c, 400, meta.error);
 
+  const duplicate = await duplicateBuild(c, meta.value.buildNumber);
+  if (duplicate !== null) return duplicate;
+
   const objectKey = await putArchive(
     deps.r2,
     meta.value.buildNumber,
@@ -145,6 +162,9 @@ export async function registerBuild(c: AdminContext): Promise<Response> {
   }
   const meta = parseBuildMeta(body);
   if (!meta.ok) return fail(c, 400, meta.error);
+
+  const duplicate = await duplicateBuild(c, meta.value.buildNumber);
+  if (duplicate !== null) return duplicate;
 
   const head = await headObject(deps.r2, objectKey);
   if (head === null) return fail(c, 400, "object not found in R2");
