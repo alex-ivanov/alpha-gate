@@ -6,20 +6,24 @@
 #
 #   ./publish-dmg.sh MyApp.dmg --instance <slug> [--stream-id N] [--critical] [--dry-run]
 #   ./publish-dmg.sh MyApp.dmg --admin-url https://alpha-gate-<slug>-admin.<acct>.workers.dev
+#   ./publish-dmg.sh MyApp.dmg --instance <slug> --sign-update ./Sparkle/bin/sign_update
 #
 # The DMG is both the first-install download and the update enclosure: `/download` serves it with its
 # filename, so Sparkle recognizes the .dmg and uses the disk-image installer. Sparkle 2 verifies the
-# EdDSA, mounts, and installs the .app. Requires Sparkle's `sign_update` on PATH (or pass ED_SIGNATURE).
+# EdDSA, mounts, and installs the .app. Needs Sparkle's `sign_update` — on PATH, via --sign-update /
+# $SIGN_UPDATE (its path is often inside the Sparkle package, not PATH), or bypass by passing ED_SIGNATURE.
 set -euo pipefail
 
 DMG=""; INSTANCE=""; ADMIN_URL=""; STREAM_ID=""; CRITICAL_FLAG=""; DRY_RUN=0
+SIGN_UPDATE="${SIGN_UPDATE:-}"   # path to Sparkle's sign_update; env default, --sign-update overrides
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --instance)  INSTANCE="${2:-}"; shift 2 ;;
-    --admin-url) ADMIN_URL="${2:-}"; shift 2 ;;
-    --stream-id) STREAM_ID="${2:-}"; shift 2 ;;
-    --critical)  CRITICAL_FLAG="--critical"; shift ;;
-    --dry-run)   DRY_RUN=1; shift ;;
+    --instance)    INSTANCE="${2:-}"; shift 2 ;;
+    --admin-url)   ADMIN_URL="${2:-}"; shift 2 ;;
+    --stream-id)   STREAM_ID="${2:-}"; shift 2 ;;
+    --sign-update) SIGN_UPDATE="${2:-}"; shift 2 ;;
+    --critical)    CRITICAL_FLAG="--critical"; shift ;;
+    --dry-run)     DRY_RUN=1; shift ;;
     -*) echo "unknown flag: $1" >&2; exit 1 ;;
     *)  DMG="$1"; shift ;;          # the positional DMG path
   esac
@@ -57,16 +61,18 @@ echo "read ${SHORT_VERSION} (build ${BUILD_NUMBER}${MIN_OS:+, min macOS ${MIN_OS
 
 # ─── Sparkle EdDSA signature over the DMG ─────────────────────────────────────────────────────────
 # `sign_update` output differs by Sparkle version: newer prints `sparkle:edSignature="..." length="..."`,
-# older prints the bare base64. Extract the signature value either way. Override with ED_SIGNATURE.
+# older prints the bare base64. Extract the signature value either way. Override the tool with
+# --sign-update / $SIGN_UPDATE, or skip signing entirely by passing ED_SIGNATURE.
+SIGN_BIN="${SIGN_UPDATE:-sign_update}"   # an explicit path, else expect it on PATH
 if [ -z "${ED_SIGNATURE:-}" ]; then
-  if command -v sign_update >/dev/null 2>&1; then
-    SU_OUT="$(sign_update "${DMG}")"
+  if command -v "${SIGN_BIN}" >/dev/null 2>&1; then
+    SU_OUT="$("${SIGN_BIN}" "${DMG}")"
     ED_SIGNATURE="$(printf '%s' "${SU_OUT}" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')"
     [ -n "${ED_SIGNATURE}" ] || ED_SIGNATURE="$(printf '%s' "${SU_OUT}" | tr -d '[:space:]')"
   elif [ "${DRY_RUN}" -eq 1 ]; then
     ED_SIGNATURE="DRY-RUN-SIGNATURE"   # let a dry run proceed without the Sparkle tool
   else
-    echo "sign_update not found on PATH (Sparkle's EdDSA tool). Install it or pass ED_SIGNATURE." >&2
+    echo "sign_update not found ('${SIGN_BIN}'). Pass --sign-update <path>, set \$SIGN_UPDATE, or ED_SIGNATURE." >&2
     exit 1
   fi
 fi
