@@ -18,16 +18,19 @@
 set -euo pipefail
 
 DMG=""; INSTANCE=""; ADMIN_URL=""; STREAM_ID=""; CRITICAL_FLAG=""; DRY_RUN=0; RESET_TOKEN=0
+BUILD_OVERRIDE=""; SHORT_OVERRIDE=""
 SIGN_UPDATE="${SIGN_UPDATE:-}"   # path to Sparkle's sign_update; env default, --sign-update overrides
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --instance)    INSTANCE="${2:-}"; shift 2 ;;
-    --admin-url)   ADMIN_URL="${2:-}"; shift 2 ;;
-    --stream-id)   STREAM_ID="${2:-}"; shift 2 ;;
-    --sign-update) SIGN_UPDATE="${2:-}"; shift 2 ;;
-    --critical)    CRITICAL_FLAG="--critical"; shift ;;
-    --reset-token) RESET_TOKEN=1; shift ;;      # forget the stored service token and re-enter it
-    --dry-run)     DRY_RUN=1; shift ;;
+    --instance)      INSTANCE="${2:-}"; shift 2 ;;
+    --admin-url)     ADMIN_URL="${2:-}"; shift 2 ;;
+    --stream-id)     STREAM_ID="${2:-}"; shift 2 ;;
+    --sign-update)   SIGN_UPDATE="${2:-}"; shift 2 ;;
+    --build-number)  BUILD_OVERRIDE="${2:-}"; shift 2 ;;   # override the DMG's CFBundleVersion
+    --short-version) SHORT_OVERRIDE="${2:-}"; shift 2 ;;   # override the DMG's CFBundleShortVersionString
+    --critical)      CRITICAL_FLAG="--critical"; shift ;;
+    --reset-token)   RESET_TOKEN=1; shift ;;      # forget the stored service token and re-enter it
+    --dry-run)       DRY_RUN=1; shift ;;
     -*) echo "unknown flag: $1" >&2; exit 1 ;;
     *)  DMG="$1"; shift ;;          # the positional DMG path
   esac
@@ -115,8 +118,9 @@ APP_NAME="${APP##*/}"
 # PlistBuddy parses the file on disk, matching `plutil`/Xcode.
 PLIST="${APP}/Contents/Info.plist"
 pb() { /usr/libexec/PlistBuddy -c "Print :$1" "${PLIST}" 2>/dev/null || true; }
-SHORT_VERSION="${SHORT_VERSION:-$(pb CFBundleShortVersionString)}"
-BUILD_NUMBER="${BUILD_NUMBER:-$(pb CFBundleVersion)}"
+# Precedence: --build-number/--short-version flag > env > the DMG's Info.plist.
+SHORT_VERSION="${SHORT_OVERRIDE:-${SHORT_VERSION:-$(pb CFBundleShortVersionString)}}"
+BUILD_NUMBER="${BUILD_OVERRIDE:-${BUILD_NUMBER:-$(pb CFBundleVersion)}}"
 MIN_OS="${MIN_OS:-$(pb LSMinimumSystemVersion)}"
 
 cleanup; trap - EXIT   # release the image before signing/uploading — neither needs it mounted
@@ -128,8 +132,8 @@ case "${BUILD_NUMBER}" in
   ''|*[!0-9]*)
     echo "error: build number '${BUILD_NUMBER}' (the app's CFBundleVersion) is not a positive integer." >&2
     echo "       Sparkle compares sparkle:version numerically, so set CFBundleVersion to a monotonic" >&2
-    echo "       integer (e.g. 3) — CFBundleShortVersionString stays your human version. Or pass" >&2
-    echo "       BUILD_NUMBER=<n> to override for this publish." >&2
+    echo "       integer in the build (e.g. 483) — CFBundleShortVersionString stays your human version." >&2
+    echo "       To publish this DMG as-is, override: ./publish-dmg.sh ... --build-number <n>" >&2
     exit 1 ;;
 esac
 
