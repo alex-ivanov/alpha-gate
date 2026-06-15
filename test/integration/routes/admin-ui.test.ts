@@ -93,6 +93,9 @@ describe("admin operation pages", () => {
     expect(html).toContain('action="/admin/builds/upload"');
     expect(html).toContain('enctype="multipart/form-data"');
     expect(html).toContain('name="ed_signature"');
+    // Version/build autofill from the picked archive: the form opts in and the extractor script ships.
+    expect(html).toContain("data-archive-autofill");
+    expect(html).toContain("locateInfoPlist");
   });
 
   it("settings page renders the branding form, header upload, and the instance info panel", async () => {

@@ -9,6 +9,7 @@ import type {
 import type { EmailStatus } from "../../services/email";
 import { Post } from "./forms";
 import { AdminLayout } from "./layout";
+import { ARCHIVE_AUTOFILL_SCRIPT } from "./plist-extract";
 
 // §13 per-entity management pages, plus the upload and branding/settings forms. Each posts to the
 // existing (tested) mutation handlers; the §11 confirm flow handles any stranding action server-side.
@@ -268,9 +269,19 @@ export const UploadPage: FC<{ channels: Stream[] }> = ({ channels }) => (
       Upload an already-signed, notarized archive and paste its Sparkle EdDSA signature. Archives
       over ~90 MB use the CI register path (see docs/OPERATING.md).
     </p>
-    <form method="post" action="/admin/builds/upload" enctype="multipart/form-data" class="panel">
+    <form
+      method="post"
+      action="/admin/builds/upload"
+      enctype="multipart/form-data"
+      class="panel"
+      data-archive-autofill
+    >
       <p>
         <input type="file" name="archive" required />
+      </p>
+      <p class="muted" data-autofill-note hidden>
+        Version and build number filled from the archive's Info.plist — edit if you're rolling
+        forward.
       </p>
       <p>
         <input name="short_version" placeholder="short version (e.g. 1.4.0)" required />
@@ -302,6 +313,7 @@ export const UploadPage: FC<{ channels: Stream[] }> = ({ channels }) => (
     <p>
       <a href="/admin/builds">← Builds</a>
     </p>
+    <script dangerouslySetInnerHTML={{ __html: ARCHIVE_AUTOFILL_SCRIPT }} />
   </AdminLayout>
 );
 
