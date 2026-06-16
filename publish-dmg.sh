@@ -104,13 +104,21 @@ if [ "${LOCAL}" -eq 0 ] && [ "${DRY_RUN}" -eq 0 ]; then
 fi
 
 # ─── Read the app version from inside the DMG ─────────────────────────────────────────────────────
-# Mount read-only with no UI, find the .app, read its Info.plist, then always detach (trap on exit).
-MOUNTPOINT="$(mktemp -d)"
-cleanup() { hdiutil detach "${MOUNTPOINT}" -quiet >/dev/null 2>&1 || true; rmdir "${MOUNTPOINT}" >/dev/null 2>&1 || true; }
+# Mount read-only at a random point under /tmp. We do NOT pass -mountpoint: it fails "Resource busy"
+# when the image is already attached (e.g. opened in Finder). Parse the device + mount point(s) from the
+# attach output and always detach the whole device on exit.
+ATTACH="$(hdiutil attach "${DMG}" -nobrowse -readonly -noautoopen -mountrandom /tmp 2>&1)" \
+  || { echo "could not mount ${DMG}:" >&2; printf '%s\n' "${ATTACH}" | sed 's/^/  /' >&2; exit 1; }
+DEV="$(printf '%s\n' "${ATTACH}" | grep -Eo '^/dev/disk[0-9]+' | head -1 || true)"
+cleanup() { [ -n "${DEV:-}" ] && hdiutil detach "${DEV}" -quiet >/dev/null 2>&1 || true; }
 trap cleanup EXIT
-hdiutil attach -nobrowse -readonly -noautoopen -mountpoint "${MOUNTPOINT}" "${DMG}" >/dev/null
 
-APP="$(/bin/ls -d "${MOUNTPOINT}"/*.app 2>/dev/null | head -1 || true)"
+# A DMG can expose more than one mounted filesystem; use whichever volume actually holds the .app.
+APP=""; MOUNTPOINT=""
+for M in $(printf '%s\n' "${ATTACH}" | grep -Eo '/tmp/[^[:space:]]+' || true); do
+  A="$(/bin/ls -d "${M}"/*.app 2>/dev/null | head -1 || true)"
+  if [ -n "${A}" ]; then APP="${A}"; MOUNTPOINT="${M}"; break; fi
+done
 [ -n "${APP}" ] || { echo "no .app found in ${DMG}" >&2; exit 1; }
 APP_NAME="${APP##*/}"
 echo "mounted ${DMG##*/} at ${MOUNTPOINT}; reading ${APP_NAME}/Contents/Info.plist" >&2
