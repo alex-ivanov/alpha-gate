@@ -25,8 +25,21 @@ export const ResultPage: FC<{
   </AdminLayout>
 );
 
-export const InvitePage: FC<{ email: string; getUrl: string }> = ({ email, getUrl }) => (
+export const InvitePage: FC<{
+  email: string;
+  getUrl: string;
+  delivery?: { sent: boolean; error?: string } | undefined;
+}> = ({ email, getUrl, delivery }) => (
   <AdminLayout title="Invite created">
+    {delivery?.sent ? (
+      <p class="badge ok">Emailed to {email}.</p>
+    ) : delivery && !delivery.sent ? (
+      <p class="callout callout-warn">
+        The user was created, but the invite email to <strong>{email}</strong> didn't send:{" "}
+        {delivery.error || "delivery failed"}. Send the link below manually, or fix email under{" "}
+        <a href="/admin/settings">Settings</a>.
+      </p>
+    ) : null}
     <p>
       Send this private link to <strong>{email}</strong>:
     </p>

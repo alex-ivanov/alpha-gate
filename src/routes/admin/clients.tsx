@@ -1,17 +1,16 @@
-import { renderInvite } from "../../core/invite-template";
 import type { AdminAction } from "../../core/no-build";
 import { generateToken } from "../../core/tokens";
 import * as clients from "../../db/clients";
 import * as streams from "../../db/streams";
 import { inviteUrl } from "../../lib/hosts";
 import { recordAudit } from "../../services/audit";
-import { loadBranding, loadInviteTemplate } from "../../services/branding";
 import { InvitePage, ResultPage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
 import { guardStranding } from "./confirm";
 import { field, isEmail, toId } from "./form";
+import { sendInvite } from "./invite";
 import { requireUser } from "./middleware";
 
 // §10/§13 — client mutations. Every handler requires a human actor (service tokens are refused),
@@ -61,13 +60,9 @@ export async function createClient(c: AdminContext): Promise<Response> {
   if (streamId !== null) await streams.assignUser(deps.db, client.id, streamId);
   await recordAudit(deps, auditFields(c, "client.create", email, JSON.stringify({ streamId })));
 
-  const url = getUrl(c, token);
-  const branding = await loadBranding(deps);
-  const template = await loadInviteTemplate(deps);
-  const invite = renderInvite(template, { appName: branding.appName, getUrl: url, token });
-  await deps.email.send({ to: email, subject: invite.subject, body: invite.body });
-
-  return c.html(renderPage(<InvitePage email={email} getUrl={url} />));
+  // Delivery never throws: a failed send still returns the link (the copy-paste fallback) with a notice.
+  const { url, delivery } = await sendInvite(c, email, token);
+  return c.html(renderPage(<InvitePage email={email} getUrl={url} delivery={delivery} />));
 }
 
 export async function revokeClient(c: AdminContext): Promise<Response> {

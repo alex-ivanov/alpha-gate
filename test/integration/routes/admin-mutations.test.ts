@@ -63,6 +63,27 @@ describe("createClient", () => {
     // The failed add must not have written an audit row either.
     expect((await listInOrder(deps.db)).some((r) => r.action === "client.create")).toBe(false);
   });
+
+  it("a failed invite email still creates the user and shows the link (not a 500)", async () => {
+    const failingEmail = {
+      send: async () => {
+        throw new Error("recipient address is not verified");
+      },
+    };
+    const res = await adminWorker(access, { email: failingEmail }).request(
+      "/admin/clients",
+      withTokenForm(await userToken(), { email: "new@example.test" }),
+      env,
+    );
+    expect(res.status).toBe(200); // NOT a bare 500 "Internal Server Error"
+    const html = await res.text();
+    expect(html).toContain("/get?token="); // the copy-paste link is still shown
+    expect(html).toContain("The user was created, but the invite email"); // the failure is surfaced
+    expect(html).toContain("recipient address is not verified"); // with the provider's reason
+    // The user really was created and audited (delivery is separate from creation).
+    expect((await clients.list(deps.db)).map((c) => c.email)).toContain("new@example.test");
+    expect((await listInOrder(deps.db)).some((r) => r.action === "client.create")).toBe(true);
+  });
 });
 
 describe("unpinClient §11 confirmation", () => {

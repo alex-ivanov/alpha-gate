@@ -1,15 +1,13 @@
-import { renderInvite } from "../../core/invite-template";
 import { generateToken } from "../../core/tokens";
 import * as accessRequests from "../../db/access-requests";
 import * as clients from "../../db/clients";
-import { inviteUrl } from "../../lib/hosts";
 import { recordAudit } from "../../services/audit";
-import { loadBranding, loadInviteTemplate } from "../../services/branding";
 import { InvitePage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
 import { toId } from "./form";
+import { sendInvite } from "./invite";
 import { requireUser } from "./middleware";
 
 // §13 #10 — acting on a pending access request: invite (reissue an existing client by email, or
@@ -37,13 +35,9 @@ export async function invitePending(c: AdminContext): Promise<Response> {
   await accessRequests.setStatus(deps.db, id, "handled");
   await recordAudit(deps, auditFields(c, "request.invite", request.email));
 
-  const url = inviteUrl(c.req.url, token);
-  const branding = await loadBranding(deps);
-  const template = await loadInviteTemplate(deps);
-  const invite = renderInvite(template, { appName: branding.appName, getUrl: url, token });
-  await deps.email.send({ to: request.email, subject: invite.subject, body: invite.body });
-
-  return c.html(renderPage(<InvitePage email={request.email} getUrl={url} />));
+  // Delivery never throws: a failed send still returns the link (the copy-paste fallback) with a notice.
+  const { url, delivery } = await sendInvite(c, request.email, token);
+  return c.html(renderPage(<InvitePage email={request.email} getUrl={url} delivery={delivery} />));
 }
 
 export async function dismissPending(c: AdminContext): Promise<Response> {
