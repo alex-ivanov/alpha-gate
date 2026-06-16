@@ -20,14 +20,16 @@ set -euo pipefail
 DMG=""; INSTANCE=""; ADMIN_URL=""; STREAM_ID=""; CRITICAL_FLAG=""; DRY_RUN=0; RESET_TOKEN=0
 BUILD_OVERRIDE=""; SHORT_OVERRIDE=""
 SIGN_UPDATE="${SIGN_UPDATE:-}"   # path to Sparkle's sign_update; env default, --sign-update overrides
+# Fail clearly (not via a bare `shift 2` abort under set -e) when a value-flag is given with no value.
+need() { [ "$#" -ge 2 ] || { echo "missing value for $1" >&2; exit 1; }; }
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --instance)      INSTANCE="${2:-}"; shift 2 ;;
-    --admin-url)     ADMIN_URL="${2:-}"; shift 2 ;;
-    --stream-id)     STREAM_ID="${2:-}"; shift 2 ;;
-    --sign-update)   SIGN_UPDATE="${2:-}"; shift 2 ;;
-    --build-number)  BUILD_OVERRIDE="${2:-}"; shift 2 ;;   # override the DMG's CFBundleVersion
-    --short-version) SHORT_OVERRIDE="${2:-}"; shift 2 ;;   # override the DMG's CFBundleShortVersionString
+    --instance)      need "$@"; INSTANCE="$2"; shift 2 ;;
+    --admin-url)     need "$@"; ADMIN_URL="$2"; shift 2 ;;
+    --stream-id)     need "$@"; STREAM_ID="$2"; shift 2 ;;
+    --sign-update)   need "$@"; SIGN_UPDATE="$2"; shift 2 ;;
+    --build-number)  need "$@"; BUILD_OVERRIDE="$2"; shift 2 ;;   # override the DMG's CFBundleVersion
+    --short-version) need "$@"; SHORT_OVERRIDE="$2"; shift 2 ;;   # override the DMG's short version
     --critical)      CRITICAL_FLAG="--critical"; shift ;;
     --reset-token)   RESET_TOKEN=1; shift ;;      # forget the stored service token and re-enter it
     --dry-run)       DRY_RUN=1; shift ;;
@@ -45,7 +47,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -z "${ADMIN_URL}" ] && [ -n "${INSTANCE}" ]; then
   STATE="${ROOT}/.deploy/${INSTANCE}.state.json"
   [ -f "${STATE}" ] || { echo "no deploy state for instance '${INSTANCE}'; pass --admin-url" >&2; exit 1; }
-  ADMIN_URL="$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).admin_url||""))' "${STATE}")"
+  ADMIN_URL="$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).admin_url||""))' "${STATE}" 2>/dev/null)" \
+    || { echo "could not read admin_url from ${STATE} (corrupt deploy state?); pass --admin-url" >&2; exit 1; }
 fi
 [ -n "${ADMIN_URL}" ] || { echo "--admin-url or --instance is required" >&2; exit 1; }
 
@@ -109,13 +112,19 @@ fi
 # attach output and always detach the whole device on exit.
 ATTACH="$(hdiutil attach "${DMG}" -nobrowse -readonly -noautoopen -mountrandom /tmp 2>&1)" \
   || { echo "could not mount ${DMG}:" >&2; printf '%s\n' "${ATTACH}" | sed 's/^/  /' >&2; exit 1; }
+# Capture the device + mount point(s) up front so cleanup can ALWAYS detach (even if device parsing is
+# odd or we're killed mid-run). Detach the whole device, then each mount point as a belt-and-suspenders.
 DEV="$(printf '%s\n' "${ATTACH}" | grep -Eo '^/dev/disk[0-9]+' | head -1 || true)"
-cleanup() { [ -n "${DEV:-}" ] && hdiutil detach "${DEV}" -quiet >/dev/null 2>&1 || true; }
-trap cleanup EXIT
+MOUNTS="$(printf '%s\n' "${ATTACH}" | grep -Eo '/tmp/[^[:space:]]+' || true)"
+cleanup() {
+  [ -n "${DEV:-}" ] && hdiutil detach "${DEV}" -quiet >/dev/null 2>&1 || true
+  for m in ${MOUNTS:-}; do hdiutil detach "${m}" -quiet >/dev/null 2>&1 || true; done
+}
+trap cleanup EXIT INT TERM
 
 # A DMG can expose more than one mounted filesystem; use whichever volume actually holds the .app.
 APP=""; MOUNTPOINT=""
-for M in $(printf '%s\n' "${ATTACH}" | grep -Eo '/tmp/[^[:space:]]+' || true); do
+for M in ${MOUNTS:-}; do
   A="$(/bin/ls -d "${M}"/*.app 2>/dev/null | head -1 || true)"
   if [ -n "${A}" ]; then APP="${A}"; MOUNTPOINT="${M}"; break; fi
 done
@@ -136,6 +145,9 @@ fi
 # Read with PlistBuddy, NOT `defaults read`: `defaults` can return a stale value from the cfprefsd cache
 # (Apple advises against it for Info.plist). PlistBuddy parses the file on disk, matching `plutil`/Xcode.
 PLIST="${APP}/Contents/Info.plist"
+[ -f "${PLIST}" ] || { echo "no Info.plist in ${APP_NAME} (malformed bundle)" >&2; exit 1; }
+# A missing KEY errors to stderr (suppressed → empty); the `-f` guard above rules out the missing-FILE
+# case, where PlistBuddy would otherwise print a "...Will Create..." line to stdout and poison the value.
 pb() { /usr/libexec/PlistBuddy -c "Print :$1" "${PLIST}" 2>/dev/null || true; }
 # Precedence: --build-number/--short-version flag > env > the DMG's Info.plist.
 SHORT_VERSION="${SHORT_OVERRIDE:-${SHORT_VERSION:-$(pb CFBundleShortVersionString)}}"

@@ -87,6 +87,20 @@ export const DEFAULT_BRANDING: Branding = {
 };
 
 /**
+ * The accent colour is interpolated RAW into a `<style>` on the public pages (no escaping is possible
+ * inside CSS), so it must be a hex colour and nothing else — otherwise a stored value could break out
+ * of the style block. `isValidAccent` gates writes; `safeAccent` coerces any stored value at read time
+ * so the sink is always safe even for data written before this guard existed.
+ */
+export function isValidAccent(value: string): boolean {
+  return /^#[0-9a-fA-F]{3,8}$/.test(value.trim());
+}
+
+export function safeAccent(value: string | null | undefined): string {
+  return value != null && isValidAccent(value) ? value.trim() : DEFAULT_BRANDING.accent;
+}
+
+/**
  * The macOS app's custom URL scheme for the §7 activation deep link (`<scheme>://activate?token=`).
  * Per-instance config (it must match the app's Info.plist CFBundleURLSchemes); "myapp" is the default.
  */

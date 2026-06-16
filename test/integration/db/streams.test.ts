@@ -4,10 +4,10 @@ import { insert as insertClient } from "../../../src/db/clients";
 import {
   assignUser,
   create,
-  deleteById,
   getByName,
   list,
   listUserStreams,
+  remove,
   streamIdsForClient,
   unassignUser,
 } from "../../../src/db/streams";
@@ -25,7 +25,7 @@ describe("streams db", () => {
     expect((await list(db)).map((s) => s.name)).toEqual(["stable", "beta"]);
     expect((await getByName(db, "beta"))?.name).toBe("beta");
 
-    await deleteById(db, stable.id);
+    await remove(db, stable.id);
     expect((await list(db)).map((s) => s.name)).toEqual(["beta"]);
   });
 

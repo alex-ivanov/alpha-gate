@@ -1,6 +1,8 @@
 import type { AdminAction } from "../../core/no-build";
-import { create, remove } from "../../db/streams";
+import { create, getByName, remove } from "../../db/streams";
 import { recordAudit } from "../../services/audit";
+import { ResultPage } from "../../views/admin/manage-pages";
+import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
 import { guardStranding } from "./confirm";
@@ -13,8 +15,28 @@ import { requireUser } from "./middleware";
 export async function createStream(c: AdminContext): Promise<Response> {
   if (requireUser(c) === null) return c.text("Forbidden", 403);
   const deps = c.get("deps");
-  const name = field(await c.req.parseBody(), "name");
-  if (name === null) return c.text("A channel name is required", 400);
+  const raw = field(await c.req.parseBody(), "name");
+  const name = raw === null ? null : raw.trim();
+  if (name === null || name.length === 0) return c.text("A channel name is required", 400);
+
+  // name is UNIQUE; pre-check so a duplicate is a clear 409, not the DB constraint's bare 500
+  // (mirrors createClient / build upload).
+  if ((await getByName(deps.db, name)) !== null) {
+    return c.html(
+      renderPage(
+        <ResultPage
+          title="Channel already exists"
+          intent="error"
+          back={{ href: "/admin/streams", label: "← Channels" }}
+        >
+          <p>
+            A channel named <strong>{name}</strong> already exists.
+          </p>
+        </ResultPage>,
+      ),
+      409,
+    );
+  }
 
   const stream = await create(deps.db, name);
   await recordAudit(deps, auditFields(c, "stream.create", name, JSON.stringify({ id: stream.id })));

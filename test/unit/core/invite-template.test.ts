@@ -4,9 +4,11 @@ import {
   DEFAULT_BRANDING,
   DEFAULT_INVITE_TEMPLATE,
   fillTemplate,
+  isValidAccent,
   renderInvite,
   resolveActivateScheme,
   resolveBranding,
+  safeAccent,
 } from "../../../src/core/invite-template";
 
 // §13/§6 — invite text and the branded /get page model. Pure: placeholder fill + default merge.
@@ -58,6 +60,32 @@ describe("resolveActivateScheme", () => {
     for (const bad of ["javascript:alert(1)", "1myapp", "my app", 'a"onclick', "a://b", "a/b"]) {
       expect(resolveActivateScheme(bad)).toBe(DEFAULT_ACTIVATE_SCHEME);
     }
+  });
+});
+
+describe("accent colour (raw CSS sink — must stay injection-proof)", () => {
+  it("accepts hex colours", () => {
+    for (const v of ["#0A84FF", "#fff", "#FFFF", "#0a84ffcc"]) expect(isValidAccent(v)).toBe(true);
+  });
+
+  it("rejects anything that isn't a plain hex colour (CSS/markup-breakout attempts)", () => {
+    for (const v of [
+      "red",
+      "#0A84FF;}</style><script>alert(1)</script>",
+      "url(x)",
+      "rgb(0,0,0)",
+      "#xyz",
+      "",
+    ]) {
+      expect(isValidAccent(v)).toBe(false);
+    }
+  });
+
+  it("safeAccent coerces an invalid/missing stored value to the default", () => {
+    expect(safeAccent("#1a2b3c")).toBe("#1a2b3c");
+    expect(safeAccent("evil}</style>")).toBe(DEFAULT_BRANDING.accent);
+    expect(safeAccent(null)).toBe(DEFAULT_BRANDING.accent);
+    expect(safeAccent(undefined)).toBe(DEFAULT_BRANDING.accent);
   });
 });
 

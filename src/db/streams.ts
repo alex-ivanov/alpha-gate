@@ -21,10 +21,6 @@ export async function create(db: D1Database, name: string): Promise<Stream> {
   return toStream(row);
 }
 
-export async function deleteById(db: D1Database, id: number): Promise<void> {
-  await execute(db, "DELETE FROM streams WHERE id = ?", [id]);
-}
-
 /** Deletes a channel and its links first (FK-safe): build_streams + user_streams, then the row. */
 export async function remove(db: D1Database, id: number): Promise<void> {
   await execute(db, "DELETE FROM build_streams WHERE stream_id = ?", [id]);

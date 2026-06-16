@@ -1,3 +1,4 @@
+import { isValidAccent } from "../../core/invite-template";
 import * as meta from "../../db/meta";
 import type { Deps } from "../../deps";
 import { putBranding } from "../../r2/builds-bucket";
@@ -52,6 +53,13 @@ export async function saveBranding(c: AdminContext): Promise<Response> {
   if (requireUser(c) === null) return c.text("Forbidden", 403);
   const deps = c.get("deps");
   const body = await c.req.parseBody();
+
+  // accent is interpolated raw into a public <style> — reject anything that isn't a hex colour so it
+  // can never break out of the style block (loadBranding also coerces stored values defensively).
+  const accent = field(body, "accent");
+  if (accent !== null && accent.trim() !== "" && !isValidAccent(accent)) {
+    return c.text("Accent colour must be a hex value like #0A84FF", 400);
+  }
 
   for (const name of TEXT_FIELDS) {
     const value = field(body, name);

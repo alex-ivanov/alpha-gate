@@ -66,14 +66,9 @@ describe("TABLE_ENHANCE_SCRIPT", () => {
     // with toString(), any such helper must be defined in the script or it throws a ReferenceError in the
     // browser mid-sort. __name is shimmed; the others must simply never appear (we avoid **, spread, async).
     expect(TABLE_ENHANCE_SCRIPT).toContain("var __name =");
-    for (const helper of [
-      "__pow(",
-      "__spreadValues(",
-      "__spreadProps(",
-      "__async(",
-      "__objRest(",
-    ]) {
-      expect(TABLE_ENHANCE_SCRIPT).not.toContain(helper);
-    }
+    // General guard: NO esbuild runtime helper other than the shimmed __name may appear. Catches any
+    // future helper (__pow/__spreadValues/__async/…) introduced by a target/syntax change before it
+    // breaks in the admin's browser.
+    expect(TABLE_ENHANCE_SCRIPT).not.toMatch(/\b__(?!name\b)[A-Za-z]\w*/);
   });
 });

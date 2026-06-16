@@ -175,6 +175,17 @@ describe("admin operation pages", () => {
     expect(html).toContain(`/admin/streams/${stable?.id}`); // Manage link
   });
 
+  it("re-creating an existing channel name is a clear 409, not a 500", async () => {
+    await createStream(deps.db, "stable");
+    const res = await adminWorker(access).request(
+      "/admin/streams",
+      withTokenForm(await access.signValidUser(), { name: "stable" }),
+    );
+    expect(res.status).toBe(409); // not the DB UNIQUE-constraint's bare 500
+    expect(await res.text()).toContain("Channel already exists");
+    expect((await listStreams(deps.db)).length).toBe(1); // no duplicate row
+  });
+
   it("channel manage page renders link/assign controls and what it currently serves", async () => {
     await seedServableClient(deps); // channel "stable" with a linked build + assigned, servable user
     const stable = await getByName(deps.db, "stable");

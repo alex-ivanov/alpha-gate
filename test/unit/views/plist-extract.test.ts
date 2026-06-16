@@ -73,9 +73,8 @@ describe("ARCHIVE_AUTOFILL_SCRIPT", () => {
     // The wanted keys must be inlined in the function body — a module-scope constant wouldn't survive
     // toString() and would throw "WANTED_KEYS is not defined" in the browser.
     expect(ARCHIVE_AUTOFILL_SCRIPT).toContain("CFBundleVersion");
-    // async/spread runtime helpers can't be shimmed with identity — they must never leak in.
-    for (const helper of ["__async(", "__await(", "__spreadValues(", "__pow("]) {
-      expect(ARCHIVE_AUTOFILL_SCRIPT).not.toContain(helper);
-    }
+    // General guard: NO esbuild runtime helper other than the shimmed __name may appear (async/spread/…
+    // can't be shimmed with identity), so a future target/syntax change is caught here, not in the browser.
+    expect(ARCHIVE_AUTOFILL_SCRIPT).not.toMatch(/\b__(?!name\b)[A-Za-z]\w*/);
   });
 });

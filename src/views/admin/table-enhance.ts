@@ -93,7 +93,8 @@ const GLUE = `
       var type = th.getAttribute("data-sort");
       if (type == null) return;
       th.classList.add("th-sort");
-      th.setAttribute("role", "button");
+      // No role override: a <th> is an implicit columnheader, which is what makes aria-sort meaningful
+      // and keeps the cells associated with it. tabindex + keydown make it keyboard-operable.
       th.setAttribute("tabindex", "0");
       function sort() {
         var dir = th.getAttribute("aria-sort") === "ascending" ? "desc" : "asc";
@@ -113,8 +114,11 @@ const GLUE = `
       .call(document.querySelectorAll("[data-filter-col]"))
       .filter(function (c) { return keyIndex[c.getAttribute("data-filter-col")] != null; });
     if (!controls.length) return;
-    var status = document.querySelector("[data-table-status]");
-    var empty = document.querySelector("[data-table-empty]");
+    // Scope the status/empty nodes to THIS table's container, not document-wide, so two enhanced tables
+    // with filters on one page don't write each other's count.
+    var scope = table.parentElement || document;
+    var status = scope.querySelector("[data-table-status]");
+    var empty = scope.querySelector("[data-table-empty]");
     function apply() {
       var specs = controls.map(function (c) {
         var v = c.type === "checkbox" ? (c.checked ? (c.getAttribute("data-filter-value") || "on") : "") : c.value;

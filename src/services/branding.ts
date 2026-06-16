@@ -7,6 +7,7 @@ import {
   fillAppName,
   type InviteTemplate,
   resolveActivateScheme,
+  safeAccent,
 } from "../core/invite-template";
 import { getAll, get as getMeta } from "../db/meta";
 import type { Deps } from "../deps";
@@ -20,7 +21,7 @@ export async function loadBranding(deps: Deps): Promise<Branding> {
   return {
     appName: all.app_name ?? DEFAULT_BRANDING.appName,
     blurb: all.blurb ?? DEFAULT_BRANDING.blurb,
-    accent: all.accent ?? DEFAULT_BRANDING.accent,
+    accent: safeAccent(all.accent), // coerce to a safe hex value — this is interpolated raw into CSS
     iconUrl: all.icon === "1" ? "/assets/icon" : DEFAULT_BRANDING.iconUrl,
     headerUrl: all.header === "1" ? "/assets/header" : DEFAULT_BRANDING.headerUrl,
   };
