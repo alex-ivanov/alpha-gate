@@ -24,7 +24,9 @@ describe("createClient", () => {
       withTokenForm(await userToken(), { email: "new@example.test" }),
     );
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("/get?token=");
+    const html = await res.text();
+    expect(html).toContain("/get?token=");
+    expect(html).toContain('data-copy="#invite-link"'); // one-click copy for the copy-paste flow
     expect((await clients.list(deps.db)).map((c) => c.email)).toContain("new@example.test");
     expect((await listInOrder(deps.db)).some((r) => r.action === "client.create")).toBe(true);
   });

@@ -44,13 +44,39 @@ export const InvitePage: FC<{
       Send this private link to <strong>{email}</strong>:
     </p>
     <p>
-      <code class="token">{getUrl}</code>
+      <code class="token" id="invite-link">
+        {getUrl}
+      </code>
     </p>
-    <p>
-      <a href="/admin/users">Back to users</a>
+    <p class="actions">
+      <button type="button" class="btn btn-primary" data-copy="#invite-link">
+        Copy link
+      </button>
+      <a class="btn" href="/admin/users">
+        Back to users
+      </a>
     </p>
+    {/* Progressive enhancement: the link is selectable without JS; this just adds one-click copy. */}
+    <script dangerouslySetInnerHTML={{ __html: COPY_SCRIPT }} />
   </AdminLayout>
 );
+
+const COPY_SCRIPT = `
+(function () {
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var el = document.querySelector(btn.getAttribute("data-copy"));
+      var text = el ? el.textContent : "";
+      if (!navigator.clipboard || !text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        var prev = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = prev; }, 1500);
+      });
+    });
+  });
+})();
+`;
 
 export const ConfirmPage: FC<{
   action: string;
