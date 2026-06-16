@@ -11,6 +11,7 @@ interface ClientRow {
   status: string;
   pinned_build_id: number | null;
   label: string | null;
+  hidden: number;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +24,7 @@ function toClient(row: ClientRow): Client {
     status: row.status as ClientStatus,
     pinnedBuildId: row.pinned_build_id,
     label: row.label,
+    hidden: row.hidden !== 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -76,6 +78,14 @@ export async function setStatus(db: D1Database, id: number, status: ClientStatus
 export async function setToken(db: D1Database, id: number, token: string): Promise<void> {
   await execute(db, "UPDATE clients SET token = ?, updated_at = datetime('now') WHERE id = ?", [
     token,
+    id,
+  ]);
+}
+
+/** Admin-list visibility (declutter only; does not affect resolution). */
+export async function setHidden(db: D1Database, id: number, hidden: boolean): Promise<void> {
+  await execute(db, "UPDATE clients SET hidden = ?, updated_at = datetime('now') WHERE id = ?", [
+    hidden ? 1 : 0,
     id,
   ]);
 }

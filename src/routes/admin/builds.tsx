@@ -64,6 +64,24 @@ export async function markCritical(c: AdminContext): Promise<Response> {
   return c.redirect("/admin/builds", 303);
 }
 
+// Admin-list visibility: hide/unhide declutters the Builds list — it never changes whether the build
+// serves (that's withdraw). Toggle via a hidden field, like critical/rollback.
+export async function setBuildHidden(c: AdminContext): Promise<Response> {
+  if (requireUser(c) === null) return c.text("Forbidden", 403);
+  const deps = c.get("deps");
+  const hidden = field(await c.req.parseBody(), "hidden") === "true";
+  const { id, build } = await loadBuild(c);
+  if (id === null) return c.text("Bad request", 400);
+  if (build === null) return c.text("Not found", 404);
+
+  await builds.setHidden(deps.db, id, hidden);
+  await recordAudit(
+    deps,
+    auditFields(c, hidden ? "build.hide" : "build.unhide", String(build.buildNumber)),
+  );
+  return c.redirect("/admin/builds", 303);
+}
+
 // §9/§13 #7 — toggle the rollback-target marker. A label only (Sparkle can't downgrade; real rollback
 // is a roll-forward, §9), so it never strands and needs no §11 gate.
 export async function markRollbackTarget(c: AdminContext): Promise<Response> {

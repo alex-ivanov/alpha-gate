@@ -94,6 +94,22 @@ export async function reissueClient(c: AdminContext): Promise<Response> {
   return c.html(renderPage(<InvitePage email={client.email} getUrl={getUrl(c, token)} />));
 }
 
+// Admin-list visibility: hide/unhide declutters the Users list — it never revokes access (that's
+// revoke). Toggle via a hidden field.
+export async function setClientHidden(c: AdminContext): Promise<Response> {
+  if (requireUser(c) === null) return c.text("Forbidden", 403);
+  const deps = c.get("deps");
+  const id = toId(c.req.param("id"));
+  if (id === null) return c.text("Bad request", 400);
+  const hidden = field(await c.req.parseBody(), "hidden") === "true";
+
+  const client = await clients.getById(deps.db, id);
+  if (client === null) return c.text("Not found", 404);
+  await clients.setHidden(deps.db, id, hidden);
+  await recordAudit(deps, auditFields(c, hidden ? "client.hide" : "client.unhide", client.email));
+  return c.redirect("/admin/users", 303);
+}
+
 export async function assignStream(c: AdminContext): Promise<Response> {
   if (requireUser(c) === null) return c.text("Forbidden", 403);
   const deps = c.get("deps");

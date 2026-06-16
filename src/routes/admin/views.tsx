@@ -51,8 +51,10 @@ export async function usersView(c: AdminContext): Promise<Response> {
     stream: c.req.query("stream") ?? "",
     nobuild: c.req.query("nobuild") === "1",
     pinned: c.req.query("pinned") === "1",
+    hidden: c.req.query("hidden") === "1", // show hidden too (default: visible only)
   };
   let rows = users;
+  if (!filter.hidden) rows = rows.filter((u) => !u.hidden);
   if (filter.status) rows = rows.filter((u) => u.status === filter.status);
   if (filter.nobuild) rows = rows.filter((u) => u.noBuild !== "servable");
   if (filter.pinned) rows = rows.filter((u) => u.pinnedBuildId !== null);
@@ -70,7 +72,11 @@ export async function userManageView(c: AdminContext): Promise<Response> {
 export async function buildsView(c: AdminContext): Promise<Response> {
   const deps = c.get("deps");
   const [builds, channels] = await Promise.all([loadBuilds(deps), loadChannels(deps)]);
-  return c.html(renderPage(<BuildsPage builds={builds} channels={channels} />));
+  const showHidden = c.req.query("hidden") === "1"; // default: visible only
+  const rows = showHidden ? builds : builds.filter((b) => !b.build.hidden);
+  return c.html(
+    renderPage(<BuildsPage builds={rows} channels={channels} showHidden={showHidden} />),
+  );
 }
 
 export async function buildManageView(c: AdminContext): Promise<Response> {

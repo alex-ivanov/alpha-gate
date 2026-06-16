@@ -37,6 +37,7 @@ export interface UserView {
   lastInstalled: string | null;
   lastUpdated: string | null;
   noBuild: NoBuildState;
+  hidden: boolean;
 }
 
 export interface BuildView {
@@ -112,6 +113,7 @@ export async function loadUsers(deps: Deps): Promise<UserView[]> {
       lastInstalled: await lastEventAt(deps.db, client.id, "download"),
       lastUpdated: await lastEventAt(deps.db, client.id, "update"),
       noBuild: noBuildState(world, client, installed),
+      hidden: client.hidden,
     });
   }
   return users;

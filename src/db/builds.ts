@@ -15,6 +15,7 @@ interface BuildRow {
   critical: number;
   rollback_target: number;
   status: string;
+  hidden: number;
   dmg_object_key: string | null;
   dmg_length: number | null;
   created_at: string;
@@ -32,6 +33,7 @@ function toBuild(row: BuildRow): Build {
     critical: row.critical !== 0,
     rollbackTarget: row.rollback_target !== 0,
     status: row.status as BuildStatus,
+    hidden: row.hidden !== 0,
     dmgObjectKey: row.dmg_object_key,
     dmgLength: row.dmg_length,
     createdAt: row.created_at,
@@ -100,6 +102,11 @@ export async function insert(db: D1Database, input: NewBuild): Promise<Build> {
 
 export async function setStatus(db: D1Database, id: number, status: BuildStatus): Promise<void> {
   await execute(db, "UPDATE builds SET status = ? WHERE id = ?", [status, id]);
+}
+
+/** Admin-list visibility (declutter only; does not affect resolution/serving). */
+export async function setHidden(db: D1Database, id: number, hidden: boolean): Promise<void> {
+  await execute(db, "UPDATE builds SET hidden = ? WHERE id = ?", [hidden ? 1 : 0, id]);
 }
 
 export async function setCritical(db: D1Database, id: number, critical: boolean): Promise<void> {

@@ -14,6 +14,8 @@ export interface Client {
   /** Overrides stream resolution when set and the build is available (§8). */
   pinnedBuildId: number | null;
   label: string | null;
+  /** Admin-list visibility only (declutter); does NOT affect resolution/serving. */
+  hidden: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +36,8 @@ export interface Build {
   /** §9/§13 operator marker: a designated rollback (roll-forward) target. Label only — see §9. */
   rollbackTarget: boolean;
   status: BuildStatus;
+  /** Admin-list visibility only (declutter); does NOT affect resolution/serving. */
+  hidden: boolean;
   /** Optional first-install DMG (decision 0003); no EdDSA — notarization seals it. */
   dmgObjectKey: string | null;
   dmgLength: number | null;

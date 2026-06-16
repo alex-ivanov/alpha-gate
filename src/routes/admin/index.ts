@@ -9,6 +9,7 @@ import {
   markCritical,
   markRollbackTarget,
   restoreBuild,
+  setBuildHidden,
   unlinkBuildStream,
   withdrawBuild,
 } from "./builds";
@@ -18,6 +19,7 @@ import {
   pinClient,
   reissueClient,
   revokeClient,
+  setClientHidden,
   unassignStream,
   unpinClient,
 } from "./clients";
@@ -85,6 +87,7 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.post("/admin/clients/:id/unpin", unpinClient);
   app.post("/admin/clients/:id/streams/assign", assignStream);
   app.post("/admin/clients/:id/streams/unassign", unassignStream);
+  app.post("/admin/clients/:id/hidden", setClientHidden);
 
   // Publish (§20) — service tokens accepted here only (decision 0006)
   app.post("/admin/builds/upload", uploadBuild);
@@ -100,6 +103,7 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.post("/admin/builds/:id/restore", restoreBuild);
   app.post("/admin/builds/:id/critical", markCritical);
   app.post("/admin/builds/:id/rollback", markRollbackTarget);
+  app.post("/admin/builds/:id/hidden", setBuildHidden);
   app.post("/admin/builds/:id/streams/link", linkBuildStream);
   app.post("/admin/builds/:id/streams/unlink", unlinkBuildStream);
 

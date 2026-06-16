@@ -105,6 +105,7 @@ export interface UsersFilter {
   stream: string;
   nobuild: boolean;
   pinned: boolean;
+  hidden: boolean;
 }
 
 export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: UsersFilter }> = ({
@@ -153,6 +154,9 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
       </label>
       <label>
         <input type="checkbox" name="pinned" value="1" checked={filter.pinned} /> pinned
+      </label>
+      <label>
+        <input type="checkbox" name="hidden" value="1" checked={filter.hidden} /> show hidden
       </label>
       <button type="submit">Filter</button>
       <a href="/admin/users">clear</a>
@@ -211,6 +215,11 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
                   <Post action={`/admin/clients/${u.id}/revoke`} label="Revoke" />
                 ) : null}
                 <Post action={`/admin/clients/${u.id}/reissue`} label="Reissue" />
+                <Post
+                  action={`/admin/clients/${u.id}/hidden`}
+                  label={u.hidden ? "Unhide" : "Hide"}
+                  hidden={{ hidden: u.hidden ? "false" : "true" }}
+                />
               </td>
             </tr>
           ))}
@@ -220,15 +229,30 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
   </AdminLayout>
 );
 
-export const BuildsPage: FC<{ builds: BuildView[]; channels: Stream[] }> = ({
+export const BuildsPage: FC<{ builds: BuildView[]; channels: Stream[]; showHidden: boolean }> = ({
   builds,
   channels,
+  showHidden,
 }) => (
   <AdminLayout title="Builds">
     {builds.length === 0 ? (
-      <p class="empty">No builds published yet. Use Upload (or CI) to publish one.</p>
+      <p class="empty">
+        {showHidden
+          ? "No builds published yet. Use Upload (or CI) to publish one."
+          : "No visible builds. Use Upload (or CI) to publish one, or show hidden builds."}
+      </p>
     ) : (
       <div>
+        {/* Show-hidden toggle — a server round-trip (unlike the client-side filters below) because
+            hidden builds are filtered out of the row set at the view route, not just on the page. */}
+        <form method="get" action="/admin/builds" class="addform">
+          <label>
+            <input type="checkbox" name="hidden" value="1" checked={showHidden} /> show hidden
+          </label>
+          <button type="submit">Apply</button>
+          {showHidden ? <a href="/admin/builds">visible only</a> : null}
+        </form>
+
         {/* Bulk-action bar (§13 #3). The row checkboxes live in the table but bind here via the HTML
             `form` attribute — HTML forbids nesting the per-row action <form>s inside this one. */}
         <form method="post" action="/admin/builds/bulk" id="bulk" class="addform">
@@ -322,6 +346,11 @@ export const BuildsPage: FC<{ builds: BuildView[]; channels: Stream[] }> = ({
                     action={`/admin/builds/${b.build.id}/critical`}
                     label={b.build.critical ? "Clear critical" : "Mark critical"}
                     hidden={{ critical: b.build.critical ? "false" : "true" }}
+                  />
+                  <Post
+                    action={`/admin/builds/${b.build.id}/hidden`}
+                    label={b.build.hidden ? "Unhide" : "Hide"}
+                    hidden={{ hidden: b.build.hidden ? "false" : "true" }}
                   />
                 </td>
               </tr>
