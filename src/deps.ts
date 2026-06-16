@@ -7,9 +7,8 @@ import type { Env } from "./env";
 import { type Clock, emailDate, nowSeconds, systemClock } from "./lib/clock";
 import { type EmailSender, selectEmailSender } from "./services/email";
 
-// The dependency-injection container (CANONICAL-LAYOUT rule 1). Handlers and services receive `Deps`
-// and never import bindings or seams directly, so tests swap each seam. It grows as consumers land:
-// `email` arrives in M12, `fetch` (self-update) in M16.
+// The dependency-injection container (the Deps DI rule; see CONTRIBUTING.md). Handlers and services
+// receive `Deps` and never import bindings or seams directly, so tests swap each seam.
 
 // decision 0006 — ONE JWKS cache for the whole isolate (module scope, not per-request), so Access
 // verification reuses fetched keys across requests and only re-fetches on TTL expiry or an unknown kid.

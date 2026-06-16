@@ -3,7 +3,7 @@ import type { Role } from "./types";
 // Renders a Worker's wrangler.toml in TS — replaces the old envsubst-over-a-template step (decision
 // 0009). Building it directly (not string-substituting an external template) means there's no
 // "unsubstituted ${VAR}" failure mode, values are escaped, and the output is unit-tested. This function
-// is the single source of truth for the config shape (documented in DESIGN.md §18).
+// is the single source of truth for the rendered wrangler config shape.
 
 export interface ConfigVars {
   instance: string;

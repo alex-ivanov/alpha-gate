@@ -277,7 +277,7 @@ export const UploadPage: FC<{ channels: Stream[]; recentBuilds: RecentBuild[] }>
     <AdminLayout title="Upload build">
       <p class="muted">
         Upload an already-signed, notarized archive and paste its Sparkle EdDSA signature. Archives
-        over ~90 MB use the CI register path (see docs/OPERATING.md).
+        over ~90 MB use the CI register path (see docs/UPLOADING.md).
       </p>
       <form
         method="post"

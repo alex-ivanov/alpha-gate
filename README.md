@@ -1,38 +1,38 @@
 # Alpha Gate
 
-A lightweight, self-hosted distribution gate for a notarized macOS app updated via **Sparkle**. It
-gates downloads and the Sparkle update feed behind a per-user token, manages clients/builds/release
-channels/pins/rollbacks from an admin back office behind **Cloudflare Access**, and runs entirely on
-**Cloudflare (Workers + D1 + R2)** within the free tier — no custom domain, deployable to any account
-from one script, with many isolated instances per account.
+A lightweight, self-hosted distribution gate for a notarized macOS app updated via **Sparkle**. It gates
+downloads and the per-user Sparkle update feed behind a token, manages clients / builds / release
+channels / pins / rollbacks from an admin back office behind **Cloudflare Access**, and runs entirely on
+**Cloudflare (Workers + D1 + R2)** within the free tier — no custom domain, deployable to any account from
+one script, with many isolated instances per account.
 
-> Status: feature-complete and tested (268 worker + 84 deploy-CLI tests, all offline). See [Project status](#project-status) for
-> the one deliberately-deferred piece and the admin-UI state.
+> Status: feature-complete and tested — 317 worker + 86 deploy-CLI tests, all offline; `tsc` (both
+> configs) and Biome clean.
 
 ## Features
 
 - **One private link per user** (`/get?token=`) → download + an `myapp://activate` deep link + the
   pasteable key. The token is the only credential; users never log in.
-- **Per-request Sparkle appcast** generated from the database — gating, re-download, channels,
-  pinning, rollback, and revocation notices all fall out of one resolver.
+- **Per-request Sparkle appcast** generated from the database — gating, re-download, channels, pinning,
+  rollback, and revocation notices all fall out of one resolver.
 - **Release channels, pinning, and rollback** (roll-forward, since Sparkle can't downgrade).
+- **Publish a signed `.dmg` or `.zip`** from a one-command script, CI, or the browser — all converging on
+  one upload endpoint; the Worker never signs and never holds a signing key.
 - **Admin behind Cloudflare Access** (one-time-PIN email allowlist) with defense-in-depth JWT
-  verification in the Worker, and a **tamper-evident, hash-chained audit log**.
-- **Publish from a script, the browser, or CI** — all converging on one upload endpoint; the Worker
-  never signs and never holds a signing key.
-- **Free-tier**: D1 + R2 + Workers, no custom domain. Copy-paste invites by default (Cloudflare Email
-  Service is an optional, paid follow-up).
+  verification, and a **tamper-evident, hash-chained audit log**.
+- **Free-tier**: D1 + R2 + Workers, no custom domain. Copy-paste invites by default; Cloudflare email is
+  an optional, paid add-on (it needs a real domain).
 
 ## How it works
 
-The same code deploys **twice**, switched by a `ROLE` var, onto two `workers.dev` hostnames that share
-one D1 database and one R2 bucket:
+The same code deploys **twice**, switched by a `ROLE` var, onto two `workers.dev` hostnames that share one
+D1 database and one R2 bucket:
 
 ```
    macOS app ──► /appcast?token=   ┌─────────────────────────┐
    (Sparkle)    /download?token=   │  App Worker (public)     │──┐
                                    │  • token gate, resolver  │  │   ┌── D1 (clients, builds,
-   User ──────► /get?token=        │  • binary stream from R2 │  ├──►│   streams, access_log, audit)
+   User ──────► /get?token=        │  • binary stream from R2 │  ├──►│   channels, access_log, audit)
    (browser)    landing page       └─────────────────────────┘  │   └── R2 (build archives, branding)
                                                                  │
    Admin ─────► /admin             ┌─────────────────────────┐  │
@@ -43,72 +43,29 @@ one D1 database and one R2 bucket:
 
 Why two Workers: on `workers.dev`, Cloudflare Access protects an entire hostname, so the public routes
 (which Sparkle must reach) and the gated admin must live on separate hostnames. Both are host-agnostic
-(they derive their origin from the request), so they run on bare `*.workers.dev` URLs with no config.
+(they derive their origin from the request), so they run on bare `*.workers.dev` URLs with no config. Full
+rationale and the invariants behind the design: [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md).
 
-Full design rationale: [`design/DESIGN.md`](design/DESIGN.md).
-
-## Prerequisites
-
-- **Node ≥ 20** and **npm** (the repo pins `wrangler` as a dev dependency — use `npx wrangler`). The
-  deploy/teardown/dev commands are a TypeScript CLI run via `tsx` (also a dev dependency), so
-  `npm install` is the only setup — no `jq`/`envsubst`.
-- A **Cloudflare account** (free tier is enough). Run `npx wrangler login` once.
-- **macOS** only for `publish.sh` (Apple signing/notarization); not needed to deploy or develop.
-
-## Install & deploy
+## Quick start
 
 ```bash
 git clone <your-fork> alpha-gate && cd alpha-gate
 npm install
-npx wrangler login              # once, interactive
+npx wrangler login                       # once, interactive
 
-./deploy/deploy.sh --instance myalpha
+./deploy/deploy.sh --instance myalpha    # provision D1 + R2, deploy both Workers (idempotent)
 ```
 
-`deploy.sh` is idempotent: it inspects the account (read-only) then creates the D1 database and R2 bucket
-only if absent, renders the two wrangler configs, applies migrations, deploys both Workers, writes
-`.deploy/myalpha.state.json`, and prints the app + admin URLs followed by what's left to do. **First init
-is guided** — it prompts for
-your app name, the app's activate URL scheme (§7), and optional branding (each overridable by a flag:
-`--app-name`, `--activate-scheme`, `--blurb`, `--accent`), and seeds them so `/get` works immediately.
-Re-run it any time to update in place (data is preserved). Try it without touching your account using
-`--dry-run`.
+Then lock the admin behind Cloudflare Access and re-run deploy with your team domain + AUD. The full,
+step-by-step path — prepare the account, deploy, Access, CI service token, verify, email, teardown — is in
+**[docs/ONBOARDING.md](docs/ONBOARDING.md)**.
 
-### One-time setup
+To ship builds (wire Sparkle into your app, create a channel, invite a user, publish a `.dmg`/`.zip`):
+**[docs/UPLOADING.md](docs/UPLOADING.md)**. The one-command DMG path:
 
-1. **Protect the admin Worker with Cloudflare Access** — Dashboard → the `alpha-gate-myalpha-admin`
-   Worker → Settings → Domains & Routes → enable *Cloudflare Access*, then add your email to the policy
-   (one-time PIN). Access Zero Trust is free for up to 50 users. This is the only step `deploy.sh`
-   can't do for you (dashboard-only; no API token by design).
-2. **Re-run deploy with your Access identity** — it sets the secrets and redeploys automatically:
-   ```bash
-   ./deploy/deploy.sh --instance myalpha \
-     --access-team-domain yourteam.cloudflareaccess.com --access-aud <the Access app's AUD tag>
-   ```
-3. **Publish the first build** (on macOS): `./publish.sh --instance myalpha`.
-4. *(optional)* **Email**: upgrade to Workers Paid, onboard a sending domain, then re-run deploy with
-   `--email-provider cloudflare --email-from alpha@<your-domain>`. Without this, invites are copy-paste
-   links shown in the admin UI (free, no domain).
-
-Detailed runbook (publishing, inviting/revoking users, channels, rollback, self-update, teardown,
-breach detection): [`docs/OPERATING.md`](docs/OPERATING.md).
-
-## Publishing a build
-
-**First, wire Sparkle into your app once** (the app-side contract): generate the EdDSA key with
-Sparkle's `generate_keys`, set `SUPublicEDKey` + your `CFBundleURLTypes` activate scheme in Info.plist,
-and have the updater delegate build the feed URL from the stored token —
-`https://<app-worker>/appcast?token=…`. Full walkthrough:
-[Set up Sparkle in your app](docs/OPERATING.md#set-up-sparkle-in-your-app).
-
-Producing a build always happens on macOS (build → sign → notarize → staple → `sign_update` for the
-Sparkle EdDSA signature). Only the **upload + registration** varies, and all paths hit one endpoint:
-
-- **Local** — `./publish.sh --instance myalpha` (adapt the marked app-specific build block).
-- **CI** — `ci-publish.sh` on a macOS runner with a Cloudflare Access **service token**; see
-  [`.github/workflows/publish.yml`](.github/workflows/publish.yml).
-- **Browser/curl** — `POST /admin/builds/upload` (multipart) or `/admin/builds/register` (metadata-only,
-  for archives over the 100 MB Worker body cap). See the endpoint reference in `docs/OPERATING.md`.
+```bash
+./publish-dmg.sh MyApp.dmg --instance myalpha --sign-update ~/path/to/Sparkle/bin/sign_update
+```
 
 ## Develop
 
@@ -116,76 +73,54 @@ Everything runs **offline** — no Cloudflare account, no network — inside the
 `@cloudflare/vitest-pool-workers` (Miniflare simulates D1/R2/cron with isolated per-test storage).
 
 ```bash
-npm test          # vitest-pool-workers, offline
-npm run typecheck # tsc --noEmit (strict)
-npm run lint      # biome check
-npm run format    # biome format --write
-npm run check     # lint + typecheck + test (the full gate)
-```
-
-To poke the **live HTTP surface** in a browser/curl, run the App Worker locally (Miniflare D1/R2, still
-no account) — it seeds a demo client/build and prints ready-to-use URLs:
-
-```bash
-./deploy/dev.sh                                   # App Worker on http://localhost:8787 (seeded)
-# open http://localhost:8787/get?token=DEV0DEV0DEV0DEV0DEV0DEV0DEV0DEV0
+npm run check     # the full gate: biome + tsc (both configs) + tests
+npm test          # tests only (offline)
+./deploy/dev.sh   # run the App Worker locally on :8787 (seeded); add --role admin for the gated UI
 ```
 
 Conventions, architecture, and how to add a feature: [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Documentation
+
+| Doc | What |
+|---|---|
+| [`docs/ONBOARDING.md`](docs/ONBOARDING.md) | Prepare a Cloudflare account, deploy, enable Access, run, teardown. |
+| [`docs/UPLOADING.md`](docs/UPLOADING.md) | Wire Sparkle into your app; create channels; invite users; publish DMGs/zips. |
+| [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md) | The durable architecture & product principles and hard constraints. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Developer guide: conventions, architecture, testing, adding a feature. |
+| [`CLAUDE.md`](CLAUDE.md) | Working guidance for AI assistants in this repo. |
 
 ## Project structure
 
 ```
 src/
   worker.ts          # entrypoint — reads env.ROLE, mounts app|admin, exports fetch + scheduled
-  core/              # PURE logic (no I/O): resolver, no-build/§11, appcast XML, audit hash-chain, tokens, version
-  views/             # pure hono/jsx pages (public + admin/)
+  core/              # PURE logic (no I/O): resolver, no-build, appcast XML, audit hash-chain, tokens, version
+  views/             # pure hono/jsx pages (public + admin/, incl. injected client scripts)
   db/                # raw D1 prepared statements, one module per table (no ORM)
   r2/                # R2 archive + branding access (never presigns)
   auth/              # token gate + Cloudflare Access JWT verifier
   services/          # audit, email, self-update, anchor, branding (orchestration over db/r2/core)
   routes/{app,admin} # Hono handlers; deps injected, never bindings directly
-  deps.ts  env.ts  cron.ts  lib/clock.ts
   deploy/            # deploy/teardown/dev CLI: core/ (pure) + seams/ (wrangler,fs,io,clock) + commands/
-migrations/          # 0001–0006 D1 schema (SQL)
+migrations/          # 0001–0008 D1 schema (SQL)
 deploy/              # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → the TS CLI
-publish.sh  ci-publish.sh  .github/workflows/
+publish.sh  publish-dmg.sh  ci-publish.sh  .github/workflows/
 test/                # unit/ integration/ cuj/ + support/ (offline vitest-pool-workers)
-design/              # DESIGN.md (spec), PLAN.md, CANONICAL-LAYOUT.md, decisions/
+docs/                # ONBOARDING, UPLOADING, PRINCIPLES
 ```
-
-## Documentation
-
-| Doc | What |
-|---|---|
-| [`design/DESIGN.md`](design/DESIGN.md) | The architecture & behavior specification (source of truth). |
-| [`docs/OPERATING.md`](docs/OPERATING.md) | Operator runbook: deploy, Access, publish, admin tasks, teardown, breach detection. |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Developer guide: conventions, architecture, testing, adding a feature. |
-| [`design/CANONICAL-LAYOUT.md`](design/CANONICAL-LAYOUT.md) | The module tree, the `Deps` DI rule, the clock seam. |
-| [`design/decisions/`](design/decisions/) | Decision records (ADRs) for choices the spec left open. |
-| [`CLAUDE.md`](CLAUDE.md) | Working guidance for AI assistants in this repo. |
 
 ## Security notes
 
 - The token travels in URLs, so it appears in Cloudflare's own request logs (accepted for a private
   alpha); `/get` sets `Referrer-Policy: no-referrer` and bad tokens get a generic 404 (no existence leak).
-- The Sparkle feed is **not** signed (`SURequireSignedFeed` off) — it's incompatible with per-user
-  dynamic feeds; the per-archive EdDSA signature still blocks tampered binaries.
-- The admin JWT verifier is **fail-closed** (RS256-pinned, `aud`/`iss` + expiry checked).
+- The Sparkle feed is **not** signed (`SURequireSignedFeed` off) — incompatible with per-user dynamic
+  feeds; the per-archive EdDSA signature still blocks tampered binaries.
+- The admin JWT verifier is **fail-closed** (RS256-pinned, `aud`/`iss` + expiry checked); service tokens
+  are accepted only on the upload/register routes.
 - Admin actions are recorded in a **hash-chained, daily-anchored** audit log; pair it with Cloudflare's
-  Access and Audit logs for full who/when. See `design/DESIGN.md` §16.
+  Access and Audit logs for full who/when.
 - Account-level caveat: anyone with Cloudflare dashboard access to the account can read D1/R2 directly;
   install into a dedicated account if that isolation matters.
 
-## Project status
-
-Feature-complete against `design/DESIGN.md`; 268 worker + 84 deploy-CLI tests pass offline; `tsc` (both
-tsconfigs) and Biome clean. The back
-office is fully operable from the browser — Add-user/Add-channel forms, per-row and per-entity actions
-(revoke/reissue/pin/assign, build withdraw/restore/critical/link, channel create/delete), an upload
-form, and a branding/settings page — all behind Cloudflare Access. Two tracked follow-ups remain:
-
-- **`POST /access`** — the public request-access form renders but its submission (and a pending-requests
-  queue) isn't handled yet.
-- **Cloudflare Email Service** delivery is a documented follow-up behind the `EmailSender` seam;
-  copy-paste invites (the free-tier default) are fully implemented.
+More on the security model and the invariants: [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md).

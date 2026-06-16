@@ -1,8 +1,8 @@
 # Contributing
 
-How development works in this repo. The architecture spec is [`design/DESIGN.md`](design/DESIGN.md), the
-module map is [`design/CANONICAL-LAYOUT.md`](design/CANONICAL-LAYOUT.md), and decisions live in
-[`design/decisions/`](design/decisions/).
+How development works in this repo. The durable architecture & product principles are in
+[`docs/PRINCIPLES.md`](docs/PRINCIPLES.md); the structural rules (the `Deps` DI container, the clock
+seam) are summarised under [Architecture in one breath](#architecture-in-one-breath) below.
 
 ## Setup
 
@@ -33,12 +33,13 @@ the deploy template references it, and it refuses to serve unless `DEV_ADMIN=1` 
 Production admin auth (decision 0006) is unchanged and still covered by `npm test`.
 
 The four things that need a real (throwaway) deploy: Access login (the genuine edge JWT), Cloudflare
-email delivery, bucket-lock, and an end-to-end Sparkle client (see DESIGN.md §23).
+email delivery, bucket-lock, and an end-to-end Sparkle client (see
+[`docs/PRINCIPLES.md`](docs/PRINCIPLES.md#design-for-testability)).
 
 ### The deploy CLI
 
-`dev`, `deploy`, and `teardown` are a **TypeScript CLI** under `src/deploy/` (decision
-[0009](design/decisions/0009-deploy-cli.md)); the `deploy/*.sh` files are three-line `tsx` wrappers. It
+`dev`, `deploy`, and `teardown` are a **TypeScript CLI** under `src/deploy/`; the `deploy/*.sh` files are
+three-line `tsx` wrappers. It
 follows the same pure-core/seams rule as the app: `core/` is I/O-free and unit-tested (arg parsing,
 `renderConfig`, the defensive `wrangler`-output parsers, the inspect→apply plan, the state ledger, the
 console UI), while `seams/` is the only I/O — `wrangler` (spawns with **argv arrays**, never a shell
@@ -64,7 +65,7 @@ worker.ts (ROLE switch) → routes/{app,admin}/* (Hono handlers)
    → render views/* (pure hono/jsx, props in → HTML out)
 ```
 
-Two structural rules (see `CANONICAL-LAYOUT.md`):
+Two structural rules:
 1. **`Deps` DI** — handlers/services receive a `Deps` object; tests swap each seam (a fixed clock, a
    stub Access verifier, a recording email sender, a mocked fetch).
 2. **`lib/clock.ts` is the only source of time** — a Biome rule forbids `Date`/`Date.now()` elsewhere,
@@ -89,7 +90,7 @@ Tests run inside the Workers runtime offline. Layout under `test/`:
 
 - `unit/` — pure-core tests (resolver decision table, appcast golden files, audit chain, …).
 - `integration/` — db/r2/auth/cron against seeded D1/R2 in `workerd`.
-- `cuj/` — the **Critical User Journeys** (§12). These are the feature gates; read `NN-name.cuj.test.ts`
+- `cuj/` — the **Critical User Journeys**. These are the feature gates; read `NN-name.cuj.test.ts`
   as the human-readable contract for a journey.
 - `support/` — the offline harness: `scenario.ts` (seed a servable world *through the prod queries*),
   `access.ts` (a throwaway RS256 keypair signing real Access tokens against a stub JWKS), `worker.ts` /
@@ -108,10 +109,11 @@ assert time-dependent behavior with seeded timestamps (fake timers don't reach t
 2. **Implement the pure core** in `src/core/*` (and unit-test it directly).
 3. **Wire the seam/route** — a `db/` query, an `r2/` call, a `routes/*` handler receiving `Deps`, a pure
    `views/*` component. Reuse the shared helpers; require a human actor + record an audit row for admin
-   mutations; run the §11 confirm gate (`guardStranding`) for anything that could strand a user.
+   mutations; run the no-build confirm gate (`guardStranding`) for anything that could strand a user.
 4. **Green + clean** — `npm run check` passes (tests + tsc + Biome).
-5. **Record decisions** — if you settle something the spec left open, add an ADR in
-   `design/decisions/` and update `design/DESIGN.md`/`PLAN.md` to match.
+5. **Keep docs current** — if you change a durable invariant, update
+   [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md); operator-facing changes go in `docs/ONBOARDING.md` /
+   `docs/UPLOADING.md`.
 
 ## Commits
 

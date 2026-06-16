@@ -30,7 +30,7 @@ export const SetupPage: FC<{ info: SetupInfo }> = ({ info }) => {
     <AdminLayout title="App setup">
       <p class="muted">
         How to wire <strong>{info.appName}</strong> to this instance. To publish builds see{" "}
-        <a href="/admin/ci">CI publishing</a>; full runbook in <code>docs/OPERATING.md</code>.
+        <a href="/admin/ci">CI publishing</a>; full runbook in <code>docs/UPLOADING.md</code>.
       </p>
 
       {info.publicKey === null ? (
