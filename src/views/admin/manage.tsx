@@ -507,6 +507,21 @@ export const SettingsPage: FC<{ settings: Record<string, string>; info: Settings
 
     <EmailSetupPanel instance={info.instance} email={info.email} />
 
+    {info.email.mode === "active" ? (
+      <div class="panel">
+        <h2>Test email delivery</h2>
+        <form method="post" action="/admin/settings/test-email" class="addform">
+          <input type="email" name="to" placeholder="recipient (defaults to you)" />
+          <button type="submit">Send test email</button>
+        </form>
+        <p class="muted hint">
+          Sends one email now and shows the exact result — the fastest way to debug delivery without
+          creating a user. If it fails, run <code>wrangler tail</code> on the admin Worker for the
+          full provider error.
+        </p>
+      </div>
+    ) : null}
+
     <form method="post" action="/admin/branding" enctype="multipart/form-data" class="panel">
       <h2>Download-page branding</h2>
       <p>

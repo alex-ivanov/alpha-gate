@@ -40,6 +40,8 @@ export async function sendInvite(
     await deps.email.send({ to, subject: invite.subject, body: invite.body });
     return { url, delivery: configured ? { sent: true } : undefined };
   } catch (e) {
+    // Surface the full provider error in the Worker logs (`wrangler tail`) — the page only gets .message.
+    console.error("[invite] email send to", to, "failed:", e);
     return { url, delivery: { sent: false, error: e instanceof Error ? e.message : String(e) } };
   }
 }

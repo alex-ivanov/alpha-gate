@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { buildDeps, type Deps } from "../../deps";
 import type { Env } from "../../env";
 import type { AdminEnv } from "./admin-context";
-import { saveBranding } from "./branding";
+import { saveBranding, sendTestEmail } from "./branding";
 import {
   bulkBuilds,
   linkBuildStream,
@@ -91,6 +91,7 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.post("/admin/builds/register", registerBuild);
   // Branding + invite template (§13) — human only
   app.post("/admin/branding", saveBranding);
+  app.post("/admin/settings/test-email", sendTestEmail);
 
   // Build mutations (§9/§10/§11). The literal /bulk is mounted before the :id forms (no collision —
   // distinct paths — but kept adjacent to the per-build mutations it batches).
