@@ -21,6 +21,7 @@ import {
 import { SetupPage } from "../../views/admin/setup-page";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
+import { flashMessage } from "./flash";
 import { toId } from "./form";
 import {
   loadActivity,
@@ -59,14 +60,18 @@ export async function usersView(c: AdminContext): Promise<Response> {
   if (filter.nobuild) rows = rows.filter((u) => u.noBuild !== "servable");
   if (filter.pinned) rows = rows.filter((u) => u.pinnedBuildId !== null);
   if (filter.stream) rows = rows.filter((u) => u.streams.includes(filter.stream));
-  return c.html(renderPage(<UsersPage users={rows} channels={channels} filter={filter} />));
+  return c.html(
+    renderPage(
+      <UsersPage users={rows} channels={channels} filter={filter} notice={flashMessage(c)} />,
+    ),
+  );
 }
 
 export async function userManageView(c: AdminContext): Promise<Response> {
   const id = toId(c.req.param("id"));
   const detail = id === null ? null : await loadUser(c.get("deps"), id);
   if (detail === null) return c.text("Not found", 404);
-  return c.html(renderPage(<UserManagePage detail={detail} />));
+  return c.html(renderPage(<UserManagePage detail={detail} notice={flashMessage(c)} />));
 }
 
 export async function buildsView(c: AdminContext): Promise<Response> {
@@ -75,7 +80,14 @@ export async function buildsView(c: AdminContext): Promise<Response> {
   const showHidden = c.req.query("hidden") === "1"; // default: visible only
   const rows = showHidden ? builds : builds.filter((b) => !b.build.hidden);
   return c.html(
-    renderPage(<BuildsPage builds={rows} channels={channels} showHidden={showHidden} />),
+    renderPage(
+      <BuildsPage
+        builds={rows}
+        channels={channels}
+        showHidden={showHidden}
+        notice={flashMessage(c)}
+      />,
+    ),
   );
 }
 
@@ -83,18 +95,20 @@ export async function buildManageView(c: AdminContext): Promise<Response> {
   const id = toId(c.req.param("id"));
   const detail = id === null ? null : await loadBuildDetail(c.get("deps"), id);
   if (detail === null) return c.text("Not found", 404);
-  return c.html(renderPage(<BuildManagePage detail={detail} />));
+  return c.html(renderPage(<BuildManagePage detail={detail} notice={flashMessage(c)} />));
 }
 
 export async function streamsView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<StreamsPage streams={await loadStreams(c.get("deps"))} />));
+  return c.html(
+    renderPage(<StreamsPage streams={await loadStreams(c.get("deps"))} notice={flashMessage(c)} />),
+  );
 }
 
 export async function streamManageView(c: AdminContext): Promise<Response> {
   const id = toId(c.req.param("id"));
   const detail = id === null ? null : await loadStreamDetail(c.get("deps"), id);
   if (detail === null) return c.text("Not found", 404);
-  return c.html(renderPage(<StreamManagePage detail={detail} />));
+  return c.html(renderPage(<StreamManagePage detail={detail} notice={flashMessage(c)} />));
 }
 
 export async function uploadView(c: AdminContext): Promise<Response> {
@@ -138,7 +152,11 @@ export async function settingsView(c: AdminContext): Promise<Response> {
 }
 
 export async function pendingView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<PendingPage requests={await loadPending(c.get("deps"))} />));
+  return c.html(
+    renderPage(
+      <PendingPage requests={await loadPending(c.get("deps"))} notice={flashMessage(c)} />,
+    ),
+  );
 }
 
 export async function activityView(c: AdminContext): Promise<Response> {

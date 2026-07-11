@@ -58,7 +58,7 @@ describe("admin list filters + stats", () => {
     const { client } = await seedServableClient(deps);
     await adminWorker(access).request(
       `/admin/clients/${client.id}/revoke`,
-      withTokenForm(await access.signValidUser(), {}),
+      withTokenForm(await access.signValidUser(), { confirm: "true" }), // revoke is confirmed
     );
 
     const page = await getAdmin("/admin/audit");

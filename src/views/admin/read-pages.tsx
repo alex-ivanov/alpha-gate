@@ -70,8 +70,11 @@ export const DashboardPage: FC<{ data: Dashboard }> = ({ data }) => (
   </AdminLayout>
 );
 
-export const PendingPage: FC<{ requests: AccessRequest[] }> = ({ requests }) => (
-  <AdminLayout title="Pending requests">
+export const PendingPage: FC<{ requests: AccessRequest[]; notice?: string | null }> = ({
+  requests,
+  notice,
+}) => (
+  <AdminLayout title="Pending requests" notice={notice}>
     {requests.length === 0 ? (
       <p class="empty">No pending access requests.</p>
     ) : (
@@ -108,12 +111,13 @@ export interface UsersFilter {
   hidden: boolean;
 }
 
-export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: UsersFilter }> = ({
-  users,
-  channels,
-  filter,
-}) => (
-  <AdminLayout title="Users">
+export const UsersPage: FC<{
+  users: UserView[];
+  channels: Stream[];
+  filter: UsersFilter;
+  notice?: string | null;
+}> = ({ users, channels, filter, notice }) => (
+  <AdminLayout title="Users" notice={notice}>
     <form method="post" action="/admin/clients" class="addform">
       <input type="email" name="email" placeholder="email" required />
       <input type="text" name="label" placeholder="label (optional)" />
@@ -229,12 +233,13 @@ export const UsersPage: FC<{ users: UserView[]; channels: Stream[]; filter: User
   </AdminLayout>
 );
 
-export const BuildsPage: FC<{ builds: BuildView[]; channels: Stream[]; showHidden: boolean }> = ({
-  builds,
-  channels,
-  showHidden,
-}) => (
-  <AdminLayout title="Builds">
+export const BuildsPage: FC<{
+  builds: BuildView[];
+  channels: Stream[];
+  showHidden: boolean;
+  notice?: string | null;
+}> = ({ builds, channels, showHidden, notice }) => (
+  <AdminLayout title="Builds" notice={notice}>
     {builds.length === 0 ? (
       <p class="empty">
         {showHidden
@@ -365,8 +370,11 @@ export const BuildsPage: FC<{ builds: BuildView[]; channels: Stream[]; showHidde
   </AdminLayout>
 );
 
-export const StreamsPage: FC<{ streams: StreamView[] }> = ({ streams }) => (
-  <AdminLayout title="Channels">
+export const StreamsPage: FC<{ streams: StreamView[]; notice?: string | null }> = ({
+  streams,
+  notice,
+}) => (
+  <AdminLayout title="Channels" notice={notice}>
     <form method="post" action="/admin/streams" class="addform">
       <input type="text" name="name" placeholder="channel name (e.g. stable)" required />
       <button type="submit">Add channel</button>

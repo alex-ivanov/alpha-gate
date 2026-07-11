@@ -17,12 +17,22 @@ beforeAll(async () => {
 beforeEach(resetAll);
 
 describe("CUJ-5 reissue", () => {
-  it("replaces the token: old stops resolving, new resolves normally", async () => {
+  it("confirms, then replaces the token: old stops resolving, new resolves normally", async () => {
     const { token: oldToken, client } = await seedServableClient(deps);
+    const userToken = await access.signValidUser();
+
+    // Reissue kills the tester's working token → the first POST is a confirmation, not a mutation.
+    const confirm = await adminWorker(access).request(
+      `/admin/clients/${client.id}/reissue`,
+      withTokenForm(userToken, {}),
+    );
+    expect(confirm.status).toBe(200);
+    expect(await confirm.text()).toContain(client.email);
+    expect((await getById(deps.db, client.id))?.token).toBe(oldToken); // unchanged
 
     const res = await adminWorker(access).request(
       `/admin/clients/${client.id}/reissue`,
-      withTokenForm(await access.signValidUser(), {}),
+      withTokenForm(userToken, { confirm: "true" }),
     );
     expect(res.status).toBe(200);
     const html = await res.text();

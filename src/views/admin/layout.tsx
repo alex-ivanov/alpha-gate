@@ -101,6 +101,8 @@ const styles = `
     font-size: .85rem; line-height: 1.5; }
   .callout-warn { background: var(--warn-weak); color: var(--warn-text);
     border: 1px solid color-mix(in srgb, var(--warn-text) 30%, transparent); }
+  .callout-ok { background: var(--ok-weak); color: var(--ok-text);
+    border: 1px solid color-mix(in srgb, var(--ok-text) 30%, transparent); }
   .addform { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: 0 0 1rem; }
 
   /* Upload mode toggle (Normal release / Rollback) — pure CSS so it works with no JS: the radio reveals
@@ -175,7 +177,11 @@ const NAV = [
   ["/admin/audit", "Audit"],
 ] as const;
 
-export const AdminLayout: FC<{ title: string; children?: Child }> = ({ title, children }) => (
+export const AdminLayout: FC<{
+  title: string;
+  notice?: string | null | undefined;
+  children?: Child;
+}> = ({ title, notice, children }) => (
   <html lang="en">
     <head>
       <meta charset="utf-8" />
@@ -200,6 +206,11 @@ export const AdminLayout: FC<{ title: string; children?: Child }> = ({ title, ch
       </aside>
       <main id="main">
         <h1>{title}</h1>
+        {notice ? (
+          <p class="callout callout-ok" role="status">
+            {notice}
+          </p>
+        ) : null}
         {children}
       </main>
       <script dangerouslySetInnerHTML={{ __html: activeNavScript }} />

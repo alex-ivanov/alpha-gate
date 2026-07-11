@@ -17,6 +17,7 @@ import {
   assignStream,
   createClient,
   pinClient,
+  reactivateClient,
   reissueClient,
   revokeClient,
   setClientHidden,
@@ -82,6 +83,7 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   // Client mutations (§10/§13)
   app.post("/admin/clients", createClient);
   app.post("/admin/clients/:id/revoke", revokeClient);
+  app.post("/admin/clients/:id/reactivate", reactivateClient);
   app.post("/admin/clients/:id/reissue", reissueClient);
   app.post("/admin/clients/:id/pin", pinClient);
   app.post("/admin/clients/:id/unpin", unpinClient);

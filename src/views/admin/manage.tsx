@@ -14,13 +14,16 @@ import { ARCHIVE_AUTOFILL_SCRIPT } from "./plist-extract";
 // §13 per-entity management pages, plus the upload and branding/settings forms. Each posts to the
 // existing (tested) mutation handlers; the §11 confirm flow handles any stranding action server-side.
 
-export const UserManagePage: FC<{ detail: UserDetail }> = ({ detail }) => {
+export const UserManagePage: FC<{ detail: UserDetail; notice?: string | null }> = ({
+  detail,
+  notice,
+}) => {
   const { client, channels, assignedStreamIds, availableBuilds, currentBuild } = detail;
   const assigned = new Set(assignedStreamIds);
   const unassigned = channels.filter((s) => !assigned.has(s.id));
   const assignedChannels = channels.filter((s) => assigned.has(s.id));
   return (
-    <AdminLayout title={`User · ${client.email}`}>
+    <AdminLayout title={`User · ${client.email}`} notice={notice}>
       <p class="muted">
         Label: {client.label ?? "—"} · Status: {client.status} · Installed: {currentBuild ?? "—"} ·
         Pinned: {client.pinnedBuildId ?? "—"}
@@ -84,11 +87,14 @@ export const UserManagePage: FC<{ detail: UserDetail }> = ({ detail }) => {
   );
 };
 
-export const BuildManagePage: FC<{ detail: BuildDetail }> = ({ detail }) => {
+export const BuildManagePage: FC<{ detail: BuildDetail; notice?: string | null }> = ({
+  detail,
+  notice,
+}) => {
   const { build, channels, linkedStreamIds } = detail;
   const linked = new Set(linkedStreamIds);
   return (
-    <AdminLayout title={`Build · ${build.buildNumber}`}>
+    <AdminLayout title={`Build · ${build.buildNumber}`} notice={notice}>
       <p class="muted">
         {build.shortVersion} · {build.status} · {build.critical ? "critical" : "not critical"}
         {build.rollbackTarget ? " · rollback target" : ""}
@@ -188,10 +194,13 @@ export const BuildManagePage: FC<{ detail: BuildDetail }> = ({ detail }) => {
   );
 };
 
-export const StreamManagePage: FC<{ detail: StreamDetail }> = ({ detail }) => {
+export const StreamManagePage: FC<{ detail: StreamDetail; notice?: string | null }> = ({
+  detail,
+  notice,
+}) => {
   const { stream, linkedBuilds, unlinkedBuilds, topBuild, assignedUsers, unassignedUsers } = detail;
   return (
-    <AdminLayout title={`Channel · ${stream.name}`}>
+    <AdminLayout title={`Channel · ${stream.name}`} notice={notice}>
       <p class="muted">
         Currently serving:{" "}
         {topBuild ? `${topBuild.buildNumber} (${topBuild.shortVersion})` : "no available build"}

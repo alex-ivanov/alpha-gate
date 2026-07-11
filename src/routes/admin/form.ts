@@ -27,4 +27,17 @@ export function idList(body: Record<string, unknown>, name: string): number[] {
   return [...ids];
 }
 
+/**
+ * The validated `return_to` form field: the internal admin path the handler may 303 back to so the
+ * operator lands where they acted (list, detail page, filtered view). Anything that isn't a plain
+ * same-origin `/admin…` path — a scheme, an authority, control characters — is rejected, so a
+ * tampered form can't turn the redirect into an open redirect.
+ */
+export function returnTo(body: Record<string, unknown>): string | null {
+  const raw = field(body, "return_to");
+  if (raw === null) return null;
+  const ok = /^\/admin(?:\/[A-Za-z0-9._~/-]*)?(?:\?[A-Za-z0-9=&%._~-]*)?$/.test(raw);
+  return ok && !raw.startsWith("/admin//") ? raw : null;
+}
+
 export { isEmail } from "../../lib/text";

@@ -18,12 +18,24 @@ beforeAll(async () => {
 beforeEach(resetAll);
 
 describe("CUJ-4 revoke", () => {
-  it("cuts off access and records an audit row", async () => {
+  it("asks for confirmation, then cuts off access and records an audit row", async () => {
     const { token, client } = await seedServableClient(deps);
+    const userToken = await access.signValidUser();
+
+    // Revoke is irreversible for the tester → the first POST is a confirmation, not a mutation.
+    const confirm = await adminWorker(access).request(
+      `/admin/clients/${client.id}/revoke`,
+      withTokenForm(userToken, {}),
+    );
+    expect(confirm.status).toBe(200);
+    const confirmHtml = await confirm.text();
+    expect(confirmHtml).toContain(client.email); // names WHO is being revoked
+    expect(confirmHtml).toContain("Reactivate"); // and says the inverse exists
+    expect((await getById(deps.db, client.id))?.status).toBe("active"); // unchanged
 
     const res = await adminWorker(access).request(
       `/admin/clients/${client.id}/revoke`,
-      withTokenForm(await access.signValidUser(), {}),
+      withTokenForm(userToken, { confirm: "true" }),
     );
     expect(res.status).toBe(303);
 

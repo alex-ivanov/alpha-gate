@@ -66,7 +66,9 @@ describe("CUJ-9 pinned version", () => {
       withTokenForm(userToken, { buildId: String(newer.id) }),
     );
     expect(confirm.status).toBe(200);
-    expect(await confirm.text()).toContain("Confirm");
+    const confirmHtml = await confirm.text();
+    expect(confirmHtml).toContain("no available build"); // the §11 consequence, spelled out
+    expect(confirmHtml).toContain("Pin"); // the page names the action it is confirming
     expect((await getById(deps.db, client.id))?.pinnedBuildId).toBeNull();
 
     // With confirm: the pin is applied (the user is knowingly left no-build).

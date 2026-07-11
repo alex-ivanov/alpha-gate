@@ -29,8 +29,16 @@ export const InvitePage: FC<{
   email: string;
   getUrl: string;
   delivery?: { sent: boolean; error?: string } | undefined;
-}> = ({ email, getUrl, delivery }) => (
+  /** True when this invite also reactivated a previously revoked user. */
+  restored?: boolean;
+}> = ({ email, getUrl, delivery, restored }) => (
   <AdminLayout title="Invite created">
+    {restored ? (
+      <p class="callout callout-ok">
+        {email} was revoked — their access is now restored with the fresh link below (the old link
+        stays dead).
+      </p>
+    ) : null}
     {delivery?.sent ? (
       <p class="badge ok">Emailed to {email}.</p>
     ) : delivery && !delivery.sent ? (
@@ -78,30 +86,44 @@ const COPY_SCRIPT = `
 })();
 `;
 
+/**
+ * The §11 stranding confirm: names the exact action in operator language, lists who would be left
+ * with no available build (their apps report "up to date" and receive nothing), and returns to the
+ * page the operator came from on Cancel. `hidden` must carry everything the re-post needs.
+ */
 export const ConfirmPage: FC<{
-  action: string;
+  /** The action in operator words, e.g. "Withdraw build 1400 (1.3.1-beta)". */
+  subject: string;
   affected: string[];
   postTo: string;
   hidden: Record<string, string>;
-}> = ({ action, affected, postTo, hidden }) => (
-  <AdminLayout title="Confirm">
+  cancelTo: string;
+}> = ({ subject, affected, postTo, hidden, cancelTo }) => (
+  <AdminLayout title="Are you sure?">
     <p>
-      <strong>{action}</strong> would leave these users with no available build:
+      <strong>{subject}</strong> would leave {affected.length === 1 ? "this user" : "these users"}{" "}
+      with no available build:
     </p>
     <ul>
       {affected.map((email) => (
         <li>{email}</li>
       ))}
     </ul>
-    <form method="post" action={postTo}>
+    <p class="muted">
+      Their apps will report “up to date” and receive nothing until a higher build reaches them
+      (publish a newer build, reassign their channel, or adjust the pin).
+    </p>
+    <form method="post" action={postTo} class="actions">
       {Object.entries(hidden).map(([name, value]) => (
         <input type="hidden" name={name} value={value} />
       ))}
-      <button type="submit">Confirm anyway</button>
+      <button type="submit" class="btn-danger">
+        {subject} anyway
+      </button>
+      <a class="btn" href={cancelTo}>
+        Cancel
+      </a>
     </form>
-    <p>
-      <a href="/admin/users">Cancel</a>
-    </p>
   </AdminLayout>
 );
 
@@ -112,26 +134,80 @@ export const BulkConfirmPage: FC<{
   affected: string[];
   postTo: string;
 }> = ({ op, ids, affected, postTo }) => (
-  <AdminLayout title="Confirm">
+  <AdminLayout title="Are you sure?">
     <p>
-      Bulk <strong>{op}</strong> of {ids.length} build(s) would leave these users with no available
-      build:
+      <strong>
+        {op === "withdraw" ? "Withdraw" : op} {ids.length} {ids.length === 1 ? "build" : "builds"}
+      </strong>{" "}
+      would leave these users with no available build:
     </p>
     <ul>
       {affected.map((email) => (
         <li>{email}</li>
       ))}
     </ul>
-    <form method="post" action={postTo}>
+    <p class="muted">
+      Their apps will report “up to date” and receive nothing until a higher build reaches them.
+    </p>
+    <form method="post" action={postTo} class="actions">
       <input type="hidden" name="op" value={op} />
       <input type="hidden" name="confirm" value="true" />
       {ids.map((id) => (
         <input type="hidden" name="id" value={String(id)} />
       ))}
-      <button type="submit">Confirm anyway</button>
+      <button type="submit" class="btn-danger">
+        Confirm anyway
+      </button>
+      <a class="btn" href="/admin/builds">
+        Cancel
+      </a>
     </form>
+  </AdminLayout>
+);
+
+/**
+ * Confirmation for a destructive-but-not-stranding action (revoke, reissue, delete channel). States
+ * the action and its consequence in operator words; Cancel returns whence the operator came. The §11
+ * stranding list, when there is one, rides along via `affected`.
+ */
+export const ConfirmActionPage: FC<{
+  /** The action in operator words, e.g. "Revoke alice@corner.studio". */
+  subject: string;
+  confirmLabel: string;
+  postTo: string;
+  hidden: Record<string, string>;
+  cancelTo: string;
+  affected?: string[];
+  children?: Child;
+}> = ({ subject, confirmLabel, postTo, hidden, cancelTo, affected = [], children }) => (
+  <AdminLayout title="Are you sure?">
     <p>
-      <a href="/admin/builds">Cancel</a>
+      <strong>{subject}</strong>
     </p>
+    {children}
+    {affected.length > 0 ? (
+      <>
+        <p>
+          This would also leave {affected.length === 1 ? "this user" : "these users"} with no
+          available build:
+        </p>
+        <ul>
+          {affected.map((email) => (
+            <li>{email}</li>
+          ))}
+        </ul>
+      </>
+    ) : null}
+    <form method="post" action={postTo} class="actions">
+      {Object.entries(hidden).map(([name, value]) => (
+        <input type="hidden" name={name} value={value} />
+      ))}
+      <button type="submit" class="btn-danger">
+        {confirmLabel}
+      </button>
+      <a class="btn" href={cancelTo}>
+        Cancel
+      </a>
+    </form>
   </AdminLayout>
 );

@@ -64,6 +64,23 @@ export async function setStatus(db: D1Database, id: number, status: string): Pro
   await execute(db, "UPDATE access_requests SET status = ? WHERE id = ?", [status, id]);
 }
 
+/**
+ * Resolves EVERY still-pending request for an email at once. Testers re-submit the public form when
+ * no confirmation arrives (copy-paste mode sends none), so duplicates are the norm — handling only
+ * the clicked row would leave stale siblings whose Invite button silently rotates a just-sent token.
+ */
+export async function setStatusByEmail(
+  db: D1Database,
+  email: string,
+  status: string,
+): Promise<void> {
+  await execute(
+    db,
+    "UPDATE access_requests SET status = ? WHERE email = ? AND status = 'pending'",
+    [status, email],
+  );
+}
+
 export async function countPending(db: D1Database): Promise<number> {
   const row = await queryOne<{ n: number }>(
     db,

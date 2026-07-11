@@ -1,4 +1,5 @@
 import * as builds from "../../db/builds";
+import * as streams from "../../db/streams";
 import { headObject, putArchive } from "../../r2/builds-bucket";
 import { recordAudit } from "../../services/audit";
 import { ResultPage } from "../../views/admin/manage-pages";
@@ -24,11 +25,13 @@ interface BuildMeta {
   streamId: number | null;
 }
 
+// STRICT digits only — parseInt would quietly accept "1.2.3" as 1 and "1500abc" as 1500, minting a
+// wrong (and permanent: build_number is unique and monotonic) build number from a swapped argument.
 function intField(body: Record<string, unknown>, name: string): number | null {
   const raw = field(body, name);
-  if (raw === null) return null;
+  if (raw === null || !/^\d+$/.test(raw.trim())) return null;
   const n = Number.parseInt(raw, 10);
-  return Number.isInteger(n) ? n : null;
+  return Number.isSafeInteger(n) ? n : null;
 }
 
 function parseBuildMeta(
@@ -85,21 +88,77 @@ async function duplicateBuild(c: AdminContext, buildNumber: number): Promise<Res
     c,
     409,
     `Build number ${buildNumber} already exists (published as ${existing.shortVersion}). Each ` +
-      `build_number is unique — to publish a corrected build, give it a higher number (roll-forward, §9).`,
+      `build number is unique — to publish a corrected build, give it a higher number (a roll-forward).`,
   );
 }
 
-function published(c: AdminContext, buildNumber: number, shortVersion: string): Response {
+/**
+ * Pre-write validation shared by both publish endpoints, run BEFORE any R2 or D1 write so a rejected
+ * publish never half-registers (the old failure mode: build row inserted, then the channel link threw
+ * a raw foreign-key 500 with the archive already stored).
+ */
+async function rejectPublish(
+  c: AdminContext,
+  body: Record<string, unknown>,
+  meta: BuildMeta,
+): Promise<Response | null> {
+  const deps = c.get("deps");
+
+  const duplicate = await duplicateBuild(c, meta.buildNumber);
+  if (duplicate !== null) return duplicate;
+
+  // The selected channel must still exist (a stale form otherwise FK-500s AFTER the insert).
+  if (meta.streamId !== null && (await streams.getById(deps.db, meta.streamId)) === null) {
+    return fail(
+      c,
+      400,
+      `Channel ${meta.streamId} not found — it may have been deleted. Nothing was published; ` +
+        `pick another channel (or none) and retry.`,
+    );
+  }
+
+  // Rollback mode's whole point is a build number ABOVE the current highest (Sparkle can't
+  // downgrade); enforce the floor the form only explains.
+  if (field(body, "mode") === "rollback") {
+    const all = await builds.listAll(deps.db);
+    const top = all.reduce((max, b) => Math.max(max, b.buildNumber), 0);
+    if (meta.buildNumber <= top) {
+      return fail(
+        c,
+        400,
+        `A rollback build must exceed the current highest build number (${top}) — Sparkle never ` +
+          `offers a lower build. Rebuild the previous good code with a number above ${top}.`,
+      );
+    }
+  }
+  return null;
+}
+
+function published(
+  c: AdminContext,
+  build: { id: number; buildNumber: number; shortVersion: string },
+  streamName: string | null,
+): Response {
   return c.html(
     renderPage(
-      <ResultPage title="Build published" back={{ href: "/admin/builds", label: "View builds →" }}>
+      <ResultPage
+        title="Build published"
+        back={{ href: `/admin/builds/${build.id}`, label: `Open build ${build.buildNumber} →` }}
+      >
         <p>
-          Build <strong>{buildNumber}</strong> ({shortVersion}) is now available.
+          Build <strong>{build.buildNumber}</strong> ({build.shortVersion}) is now available.
         </p>
-        <p class="muted">
-          If it isn't yet in a channel your testers are assigned to, link it from the build page so
-          their next update check picks it up.
-        </p>
+        {streamName !== null ? (
+          <p class="muted">
+            It's in the <strong>{streamName}</strong> channel — users assigned there are offered it
+            on their next update check (unless a higher build already serves them).
+          </p>
+        ) : (
+          <p class="callout callout-warn">
+            It isn't in any channel yet, so <strong>no one receives it</strong> until you link a
+            channel from the <a href={`/admin/builds/${build.id}`}>build page</a>.
+          </p>
+        )}
       </ResultPage>,
     ),
     201,
@@ -125,8 +184,8 @@ export async function uploadBuild(c: AdminContext): Promise<Response> {
   const meta = parseBuildMeta(body);
   if (!meta.ok) return fail(c, 400, meta.error);
 
-  const duplicate = await duplicateBuild(c, meta.value.buildNumber);
-  if (duplicate !== null) return duplicate;
+  const rejected = await rejectPublish(c, body, meta.value);
+  if (rejected !== null) return rejected;
 
   const objectKey = await putArchive(
     deps.r2,
@@ -143,10 +202,14 @@ export async function uploadBuild(c: AdminContext): Promise<Response> {
     minOs: meta.value.minOs,
     critical: meta.value.critical,
   });
+  const streamName =
+    meta.value.streamId === null
+      ? null
+      : ((await streams.getById(deps.db, meta.value.streamId))?.name ?? null);
   if (meta.value.streamId !== null) await builds.linkStream(deps.db, build.id, meta.value.streamId);
   await recordAudit(deps, auditFields(c, "build.upload", String(meta.value.buildNumber)));
 
-  if (wantsHtml(c)) return published(c, meta.value.buildNumber, meta.value.shortVersion);
+  if (wantsHtml(c)) return published(c, build, streamName);
   return c.json({ ok: true, buildNumber: meta.value.buildNumber, objectKey }, 201);
 }
 
@@ -163,8 +226,8 @@ export async function registerBuild(c: AdminContext): Promise<Response> {
   const meta = parseBuildMeta(body);
   if (!meta.ok) return fail(c, 400, meta.error);
 
-  const duplicate = await duplicateBuild(c, meta.value.buildNumber);
-  if (duplicate !== null) return duplicate;
+  const rejected = await rejectPublish(c, body, meta.value);
+  if (rejected !== null) return rejected;
 
   const head = await headObject(deps.r2, objectKey);
   if (head === null) return fail(c, 400, "object not found in R2");
@@ -179,9 +242,13 @@ export async function registerBuild(c: AdminContext): Promise<Response> {
     minOs: meta.value.minOs,
     critical: meta.value.critical,
   });
+  const streamName =
+    meta.value.streamId === null
+      ? null
+      : ((await streams.getById(deps.db, meta.value.streamId))?.name ?? null);
   if (meta.value.streamId !== null) await builds.linkStream(deps.db, build.id, meta.value.streamId);
   await recordAudit(deps, auditFields(c, "build.register", String(meta.value.buildNumber)));
 
-  if (wantsHtml(c)) return published(c, meta.value.buildNumber, meta.value.shortVersion);
+  if (wantsHtml(c)) return published(c, build, streamName);
   return c.json({ ok: true, buildNumber: meta.value.buildNumber }, 201);
 }
