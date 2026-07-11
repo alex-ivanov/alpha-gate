@@ -85,9 +85,9 @@ describe("AdminLayout (design-system chrome)", () => {
   it("ships the design-system tokens: light/dark, focus-visible, responsive, reduced-motion", () => {
     const html = render();
     expect(html).toContain("--accent:");
-    expect(html).toContain("@media (prefers-color-scheme: dark)");
+    expect(html).toMatch(/@media \(prefers-color-scheme:\s*dark\)/);
     expect(html).toContain(":focus-visible");
-    expect(html).toContain("@media (max-width: 48rem)");
+    expect(html).toMatch(/@media \(max-width:\s*48rem\)/);
     expect(html).toContain("prefers-reduced-motion");
   });
 
@@ -95,12 +95,35 @@ describe("AdminLayout (design-system chrome)", () => {
     expect(render()).toContain("aria-current");
   });
 
-  it("lays row actions out as a flex row and gives panel form fields a width", () => {
+  it("ships the quiet-instrument primitives: lockup, exception tags, sr-only, favicon", () => {
     const html = render();
-    // .actions is a wrapping flex row so Manage + the POST buttons share a baseline (not a stray link).
-    expect(html).toMatch(/\.actions\s*\{[^}]*display:\s*flex/);
-    // Stacked panel forms (Upload, Branding) give their fields a width so long placeholders don't clip.
-    expect(html).toContain(".panel p > input");
+    expect(html).toMatch(/\.lk\s*\{[^}]*var\(--mono\)/); // the canonical version lockup is mono
+    expect(html).toMatch(/\.tag\.crit\s*\{[^}]*var\(--crit-bg\)/); // critical is the one filled tag
+    expect(html).toContain(".sr-only"); // screen-reader utility exists
+    expect(html).toContain('rel="icon"'); // per-tab identity (data-URI gate glyph)
+    expect(html).toMatch(/\.actions\s*\{[^}]*display:\s*flex/); // action rows share a baseline
+  });
+
+  it("renders the grouped nav with a Requests chip and the instance slug", () => {
+    const html = renderPage(
+      <AdminLayout title="Users" chrome={{ instance: "corner-mac", pending: 2 }}>
+        <p>content</p>
+      </AdminLayout>,
+    );
+    expect(html).toContain("Operate");
+    expect(html).toContain("Publish");
+    expect(html).toContain("corner-mac");
+    expect(html).toContain('class="chip"'); // pending-requests count on the nav item
+  });
+
+  it("renders the flash notice as a status callout when chrome carries one", () => {
+    const html = renderPage(
+      <AdminLayout title="Users" chrome={{ notice: "Revoked x@y." }}>
+        <p>content</p>
+      </AdminLayout>,
+    );
+    expect(html).toContain('role="status"');
+    expect(html).toContain("Revoked x@y.");
   });
 });
 
