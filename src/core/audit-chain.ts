@@ -86,6 +86,50 @@ export async function verifyChain(rows: readonly AuditRow[]): Promise<VerifyResu
   return { ok: true };
 }
 
+/** The status the daily anchor records — and the admin Audit page displays live. */
+export interface ChainAssessment {
+  /** The chain verifies AND has not shrunk or diverged from the last anchored head. */
+  intact: boolean;
+  count: number;
+  /** The anchored head this was checked against, or null before the first anchor. */
+  anchored: { hash: string; count: number } | null;
+}
+
+/**
+ * One shared judgment of chain integrity for the anchor cron AND the Audit page (they must never
+ * disagree). `priorRaw` is the stored `audit_anchor_head` meta value (JSON), or null before the
+ * first anchor. A malformed prior is treated as suspicious, exactly like a mismatch.
+ */
+export async function assessChain(
+  rows: readonly AuditRow[],
+  priorRaw: string | null,
+): Promise<ChainAssessment> {
+  let intact = (await verifyChain(rows)).ok;
+  const head = buildHead(rows);
+
+  let prior: { hash: string; count: number } | null = null;
+  if (priorRaw !== null) {
+    try {
+      const parsed = JSON.parse(priorRaw) as { hash?: unknown; count?: unknown };
+      if (typeof parsed.hash === "string" && typeof parsed.count === "number") {
+        prior = { hash: parsed.hash, count: parsed.count };
+      } else {
+        intact = false; // corrupted anchor record — treat as suspicious
+      }
+    } catch {
+      intact = false;
+    }
+  }
+  if (prior !== null) {
+    if (head.count < prior.count) {
+      intact = false; // truncation — newest rows removed
+    } else if (prior.count > 0 && rows[prior.count - 1]?.hash !== prior.hash) {
+      intact = false; // divergence / rebuild
+    }
+  }
+  return { intact, count: head.count, anchored: prior };
+}
+
 /** The chain head for anchoring (§16): the latest hash and the row count. */
 export function buildHead(rows: readonly AuditRow[]): { hash: string; count: number } {
   const last = rows.at(-1);

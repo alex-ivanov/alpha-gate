@@ -63,6 +63,16 @@ export async function lastEventAt(
   return row?.v ?? null;
 }
 
+/** The most recent time a client produced ANY event — the Users list's "last seen". */
+export async function lastSeenAt(db: D1Database, clientId: number): Promise<string | null> {
+  const row = await queryOne<{ v: string | null }>(
+    db,
+    "SELECT MAX(created_at) AS v FROM access_log WHERE client_id = ?",
+    [clientId],
+  );
+  return row?.v ?? null;
+}
+
 /** The build_number the client reported on its latest `check` — its current installed version. */
 export async function currentBuild(db: D1Database, clientId: number): Promise<number | null> {
   const row = await queryOne<{ build_number: number | null }>(

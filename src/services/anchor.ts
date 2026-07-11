@@ -1,4 +1,4 @@
-import { buildHead, verifyChain } from "../core/audit-chain";
+import { assessChain, buildHead } from "../core/audit-chain";
 import { listInOrder } from "../db/admin-audit";
 import * as meta from "../db/meta";
 import type { Deps } from "../deps";
@@ -8,7 +8,8 @@ import { auditAnchorKey } from "../r2/keys";
 // §16 — the daily audit anchor. Records the current chain head where the running admin can't silently
 // rewrite it (an append-only R2 object + an owner email), and detects tampering since the last anchor:
 // a chain that no longer verifies, is shorter (truncation), or whose old head hash no longer matches
-// the row at that position (divergence/rebuild) is flagged.
+// the row at that position (divergence/rebuild) is flagged. The judgment itself (assessChain) is
+// shared with the admin Audit page, so the cron and the UI can never disagree.
 
 export interface AnchorResult {
   hash: string;
@@ -16,38 +17,14 @@ export interface AnchorResult {
   intact: boolean;
 }
 
-interface AnchoredHead {
-  hash: string;
-  count: number;
-}
-
 export async function anchorAudit(
   deps: Deps,
   opts: { now: string; ownerEmail: string | null },
 ): Promise<AnchorResult> {
   const rows = await listInOrder(deps.db);
-  const verified = (await verifyChain(rows)).ok;
   const head = buildHead(rows);
-
-  let intact = verified;
-  let prior: AnchoredHead | null = null;
   const priorRaw = await meta.get(deps.db, "audit_anchor_head");
-  if (priorRaw !== null) {
-    try {
-      const parsed = JSON.parse(priorRaw) as AnchoredHead;
-      if (typeof parsed.hash === "string" && typeof parsed.count === "number") prior = parsed;
-      else intact = false; // corrupted anchor record — treat as suspicious
-    } catch {
-      intact = false;
-    }
-  }
-  if (prior !== null) {
-    if (head.count < prior.count) {
-      intact = false; // truncation — newest rows removed
-    } else if (prior.count > 0 && rows[prior.count - 1]?.hash !== prior.hash) {
-      intact = false; // divergence / rebuild
-    }
-  }
+  const { intact, anchored: prior } = await assessChain(rows, priorRaw);
 
   const anchor = { hash: head.hash, count: head.count, at: opts.now, intact };
   await putAuditAnchor(deps.r2, auditAnchorKey(opts.now), JSON.stringify(anchor));
