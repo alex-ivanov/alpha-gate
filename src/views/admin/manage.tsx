@@ -25,9 +25,12 @@ const ret = (path: string) => ({ return_to: path });
 export const UserManagePage: FC<{
   detail: UserDetail;
   inviteLink: string;
+  /** False when the public App host can't be derived (local dev, custom domain) — the link then
+      carries THIS admin host and won't work for the tester. */
+  linkDerived: boolean;
   now: string;
   chrome: Chrome;
-}> = ({ detail, inviteLink, now, chrome }) => {
+}> = ({ detail, inviteLink, linkDerived, now, chrome }) => {
   const { client, channels, assignedStreamIds, availableBuilds, currentBuild, verdict } = detail;
   const here = `/admin/users/${client.id}`;
   const assigned = new Set(assignedStreamIds);
@@ -203,6 +206,13 @@ export const UserManagePage: FC<{
         {revoked ? (
           <p class="callout warn">
             This user is revoked — the link below is dead until you reactivate them.
+          </p>
+        ) : null}
+        {!linkDerived ? (
+          <p class="callout warn">
+            The public host can't be derived from this admin host (local dev or a custom domain), so
+            the link below carries the <strong>admin</strong> host — testers can't open it. On a
+            deployed workers.dev instance it carries the public host.
           </p>
         ) : null}
         <code class="token" id="invite-link">

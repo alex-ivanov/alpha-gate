@@ -230,7 +230,7 @@ pre code{font-size:inherit}
 
 /* ————— serving map (signature) ————— */
 .map{list-style:none}
-.map li{display:grid;grid-template-columns:14px 72px minmax(36px,1fr) auto minmax(36px,1fr) auto;
+.map li{display:grid;grid-template-columns:14px 84px minmax(36px,1fr) auto minmax(36px,1fr) auto;
   gap:0 14px;align-items:center;padding:16px 0;border-bottom:1px solid var(--line)}
 .map .ch{font:500 13px var(--mono);color:var(--ink);text-decoration:none}
 .map .ch:hover{text-decoration:underline}
@@ -250,7 +250,7 @@ pre code{font-size:inherit}
 a.aud:hover b{text-decoration:underline}
 .aud .lkm{font-family:var(--mono);font-size:11.5px}
 .map li.offrow{background:none}
-.map li.offrow .ch{color:var(--warn);font-size:12px}
+.map li.offrow .ch{color:var(--warn);font-size:12px;white-space:nowrap}
 
 /* ————— attention + recent (dashboard) ————— */
 .cols{display:grid;grid-template-columns:1.55fr 1fr;gap:56px}
@@ -282,33 +282,13 @@ a.aud:hover b{text-decoration:underline}
 .seal .dot{width:7px;height:7px}
 .seal.bad{color:var(--danger);font-weight:600}
 
-/* ————— legacy classes (pages not yet rewritten keep working; pruned at the end) ————— */
+/* ————— aliases + page-specific bits ————— */
 .muted{color:var(--ink3)}
-.badge{display:inline-flex;align-items:center;gap:.3rem;padding:1px 8px;border-radius:999px;
-  font-size:11px;font-weight:600}
-.badge.ok,.ok.badge{background:var(--ok-weak);color:var(--ok)}
-.badge.warn,.warn.badge{background:var(--warn-weak);color:var(--warn)}
-.cards{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px}
-.card{border:1px solid var(--line);border-radius:8px;padding:14px 18px;min-width:9rem}
-.card .n{font-size:1.7rem;font-weight:650}
-.card .l{color:var(--ink3);font-size:11.5px}
-.hint{font-size:12px;color:var(--ink3)}
-.addform{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0}
-.panel{border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:16px 0}
-.panel h2{font-size:13px;font-weight:650;margin-bottom:10px}
-.panel p{margin:8px 0}
-.panel p>input:not([type=checkbox]):not([type=file]),.panel p>select{display:block;width:100%;max-width:26rem}
-.callout-warn{background:var(--warn-weak);color:var(--warn);
-  border:1px solid color-mix(in srgb,var(--warn) 30%,transparent)}
-.callout-ok{background:var(--ok-weak);color:var(--ok);
-  border:1px solid color-mix(in srgb,var(--ok) 30%,transparent)}
-.kv td:first-child{color:var(--ink3);width:12rem}
-.modes{display:flex;gap:1.25rem;margin:0 0 1.1rem}
+section p{margin-top:10px;font-size:12.5px}
+.modes{display:flex;gap:1.25rem;margin:18px 0 0}
 .modes label{display:inline-flex;align-items:center;gap:.4rem;font-weight:500}
 .rollback-only{display:none}
 form:has(#mode-rollback:checked) .rollback-only{display:block}
-td.actions{white-space:nowrap}
-td.actions,.actions form.inline{display:inline-flex}
 
 /* ————— small screens ————— */
 @media (max-width: 48rem){
@@ -319,7 +299,7 @@ td.actions,.actions form.inline{display:inline-flex}
   nav.primary h6{display:none}
   main{padding:20px 18px 40px}
   .cols{grid-template-columns:1fr}
-  .map li{grid-template-columns:14px 64px minmax(20px,1fr) auto}
+  .map li{grid-template-columns:14px 76px minmax(20px,1fr) auto}
   .map li .rail:nth-of-type(2){display:none}
   .map li .aud{grid-column:2 / -1;text-align:left;margin-top:6px;min-width:0}
   .served{min-width:0}
@@ -460,7 +440,3 @@ export const AdminLayout: FC<{
     </body>
   </html>
 );
-
-/** @deprecated legacy state badge — pages being rewritten render exception-only tags instead. */
-export const NoBuildBadge: FC<{ state: string }> = ({ state }) =>
-  state === "servable" ? <span class="badge ok">ok</span> : <span class="badge warn">{state}</span>;

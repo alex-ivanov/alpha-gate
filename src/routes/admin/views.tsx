@@ -107,6 +107,7 @@ export async function userManageView(c: AdminContext): Promise<Response> {
       <UserManagePage
         detail={detail}
         inviteLink={inviteUrl(c.req.url, detail.client.token)}
+        linkDerived={adminToAppOrigin(new URL(c.req.url).origin) !== null}
         now={deps.clock()}
         chrome={await chromeFor(c)}
       />,

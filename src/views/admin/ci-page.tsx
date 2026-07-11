@@ -7,13 +7,15 @@ import { AdminLayout, type Chrome } from "./layout";
 
 export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrigin, chrome }) => (
   <AdminLayout title="CI publishing" chrome={chrome}>
-    <p class="muted">
+    <p class="sub" style="margin-top:6px">
       Publish builds headlessly from CI over a Cloudflare Access <strong>service token</strong> —
       the only credential accepted on the build upload/register routes.
     </p>
 
-    <div class="panel">
-      <h2>1 · Create a service token</h2>
+    <section>
+      <div class="slab">
+        <h2>1 · Create a service token</h2>
+      </div>
       <p>
         In Cloudflare Zero Trust → Access → Service Auth, create a service token and add a Service
         Auth rule to this app's Access application. Store its Client ID and Secret as CI secrets:
@@ -21,10 +23,12 @@ export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrig
       <pre>
         <code>CF_ACCESS_CLIENT_ID{"\n"}CF_ACCESS_CLIENT_SECRET</code>
       </pre>
-    </div>
+    </section>
 
-    <div class="panel">
-      <h2>2 · Publish from CI</h2>
+    <section>
+      <div class="slab">
+        <h2>2 · Publish from CI</h2>
+      </div>
       <p>
         Build, sign Developer ID, notarize, staple, and run <code>sign_update</code> on macOS for
         the Sparkle EdDSA signature (the Worker never signs), then:
@@ -36,10 +40,12 @@ export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrig
   --archive dist/MyApp.zip --short-version 1.4.0 --build-number 1500 \\
   --ed-signature "<sparkle:edSignature>" --stream-id 1`}</code>
       </pre>
-    </div>
+    </section>
 
-    <div class="panel">
-      <h2>Large archives (&gt; ~90 MB)</h2>
+    <section>
+      <div class="slab">
+        <h2>Large archives (&gt; ~90 MB)</h2>
+      </div>
       <p>
         PUT the archive to R2 out of band (a Cloudflare API token with R2 write), then register
         metadata-only — the Worker HEADs the object and rejects a length mismatch:
@@ -49,10 +55,12 @@ export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrig
   --object-key build/1500/MyApp.zip --size 123456789 \\
   --short-version 1.4.0 --build-number 1500 --ed-signature "..." --stream-id 1`}</code>
       </pre>
-    </div>
+    </section>
 
-    <div class="panel">
-      <h2>Endpoints (service token accepted)</h2>
+    <section>
+      <div class="slab">
+        <h2>Endpoints (service token accepted)</h2>
+      </div>
       <table>
         <tbody>
           <tr>
@@ -70,6 +78,6 @@ export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrig
         </tbody>
       </table>
       <p class="muted">Every other admin mutation requires a human Access session.</p>
-    </div>
+    </section>
   </AdminLayout>
 );
