@@ -43,10 +43,16 @@ export async function invitePending(c: AdminContext): Promise<Response> {
   await recordAudit(deps, auditFields(c, "request.invite", request.email));
 
   // Delivery never throws: a failed send still returns the link (the copy-paste fallback) with a notice.
-  const { url, delivery } = await sendInvite(c, request.email, token);
+  const { url, delivery, message } = await sendInvite(c, request.email, token);
   return c.html(
     renderPage(
-      <InvitePage email={request.email} getUrl={url} delivery={delivery} restored={restored} />,
+      <InvitePage
+        email={request.email}
+        getUrl={url}
+        delivery={delivery}
+        message={message}
+        restored={restored}
+      />,
     ),
   );
 }

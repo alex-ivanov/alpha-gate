@@ -1,12 +1,12 @@
 import type { FC } from "hono/jsx";
-import { AdminLayout } from "./layout";
+import { AdminLayout, type Chrome } from "./layout";
 
 // §13/§20 — the CI-publishing help page. Pure: it documents the headless publish flow for this exact
 // instance (the admin origin is interpolated into copy-paste-ready commands). The upload/register
 // routes are the only ones that accept a Cloudflare Access service token (decision 0006).
 
-export const CiPage: FC<{ adminOrigin: string }> = ({ adminOrigin }) => (
-  <AdminLayout title="CI publishing">
+export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrigin, chrome }) => (
+  <AdminLayout title="CI publishing" chrome={chrome}>
     <p class="muted">
       Publish builds headlessly from CI over a Cloudflare Access <strong>service token</strong> —
       the only credential accepted on the build upload/register routes.

@@ -136,6 +136,33 @@ const GLUE = `
     controls.forEach(function (c) { c.addEventListener("input", apply); c.addEventListener("change", apply); });
     apply();
   });
+
+  // Bulk-selection enhancement: a [data-check-all] header checkbox toggles every row checkbox in the
+  // same table (respecting filtered-out rows), and [data-selected-count] mirrors the live count.
+  // Without JS the header checkbox does nothing and the count stays blank — the bulk form still works.
+  document.querySelectorAll("[data-check-all]").forEach(function (all) {
+    var table = all.closest("table");
+    if (!table) return;
+    function boxes() {
+      return Array.prototype.slice
+        .call(table.querySelectorAll('tbody input[type="checkbox"]'))
+        .filter(function (b) { var tr = b.closest("tr"); return !(tr && tr.hidden); });
+    }
+    function counts() {
+      var n = boxes().filter(function (b) { return b.checked; }).length;
+      document.querySelectorAll("[data-selected-count]").forEach(function (el) {
+        el.textContent = n > 0 ? " " + n + " " + (n === 1 ? "build" : "builds") : " builds";
+      });
+    }
+    all.addEventListener("change", function () {
+      boxes().forEach(function (b) { b.checked = all.checked; });
+      counts();
+    });
+    table.addEventListener("change", function (e) {
+      if (e.target !== all) counts();
+    });
+    counts();
+  });
 })();
 `;
 

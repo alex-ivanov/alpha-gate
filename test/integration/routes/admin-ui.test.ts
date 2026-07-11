@@ -31,14 +31,15 @@ async function getAdmin(path: string): Promise<string> {
 }
 
 describe("admin operation pages", () => {
-  it("users page has the add-user form and per-row actions", async () => {
+  it("users page has the labeled add-user form and rows that open the user page", async () => {
     await seedServableClient(deps, { email: "alice@example.test" });
     const html = await getAdmin("/admin/users");
     expect(html).toContain('action="/admin/clients"'); // add-user form
     expect(html).toContain('name="email"');
-    expect(html).toContain("/revoke");
-    expect(html).toContain("/reissue");
-    expect(html).toContain("/admin/users/"); // Manage link
+    expect(html).toContain("<span>Email</span>"); // real labels, not placeholder-only
+    expect(html).toContain("/admin/users/"); // the row links to the user page (actions live there)
+    expect(html).toContain("Next check"); // the resolver column
+    expect(html).not.toContain("/revoke"); // no destructive one-click buttons on list rows
   });
 
   it("list tables ship the sortable-table contract and the enhancer script", async () => {
@@ -48,8 +49,8 @@ describe("admin operation pages", () => {
     expect(html).toContain('data-sort="text"'); // a text-sortable header (Email/Status/…)
     expect(html).toContain('data-sort="num"'); // a numeric-sortable header (Installed/Pinned)
     expect(html).toContain("table[data-enhance]"); // the injected enhancer script is on the page
-    // The Actions column stays unsortable — no data-sort on its header.
-    expect(html).toMatch(/<th>Actions<\/th>/);
+    // The Next-check column stays unsortable — no data-sort on its header (it's a composite verdict).
+    expect(html).toMatch(/<th>Next check<\/th>/);
   });
 
   it("user manage page renders the unassign/pin/access forms", async () => {
@@ -60,30 +61,29 @@ describe("admin operation pages", () => {
     expect(html).toContain("/reissue");
   });
 
-  it("builds page has withdraw/critical actions, a manage link, and the bulk bar", async () => {
+  it("builds page has build-page links, the bulk bar, and canonical filter values", async () => {
     await seedServableClient(deps, { buildNumber: 1500 });
     const html = await getAdmin("/admin/builds");
-    expect(html).toContain("/withdraw");
-    expect(html).toContain("/critical");
-    expect(html).toContain("/admin/builds/");
+    expect(html).toContain("/admin/builds/"); // the row links to the build page (actions live there)
     expect(html).toContain('action="/admin/builds/bulk"'); // bulk form
     expect(html).toContain('name="id"'); // selection checkboxes
+    expect(html).toContain("data-check-all"); // select-all header checkbox (progressive enhancement)
     expect(html).toContain('value="withdraw"'); // bulk op button
-    expect(html).toContain("Rollback"); // rollback column header
-    // Client-side filter controls target columns by their header key; the Critical cell carries a
-    // canonical data-value so the filter matches "yes"/"no", not the "—" it displays.
-    expect(html).toContain('data-filter-col="status"');
-    expect(html).toContain('data-filter-col="critical"');
+    // Client-side filter controls target columns by their header key; the critical cell carries a
+    // canonical data-value so the checkbox filter matches "yes", not the tag it displays.
+    expect(html).toContain('data-filter-col="state"');
+    expect(html).toContain('data-filter-col="crit"');
     expect(html).toContain('data-filter-col="channels"');
-    expect(html).toMatch(/data-key="critical"/);
+    expect(html).toMatch(/data-key="crit"/);
     expect(html).toMatch(/<td data-value="(yes|no)">/);
   });
 
-  it("build manage page shows the EdDSA signature, length, and the rollback toggle", async () => {
+  it("build manage page shows the EdDSA signature, size, and the rollback toggle", async () => {
     const { build } = await seedServableClient(deps, { buildNumber: 1500 });
     const html = await getAdmin(`/admin/builds/${build.id}`);
     expect(html).toContain("ed-sig"); // the EdDSA signature value
-    expect(html).toContain("Enclosure length");
+    expect(html).toContain("EdDSA signature");
+    expect(html).toContain("bytes"); // exact byte count rides in the title attribute
     expect(html).toContain(`/admin/builds/${build.id}/rollback`); // rollback toggle form
     expect(html).toContain("rollback target"); // designate label
   });
@@ -166,13 +166,13 @@ describe("admin operation pages", () => {
     expect(html).toContain("No Sparkle public key saved yet");
   });
 
-  it("channels page has the add-channel form, a manage link, and a delete action", async () => {
-    await createStream(deps.db, "stable"); // so a row (and its action buttons) renders
+  it("channels page has the add-channel form, a serving column, and channel-page links", async () => {
+    await createStream(deps.db, "stable"); // so a row renders
     const html = await getAdmin("/admin/streams");
     expect(html).toContain('action="/admin/streams"');
-    expect(html).toContain("/delete");
+    expect(html).toContain("Serving"); // what each channel offers, on the list itself
     const stable = await getByName(deps.db, "stable");
-    expect(html).toContain(`/admin/streams/${stable?.id}`); // Manage link
+    expect(html).toContain(`/admin/streams/${stable?.id}`); // the row links to the channel page
   });
 
   it("re-creating an existing channel name is a clear 409, not a 500", async () => {
@@ -190,10 +190,10 @@ describe("admin operation pages", () => {
     await seedServableClient(deps); // channel "stable" with a linked build + assigned, servable user
     const stable = await getByName(deps.db, "stable");
     const html = await getAdmin(`/admin/streams/${stable?.id}`);
-    expect(html).toContain("Currently serving");
+    expect(html).toContain("Serving"); // the verdict strip names the served build
     expect(html).toContain("/streams/unlink"); // the linked build can be unlinked
     expect(html).toContain("/streams/unassign"); // the assigned user can be unassigned
-    expect(html).toContain(`/admin/streams/${stable?.id}/delete`);
+    expect(html).toContain(`/admin/streams/${stable?.id}/delete`); // delete lives in the danger zone
   });
 
   it("channel manage page 404s for an unknown channel", async () => {

@@ -56,8 +56,9 @@ export async function listForDisplay(
   const where: string[] = [];
   const params: unknown[] = [];
   if (filter.actor) {
-    where.push("actor_email = ?");
-    params.push(filter.actor);
+    // Contains-match: a partial address is the natural filter input (LIKE is ASCII case-insensitive).
+    where.push("actor_email LIKE ?");
+    params.push(`%${filter.actor.replaceAll("%", "").replaceAll("_", "")}%`);
   }
   if (filter.action) {
     where.push("action = ?");

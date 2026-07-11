@@ -390,10 +390,14 @@ export interface Chrome {
 export const AdminLayout: FC<{
   title: string;
   chrome?: Chrome | undefined;
+  /** Extra page-head content rendered beside the h1 (subtitle, inventory line). */
+  head?: Child;
+  /** Breadcrumb line rendered above the h1 (e.g. Users / alice@…). */
+  crumb?: Child;
   /** @deprecated pages pass `chrome` now; kept until every page is on the new signature. */
   notice?: string | null | undefined;
   children?: Child;
-}> = ({ title, chrome, notice, children }) => (
+}> = ({ title, chrome, head, crumb, notice, children }) => (
   <html lang="en">
     <head>
       <meta charset="utf-8" />
@@ -439,8 +443,10 @@ export const AdminLayout: FC<{
         </nav>
       </aside>
       <main id="main">
+        {crumb ? <p class="crumb">{crumb}</p> : null}
         <header class="pagehead">
           <h1>{title}</h1>
+          {head}
         </header>
         {(chrome?.notice ?? notice) ? (
           <p class="notice" role="status">

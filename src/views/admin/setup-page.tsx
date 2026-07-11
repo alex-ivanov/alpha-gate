@@ -1,5 +1,5 @@
 import type { FC } from "hono/jsx";
-import { AdminLayout } from "./layout";
+import { AdminLayout, type Chrome } from "./layout";
 
 // §6/§7/§14 — the admin "App setup" page: a personalized, copy-paste guide for wiring a macOS app to
 // THIS instance (its activate scheme + saved Sparkle public key + its per-user feed URL). Pure: the
@@ -14,7 +14,7 @@ export interface SetupInfo {
   appOrigin: string;
 }
 
-export const SetupPage: FC<{ info: SetupInfo }> = ({ info }) => {
+export const SetupPage: FC<{ info: SetupInfo; chrome?: Chrome }> = ({ info, chrome }) => {
   const key = info.publicKey ?? "PASTE_SUPublicEDKey_FROM_generate_keys";
   const plist = `<key>SUPublicEDKey</key>
 <string>${key}</string>
@@ -27,7 +27,7 @@ export const SetupPage: FC<{ info: SetupInfo }> = ({ info }) => {
   const feed = `${info.appOrigin}/appcast?token=<TOKEN>&installed=<CFBundleVersion>`;
 
   return (
-    <AdminLayout title="App setup">
+    <AdminLayout title="App setup" chrome={chrome}>
       <p class="muted">
         How to wire <strong>{info.appName}</strong> to this instance. To publish builds see{" "}
         <a href="/admin/ci">CI publishing</a>; full runbook in <code>docs/UPLOADING.md</code>.

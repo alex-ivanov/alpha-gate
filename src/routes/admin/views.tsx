@@ -1,7 +1,8 @@
 import type { AccessEvent } from "../../core/types";
-import { adminToAppOrigin } from "../../lib/hosts";
+import { adminToAppOrigin, inviteUrl } from "../../lib/hosts";
 import { emailStatus } from "../../services/email";
 import { CiPage } from "../../views/admin/ci-page";
+import type { Chrome } from "../../views/admin/layout";
 import {
   BuildManagePage,
   SettingsPage,
@@ -13,7 +14,7 @@ import {
   ActivityPage,
   AuditPage,
   BuildsPage,
-  DashboardPage,
+  OverviewPage,
   PendingPage,
   StreamsPage,
   UsersPage,
@@ -28,9 +29,11 @@ import {
   loadAudit,
   loadBuildDetail,
   loadBuilds,
+  loadChainStatus,
   loadChannels,
   loadDashboard,
   loadPending,
+  loadPendingCount,
   loadSettings,
   loadStreamDetail,
   loadStreams,
@@ -39,14 +42,33 @@ import {
   selfUpdateView,
 } from "./read-model";
 
-// §13 — the admin GET pages. Each loads its read-model and renders the matching pure view.
+// §13 — the admin GET pages. Each loads its read-model and renders the matching pure view, threading
+// the shared chrome (flash notice, instance slug, pending-requests chip) and the clock's now.
+
+async function chromeFor(c: AdminContext): Promise<Chrome> {
+  return {
+    notice: flashMessage(c),
+    instance: c.env?.INSTANCE,
+    pending: await loadPendingCount(c.get("deps")),
+  };
+}
 
 export async function dashboardView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<DashboardPage data={await loadDashboard(c.get("deps"))} />));
+  const deps = c.get("deps");
+  return c.html(
+    renderPage(
+      <OverviewPage
+        data={await loadDashboard(deps)}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
+      />,
+    ),
+  );
 }
 
 export async function usersView(c: AdminContext): Promise<Response> {
-  const { users, channels } = await loadUsersPage(c.get("deps"));
+  const deps = c.get("deps");
+  const { users, channels } = await loadUsersPage(deps);
   const filter = {
     status: c.req.query("status") ?? "",
     stream: c.req.query("stream") ?? "",
@@ -54,6 +76,7 @@ export async function usersView(c: AdminContext): Promise<Response> {
     pinned: c.req.query("pinned") === "1",
     hidden: c.req.query("hidden") === "1", // show hidden too (default: visible only)
   };
+  const hiddenCount = users.filter((u) => u.hidden).length;
   let rows = users;
   if (!filter.hidden) rows = rows.filter((u) => !u.hidden);
   if (filter.status) rows = rows.filter((u) => u.status === filter.status);
@@ -62,22 +85,40 @@ export async function usersView(c: AdminContext): Promise<Response> {
   if (filter.stream) rows = rows.filter((u) => u.streams.includes(filter.stream));
   return c.html(
     renderPage(
-      <UsersPage users={rows} channels={channels} filter={filter} notice={flashMessage(c)} />,
+      <UsersPage
+        users={rows}
+        channels={channels}
+        filter={filter}
+        hiddenCount={hiddenCount}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
+      />,
     ),
   );
 }
 
 export async function userManageView(c: AdminContext): Promise<Response> {
+  const deps = c.get("deps");
   const id = toId(c.req.param("id"));
-  const detail = id === null ? null : await loadUser(c.get("deps"), id);
+  const detail = id === null ? null : await loadUser(deps, id);
   if (detail === null) return c.text("Not found", 404);
-  return c.html(renderPage(<UserManagePage detail={detail} notice={flashMessage(c)} />));
+  return c.html(
+    renderPage(
+      <UserManagePage
+        detail={detail}
+        inviteLink={inviteUrl(c.req.url, detail.client.token)}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
+      />,
+    ),
+  );
 }
 
 export async function buildsView(c: AdminContext): Promise<Response> {
   const deps = c.get("deps");
   const [builds, channels] = await Promise.all([loadBuilds(deps), loadChannels(deps)]);
   const showHidden = c.req.query("hidden") === "1"; // default: visible only
+  const hiddenCount = builds.filter((b) => b.build.hidden).length;
   const rows = showHidden ? builds : builds.filter((b) => !b.build.hidden);
   return c.html(
     renderPage(
@@ -85,30 +126,39 @@ export async function buildsView(c: AdminContext): Promise<Response> {
         builds={rows}
         channels={channels}
         showHidden={showHidden}
-        notice={flashMessage(c)}
+        hiddenCount={hiddenCount}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
       />,
     ),
   );
 }
 
 export async function buildManageView(c: AdminContext): Promise<Response> {
+  const deps = c.get("deps");
   const id = toId(c.req.param("id"));
-  const detail = id === null ? null : await loadBuildDetail(c.get("deps"), id);
+  const detail = id === null ? null : await loadBuildDetail(deps, id);
   if (detail === null) return c.text("Not found", 404);
-  return c.html(renderPage(<BuildManagePage detail={detail} notice={flashMessage(c)} />));
+  return c.html(
+    renderPage(<BuildManagePage detail={detail} now={deps.clock()} chrome={await chromeFor(c)} />),
+  );
 }
 
 export async function streamsView(c: AdminContext): Promise<Response> {
+  const deps = c.get("deps");
   return c.html(
-    renderPage(<StreamsPage streams={await loadStreams(c.get("deps"))} notice={flashMessage(c)} />),
+    renderPage(<StreamsPage streams={await loadStreams(deps)} chrome={await chromeFor(c)} />),
   );
 }
 
 export async function streamManageView(c: AdminContext): Promise<Response> {
+  const deps = c.get("deps");
   const id = toId(c.req.param("id"));
-  const detail = id === null ? null : await loadStreamDetail(c.get("deps"), id);
+  const detail = id === null ? null : await loadStreamDetail(deps, id);
   if (detail === null) return c.text("Not found", 404);
-  return c.html(renderPage(<StreamManagePage detail={detail} notice={flashMessage(c)} />));
+  return c.html(
+    renderPage(<StreamManagePage detail={detail} now={deps.clock()} chrome={await chromeFor(c)} />),
+  );
 }
 
 export async function uploadView(c: AdminContext): Promise<Response> {
@@ -119,11 +169,17 @@ export async function uploadView(c: AdminContext): Promise<Response> {
     .map((b) => ({ buildNumber: b.build.buildNumber, shortVersion: b.build.shortVersion }))
     .sort((a, b) => b.buildNumber - a.buildNumber)
     .slice(0, 5);
-  return c.html(renderPage(<UploadPage channels={channels} recentBuilds={recentBuilds} />));
+  return c.html(
+    renderPage(
+      <UploadPage channels={channels} recentBuilds={recentBuilds} chrome={await chromeFor(c)} />,
+    ),
+  );
 }
 
 export async function ciView(c: AdminContext): Promise<Response> {
-  return c.html(renderPage(<CiPage adminOrigin={new URL(c.req.url).origin} />));
+  return c.html(
+    renderPage(<CiPage adminOrigin={new URL(c.req.url).origin} chrome={await chromeFor(c)} />),
+  );
 }
 
 export async function setupView(c: AdminContext): Promise<Response> {
@@ -134,7 +190,7 @@ export async function setupView(c: AdminContext): Promise<Response> {
     publicKey: meta.sparkle_public_key || null,
     appOrigin: adminToAppOrigin(new URL(c.req.url).origin) ?? "<your App Worker URL>",
   };
-  return c.html(renderPage(<SetupPage info={info} />));
+  return c.html(renderPage(<SetupPage info={info} chrome={await chromeFor(c)} />));
 }
 
 export async function settingsView(c: AdminContext): Promise<Response> {
@@ -147,41 +203,72 @@ export async function settingsView(c: AdminContext): Promise<Response> {
     accessTeam: env.ACCESS_TEAM_DOMAIN ?? null,
     accessAud: env.ACCESS_AUD ?? null,
     selfUpdate: selfUpdateView(settings),
+    appOrigin: adminToAppOrigin(new URL(c.req.url).origin),
   };
-  return c.html(renderPage(<SettingsPage settings={settings} info={info} />));
+  return c.html(
+    renderPage(<SettingsPage settings={settings} info={info} chrome={await chromeFor(c)} />),
+  );
 }
 
 export async function pendingView(c: AdminContext): Promise<Response> {
+  const deps = c.get("deps");
   return c.html(
     renderPage(
-      <PendingPage requests={await loadPending(c.get("deps"))} notice={flashMessage(c)} />,
+      <PendingPage
+        requests={await loadPending(deps)}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
+      />,
     ),
   );
 }
 
 export async function activityView(c: AdminContext): Promise<Response> {
+  const deps = c.get("deps");
   const filter = {
     email: c.req.query("email") ?? "",
     event: c.req.query("event") ?? "",
     build: c.req.query("build") ?? "",
   };
   const buildNumber = /^\d+$/.test(filter.build) ? Number.parseInt(filter.build, 10) : undefined;
-  const events = await loadActivity(c.get("deps"), {
+  const events = await loadActivity(deps, {
     email: filter.email || undefined,
     event: filter.event ? (filter.event as AccessEvent) : undefined,
     buildNumber,
   });
-  return c.html(renderPage(<ActivityPage events={events} filter={filter} />));
+  return c.html(
+    renderPage(
+      <ActivityPage
+        events={events}
+        filter={filter}
+        truncated={events.length >= 100}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
+      />,
+    ),
+  );
 }
 
 export async function auditView(c: AdminContext): Promise<Response> {
+  const deps = c.get("deps");
   const filter = {
     actor: c.req.query("actor") ?? "",
     action: c.req.query("action") ?? "",
   };
-  const rows = await loadAudit(c.get("deps"), {
+  const rows = await loadAudit(deps, {
     actor: filter.actor || undefined,
     action: filter.action || undefined,
   });
-  return c.html(renderPage(<AuditPage rows={rows} filter={filter} />));
+  return c.html(
+    renderPage(
+      <AuditPage
+        rows={rows}
+        filter={filter}
+        chain={await loadChainStatus(deps)}
+        truncated={rows.length >= 200}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
+      />,
+    ),
+  );
 }

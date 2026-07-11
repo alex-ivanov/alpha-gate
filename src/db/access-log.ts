@@ -115,8 +115,9 @@ export async function recent(
   const where: string[] = [];
   const params: unknown[] = [];
   if (filter.email) {
-    where.push("email = ?");
-    params.push(filter.email);
+    // Contains-match: "alice" should find alice@corner.studio (LIKE is case-insensitive for ASCII).
+    where.push("email LIKE ?");
+    params.push(`%${filter.email.replaceAll("%", "").replaceAll("_", "")}%`);
   }
   if (filter.event) {
     where.push("event = ?");

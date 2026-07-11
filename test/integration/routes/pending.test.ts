@@ -68,7 +68,8 @@ describe("admin pending requests", () => {
     const dash = await (
       await adminWorker(access).request("/admin", withToken(await userToken()))
     ).text();
-    expect(dash).toContain("pending requests");
+    expect(dash).toContain("request"); // the attention row + nav chip carry the pending count
+    expect(dash).toContain('class="chip"'); // the Requests nav chip
   });
 
   it("invite creates a client, marks the request handled, and shows the /get link", async () => {

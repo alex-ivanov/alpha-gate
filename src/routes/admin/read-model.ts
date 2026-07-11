@@ -67,6 +67,8 @@ export interface StreamView {
   name: string;
   buildCount: number;
   userCount: number;
+  /** Highest available linked build — what the channel serves right now — or null. */
+  topBuild: Build | null;
 }
 
 export interface SelfUpdateView {
@@ -200,12 +202,24 @@ export async function loadBuilds(deps: Deps): Promise<BuildView[]> {
 
 export async function loadStreams(deps: Deps): Promise<StreamView[]> {
   const { world, streams } = await loadWorld(deps);
-  return streams.map((stream) => ({
-    id: stream.id,
-    name: stream.name,
-    buildCount: world.buildStreams.filter((link) => link.streamId === stream.id).length,
-    userCount: world.userStreams.filter((link) => link.streamId === stream.id).length,
-  }));
+  return streams.map((stream) => {
+    const linked = new Set(
+      world.buildStreams.filter((link) => link.streamId === stream.id).map((l) => l.buildId),
+    );
+    const topBuild = world.builds
+      .filter((b) => linked.has(b.id) && b.status === "available")
+      .reduce<Build | null>(
+        (top, b) => (top === null || b.buildNumber > top.buildNumber ? b : top),
+        null,
+      );
+    return {
+      id: stream.id,
+      name: stream.name,
+      buildCount: linked.size,
+      userCount: world.userStreams.filter((link) => link.streamId === stream.id).length,
+      topBuild,
+    };
+  });
 }
 
 export async function loadDashboard(deps: Deps): Promise<Dashboard> {

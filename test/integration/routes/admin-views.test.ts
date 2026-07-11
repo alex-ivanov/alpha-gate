@@ -56,16 +56,17 @@ describe("admin read views", () => {
     expect(await (await getAdmin(`/admin/users/${client.id}`)).text()).toContain("QA laptop");
   });
 
-  it("users list flags a no-build user (withdrawn-only build, stranded)", async () => {
+  it("users list flags a no-build user (their only build withdrawn) with the cause", async () => {
     const { build } = await seedServableClient(deps, { email: "bob@example.test" });
-    // withdraw the only build, and record an installed build so the state is "stranded"
+    // withdraw the only build — bob's channels now carry nothing servable
     await deps.db
       .prepare("UPDATE builds SET status = 'withdrawn' WHERE id = ?")
       .bind(build.id)
       .run();
     const html = await (await getAdmin("/admin/users")).text();
     expect(html).toContain("bob@example.test");
-    expect(html).toContain("badge warn");
+    expect(html).toContain("no build"); // the amber cause tag in the Next-check column
+    expect(html).toContain("their channels serve nothing"); // …with the cause in words
   });
 
   it("builds list shows the build and its channel", async () => {

@@ -1,11 +1,14 @@
 import type { Child, FC } from "hono/jsx";
+import { COPY_SCRIPT } from "./forms";
 import { AdminLayout } from "./layout";
+import { Tag } from "./ui";
 
-// Result/confirmation pages for admin mutations. InvitePage surfaces the copy-paste link (§13 add
-// user); ConfirmPage is the §11 "this would strand these users — proceed?" gate; ResultPage is the
-// generic success/error landing for a browser form post (the HTML half of content negotiation).
+// Result/confirmation pages for admin mutations. InvitePage surfaces the copy-paste link + message
+// (§13 add user); ConfirmPage is the §11 "this would strand these users — proceed?" gate;
+// ConfirmActionPage confirms destructive-but-not-stranding actions; ResultPage is the generic
+// success/error landing for a browser form post (the HTML half of content negotiation).
 
-/** Generic outcome page for a browser form submit: a status pill, a message, and a way back. */
+/** Generic outcome page for a browser form submit: a status line, a message, and a way back. */
 export const ResultPage: FC<{
   title: string;
   intent?: "success" | "error";
@@ -13,13 +16,13 @@ export const ResultPage: FC<{
   children?: Child;
 }> = ({ title, intent = "success", back, children }) => (
   <AdminLayout title={title}>
-    <span class={`badge ${intent === "error" ? "warn" : "ok"}`}>
-      {intent === "error" ? "Error" : "Done"}
-    </span>
+    {intent === "error" ? <Tag kind="warn" label="nothing was changed" /> : null}
     {children}
     {back ? (
-      <p>
-        <a href={back.href}>{back.label}</a>
+      <p class="actions">
+        <a class="btn" href={back.href}>
+          {back.label}
+        </a>
       </p>
     ) : null}
   </AdminLayout>
@@ -29,37 +32,61 @@ export const InvitePage: FC<{
   email: string;
   getUrl: string;
   delivery?: { sent: boolean; error?: string } | undefined;
+  /** The rendered invite (template + link) — shown in copy-paste mode so the operator can send it. */
+  message?: { subject: string; body: string } | undefined;
   /** True when this invite also reactivated a previously revoked user. */
   restored?: boolean;
-}> = ({ email, getUrl, delivery, restored }) => (
-  <AdminLayout title="Invite created">
+}> = ({ email, getUrl, delivery, message, restored }) => (
+  <AdminLayout title={`Invite ready — ${email}`}>
     {restored ? (
-      <p class="callout callout-ok">
+      <p class="callout ok">
         {email} was revoked — their access is now restored with the fresh link below (the old link
         stays dead).
       </p>
     ) : null}
     {delivery?.sent ? (
-      <p class="badge ok">Emailed to {email}.</p>
+      <p class="callout ok">Emailed to {email} — the link below is the same one they received.</p>
     ) : delivery && !delivery.sent ? (
-      <p class="callout callout-warn">
+      <p class="callout warn">
         The user was created, but the invite email to <strong>{email}</strong> didn't send:{" "}
         {delivery.error || "delivery failed"}. Send the link below manually, or fix email under{" "}
         <a href="/admin/settings">Settings</a>.
       </p>
     ) : null}
-    <p>
-      Send this private link to <strong>{email}</strong>:
-    </p>
-    <p>
+
+    <section aria-label="Link">
+      <div class="slab">
+        <h2>Private link</h2>
+        <span class="hint">durable while the token is active — they can revisit it</span>
+      </div>
       <code class="token" id="invite-link">
         {getUrl}
       </code>
-    </p>
+      <p class="actions">
+        <button type="button" class="btn btn-primary" data-copy="#invite-link">
+          Copy link
+        </button>
+      </p>
+    </section>
+
+    {message && !delivery?.sent ? (
+      <section aria-label="Message">
+        <div class="slab">
+          <h2>Message to send</h2>
+          <span class="hint">your invite template, filled in — paste it anywhere</span>
+        </div>
+        <code class="token" id="invite-message">
+          {message.body}
+        </code>
+        <p class="actions">
+          <button type="button" class="btn" data-copy="#invite-message">
+            Copy message
+          </button>
+        </p>
+      </section>
+    ) : null}
+
     <p class="actions">
-      <button type="button" class="btn btn-primary" data-copy="#invite-link">
-        Copy link
-      </button>
       <a class="btn" href="/admin/users">
         Back to users
       </a>
@@ -68,23 +95,6 @@ export const InvitePage: FC<{
     <script dangerouslySetInnerHTML={{ __html: COPY_SCRIPT }} />
   </AdminLayout>
 );
-
-const COPY_SCRIPT = `
-(function () {
-  document.querySelectorAll("[data-copy]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var el = document.querySelector(btn.getAttribute("data-copy"));
-      var text = el ? el.textContent : "";
-      if (!navigator.clipboard || !text) return;
-      navigator.clipboard.writeText(text).then(function () {
-        var prev = btn.textContent;
-        btn.textContent = "Copied";
-        setTimeout(function () { btn.textContent = prev; }, 1500);
-      });
-    });
-  });
-})();
-`;
 
 /**
  * The §11 stranding confirm: names the exact action in operator language, lists who would be left
@@ -109,7 +119,7 @@ export const ConfirmPage: FC<{
         <li>{email}</li>
       ))}
     </ul>
-    <p class="muted">
+    <p class="mut">
       Their apps will report “up to date” and receive nothing until a higher build reaches them
       (publish a newer build, reassign their channel, or adjust the pin).
     </p>
@@ -146,7 +156,7 @@ export const BulkConfirmPage: FC<{
         <li>{email}</li>
       ))}
     </ul>
-    <p class="muted">
+    <p class="mut">
       Their apps will report “up to date” and receive nothing until a higher build reaches them.
     </p>
     <form method="post" action={postTo} class="actions">

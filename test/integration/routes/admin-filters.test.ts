@@ -39,11 +39,11 @@ describe("admin list filters + stats", () => {
     expect(filtered).not.toContain("servable@example.test");
   });
 
-  it("users list has last-install / last-update columns", async () => {
+  it("users list has the resolver verdict and last-seen columns", async () => {
     await seedServableClient(deps);
     const html = await getAdmin("/admin/users");
-    expect(html).toContain("Last install");
-    expect(html).toContain("Last update");
+    expect(html).toContain("Next check"); // the resolver's answer, per user
+    expect(html).toContain("Last seen");
   });
 
   it("activity log filters by event type", async () => {

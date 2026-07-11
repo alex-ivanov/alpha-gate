@@ -3,7 +3,6 @@ import { generateToken } from "../../core/tokens";
 import * as builds from "../../db/builds";
 import * as clients from "../../db/clients";
 import * as streams from "../../db/streams";
-import { inviteUrl } from "../../lib/hosts";
 import { recordAudit } from "../../services/audit";
 import { ConfirmActionPage, InvitePage, ResultPage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
@@ -20,11 +19,6 @@ import { requireUser } from "./middleware";
 // audit row. Destructive-but-not-stranding actions (revoke, reissue) are confirmed too: both are
 // irreversible from the tester's point of view (a dead app, a dead link) and were one-click before.
 // Success 303s back to the page the operator acted from (return_to) with a flash notice.
-
-// The invite points at the public App host, never the gated Admin host this request hit (see app-origin).
-function getUrl(c: AdminContext, token: string): string {
-  return inviteUrl(c.req.url, token);
-}
 
 function errorPage(
   c: AdminContext,
@@ -113,8 +107,10 @@ export async function createClient(c: AdminContext): Promise<Response> {
   await recordAudit(deps, auditFields(c, "client.create", email, JSON.stringify({ streamId })));
 
   // Delivery never throws: a failed send still returns the link (the copy-paste fallback) with a notice.
-  const { url, delivery } = await sendInvite(c, email, token);
-  return c.html(renderPage(<InvitePage email={email} getUrl={url} delivery={delivery} />));
+  const { url, delivery, message } = await sendInvite(c, email, token);
+  return c.html(
+    renderPage(<InvitePage email={email} getUrl={url} delivery={delivery} message={message} />),
+  );
 }
 
 export async function revokeClient(c: AdminContext): Promise<Response> {
@@ -229,8 +225,18 @@ export async function reissueClient(c: AdminContext): Promise<Response> {
     await recordAudit(deps, auditFields(c, "client.reactivate", client.email));
   }
   await recordAudit(deps, auditFields(c, "client.reissue", client.email));
+  // Deliver like create does (email when configured; message for copy-paste otherwise).
+  const { url, delivery, message } = await sendInvite(c, client.email, token);
   return c.html(
-    renderPage(<InvitePage email={client.email} getUrl={getUrl(c, token)} restored={revoked} />),
+    renderPage(
+      <InvitePage
+        email={client.email}
+        getUrl={url}
+        delivery={delivery}
+        message={message}
+        restored={revoked}
+      />,
+    ),
   );
 }
 

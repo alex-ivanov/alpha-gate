@@ -16,3 +16,22 @@ export const Post: FC<{
     <button type="submit">{label}</button>
   </form>
 );
+
+// Progressive enhancement for [data-copy] buttons: the target's text is selectable without JS; this
+// only adds one-click copy with a brief "Copied" confirmation.
+export const COPY_SCRIPT = `
+(function () {
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var el = document.querySelector(btn.getAttribute("data-copy"));
+      var text = el ? el.textContent : "";
+      if (!navigator.clipboard || !text) return;
+      navigator.clipboard.writeText(text).then(function () {
+        var prev = btn.textContent;
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = prev; }, 1500);
+      });
+    });
+  });
+})();
+`;

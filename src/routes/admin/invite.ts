@@ -21,11 +21,16 @@ export interface Delivery {
  * Build the invite link, attempt email delivery, and report the outcome. Returns `delivery: undefined`
  * in copy-paste mode (no email configured, nothing attempted) — callers then just show the link.
  */
+export interface InviteMessage {
+  subject: string;
+  body: string;
+}
+
 export async function sendInvite(
   c: AdminContext,
   to: string,
   token: string,
-): Promise<{ url: string; delivery?: Delivery | undefined }> {
+): Promise<{ url: string; delivery?: Delivery | undefined; message: InviteMessage }> {
   const deps = c.get("deps");
   const url = inviteUrl(c.req.url, token);
   const [branding, template] = await Promise.all([loadBranding(deps), loadInviteTemplate(deps)]);
@@ -36,12 +41,17 @@ export async function sendInvite(
   // this safe if a caller (or test) invokes the app without binding env.
   const env = c.env as Env | undefined;
   const configured = env !== undefined && emailStatus(env).mode === "active";
+  const message: InviteMessage = { subject: invite.subject, body: invite.body };
   try {
     await deps.email.send({ to, subject: invite.subject, body: invite.body });
-    return { url, delivery: configured ? { sent: true } : undefined };
+    return { url, delivery: configured ? { sent: true } : undefined, message };
   } catch (e) {
     // Surface the full provider error in the Worker logs (`wrangler tail`) — the page only gets .message.
     console.error("[invite] email send to", to, "failed:", e);
-    return { url, delivery: { sent: false, error: e instanceof Error ? e.message : String(e) } };
+    return {
+      url,
+      delivery: { sent: false, error: e instanceof Error ? e.message : String(e) },
+      message,
+    };
   }
 }
