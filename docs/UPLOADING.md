@@ -85,7 +85,8 @@ upload.)
 ## 3. Invite a user
 
 On the admin **Users** page, *Add user* (email, optional label, optional channel). You get the user's
-private `/get?token=` link with a one-click **Copy** button. Send it to the user (or it's emailed if
+private `/get?token=` link **and the filled invite message**, each with a one-click **Copy** button. The
+link stays viewable on the user's page later (viewing never rotates the token). Send it to the user (or it's emailed if
 email is configured — see [below](#getting-the-invite-link-to-users)). The link is durable: they revisit
 it to re-download or re-activate while the token is active.
 
@@ -146,9 +147,10 @@ endpoint; the Worker never signs.
     --ed-signature "<sparkle:edSignature>" --stream-id 1
   ```
 - **Browser** — the admin **Upload** page. Picking the archive **autofills** version/build/min-OS from
-  the `Info.plist` (editable). It has a **Normal release** and a **Rollback** mode (rollback only adds
-  §9 guidance — it's still a normal upload of a rebuilt artifact). Autofill needs the signed `.app`
-  `.zip`; a `.dmg`/`.tar` can't be read in the browser, so type the values for those.
+  the `Info.plist` (editable). It has a **New release** and a **Roll back** mode — roll back shows the
+  current highest build number and **enforces** it as a floor (a rollback at or below it is rejected);
+  it's still a normal upload of a rebuilt artifact. Autofill needs the signed `.app` `.zip`; a
+  `.dmg`/`.tar` can't be read in the browser, so type the values for those.
 - **Large archives (> ~90 MB)** exceed the Worker body cap. PUT the archive to R2 out of band, then
   register metadata-only — the Worker HEADs the object and rejects a length mismatch:
   ```bash
@@ -172,15 +174,16 @@ endpoint; the Worker never signs.
 Sparkle can't downgrade, so withdrawing a bad version is a **roll-forward**:
 
 1. Rebuild the previous good code with a **higher** `build_number` (keep the old `short_version`).
-   Publish it into the affected channel — the Upload page's **Rollback** mode shows the current highest
-   build as the floor.
-2. On the **Builds** page, **Withdraw** the bad build. Because the higher build is available no one is
-   stranded; clients move to the roll-forward build on their next check.
+   Publish it into the affected channel — the Upload page's **Roll back** mode shows the current highest
+   build as the floor and rejects anything at or below it.
+2. Open the bad build from the **Builds** list and **Withdraw** it (the action lives in the build
+   page's danger zone). Because the higher build is available no one is stranded; clients move to the
+   roll-forward build on their next check — the Overview serving map shows the switch immediately.
 
 ## Getting the invite link to users
 
-- **Copy-paste (default, no setup):** Add-user shows the `/get?token=` link with a Copy button — send it
-  via Slack/iMessage/your own mail. No domain, no provider.
+- **Copy-paste (default, no setup):** Add-user shows the `/get?token=` link and your filled invite
+  template, each with a Copy button — send them via Slack/iMessage/your own mail. No domain, no provider.
 - **Automated email:** needs Cloudflare Email Service (Workers Paid + a real onboarded sending domain;
   `*.workers.dev` can't be it). Configure it via deploy (see [ONBOARDING §7](ONBOARDING.md#7-email-optional)),
   then use **Settings → Send test email** to confirm delivery. A failed send never blocks user creation —

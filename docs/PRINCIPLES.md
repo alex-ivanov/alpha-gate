@@ -105,6 +105,31 @@ R2 keys are built in exactly one place (`src/r2/keys.ts`): archives at
   public `<style>`, so it is constrained to a hex value (rejected on write, coerced on read). Uploaded
   branding images are raster-only (SVG is a stored-XSS vector when served from the app origin).
 
+## The back office
+
+The admin UI follows a few durable rules ("quiet instrument"), so changes should preserve them:
+
+- **The resolver is visible.** The Overview serving map (channel → build → audience, plus an
+  exhaustive *off the map* row), the Users list's **Next check** column, and every detail page's
+  verdict strip are all computed by the same pure core the runtime uses (`core/verdict.ts` over
+  `core/resolver.ts`) — the UI can never disagree with what Sparkle actually receives. "Which build
+  does this user get, and why not?" must always be answerable on the page where you'd act on it.
+- **Exception-only state.** Healthy states render as silence. `critical` is the single filled tag;
+  withdrawn/revoked/pinned/hidden are quiet outlined tags; every fault is amber and carries its
+  cause and a remedy. Builds are written exactly one way everywhere: the mono lockup
+  `#1500 · v1.2.1` — never a DB row id.
+- **The feedback loop closes.** Mutations 303 back to the page the operator acted from (validated
+  `return_to`) with a flash slug the target page renders; free text never rides in the URL.
+  Confirmation pages name their subject in operator words and Cancel returns to the origin.
+  Destructive actions (revoke, reissue, delete channel) are always confirmed; revoke is reversible
+  (**Reactivate** restores the same link). Stale forms are clear 400s *before* any write.
+- **The audit chain means "something changed".** No-op re-posts (double submit, stale tab) are
+  flash no-ops, not phantom audit rows; audit targets are human identifiers (emails, build
+  numbers). The Audit page and Overview show the chain's live integrity via the same
+  `assessChain` judgment the daily anchor records.
+- **One vocabulary on operator surfaces:** user, channel, request. (URLs and DB keep `stream` /
+  `pending` as stable contracts; only copy changed.)
+
 ## Email
 
 Copy-paste invites are the **free-tier default**: with no email configured, every invite/notice is a

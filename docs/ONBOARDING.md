@@ -106,7 +106,7 @@ On macOS, `publish-dmg.sh` stores the token in your **login Keychain** on first 
 
 ## 6. Verify
 
-- **Admin loads:** open the admin URL, log in (one-time PIN), land on the dashboard.
+- **Admin loads:** open the admin URL, log in (one-time PIN), land on the Overview — the serving map shows each channel and what it offers (empty until you publish).
 - **Public app loads:** the app URL's `/get` without a token returns a generic 404 (no token = nothing
   leaked); that's expected. After you invite yourself and publish a build (UPLOADING), the `/get?token=`
   link works end to end.
