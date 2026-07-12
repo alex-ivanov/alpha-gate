@@ -85,7 +85,7 @@ Everything runs **offline** — no Cloudflare account, no network — inside the
 ```bash
 npm run check     # the full gate: biome + tsc (both configs) + tests
 npm test          # tests only (offline)
-./deploy/dev.sh   # run the App Worker locally on :8787 (seeded); add --role admin for the gated UI
+./deploy/dev.sh   # run BOTH Workers locally, seeded (app :8787, admin :8788); --role app|admin for one
 ```
 
 Conventions, architecture, and how to add a feature: [`CONTRIBUTING.md`](CONTRIBUTING.md).
@@ -114,10 +114,12 @@ src/
   routes/{app,admin} # Hono handlers; deps injected, never bindings directly
   deploy/            # deploy/teardown/dev CLI: core/ (pure) + seams/ (wrangler,fs,io,clock) + commands/
 migrations/          # 0001–0010 D1 schema (SQL)
-deploy/              # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → the TS CLI
+deploy/              # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → the TS CLI; backup.sh (D1 dump)
 publish.sh           # ONE publish command (dmg | .app.zip | CI); .github/workflows/ has a sample
+bin/alpha-gate.mjs   # the npm entrypoint: npx alpha-gate deploy|dev|publish|backup|teardown
 test/                # unit/ integration/ cuj/ + support/ (offline vitest-pool-workers)
 docs/                # ONBOARDING, UPLOADING, PRINCIPLES
+site/                # the marketing page (static HTML + screenshots; see site/README.md)
 ```
 
 ## Security notes

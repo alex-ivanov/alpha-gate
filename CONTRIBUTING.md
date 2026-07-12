@@ -13,22 +13,22 @@ npm run check      # the full gate: biome + tsc + vitest (all offline)
 
 | Command | What |
 |---|---|
-| `npm test` | vitest-pool-workers, offline (Miniflare simulates D1/R2/cron in `workerd`) |
+| `npm test` | both suites, offline: workers pool (Miniflare simulates D1/R2/cron in `workerd`) + the deploy-CLI node suite |
 | `npm run test:watch` | watch mode |
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` / `npm run format` | Biome check / write |
 | `npm run check` | lint + typecheck + test |
-| `./deploy/dev.sh` | run the App Worker locally on `:8787` (Miniflare D1/R2, no account), seeded so `/get`/`/appcast`/`/download` work |
+| `./deploy/dev.sh` | run BOTH Workers locally — app `:8787`, admin `:8788` (Miniflare D1/R2, no account), seeded so `/get`/`/appcast`/`/download` and `/admin` work |
 
 `npm test` is the primary validation — it exercises the real handlers offline. `./deploy/dev.sh` is
 for poking the **live HTTP surface** in a browser/curl: it renders a local wrangler config, applies
-migrations to a local DB, seeds a demo client/build, and starts `wrangler dev`. Flags: `--port`,
-`--no-seed`, `--reset`, `--role admin`.
+migrations to a local DB, seeds a demo client/build, and starts `wrangler dev` for both Workers.
+Flags: `--port`, `--no-seed`, `--reset`, `--role app|admin` (start just one; the default is both).
 
-`--role admin` opens the gated back office at `localhost/admin` via a **local-dev auth shim**
-(`src/dev/admin-entry.ts`): it runs the real admin app + Access verifier against a throwaway in-process
-keypair and auto-injects a dev assertion, so the UI (and mutations, audited as `dev@local`) work in a
-browser without Cloudflare Access. It is localhost-only and **cannot ship** — nothing in `worker.ts` or
+The admin Worker (on `:8788` by default) serves the gated back office at `localhost:8788/admin` via a
+**local-dev auth shim** (`src/dev/admin-entry.ts`): it runs the real admin app + Access verifier
+against a throwaway in-process keypair and auto-injects a dev assertion, so the UI (and mutations,
+audited as `dev@local`) work in a browser without Cloudflare Access. It is localhost-only and **cannot ship** — nothing in `worker.ts` or
 the deploy template references it, and it refuses to serve unless `DEV_ADMIN=1` (only `dev.sh` sets it).
 Production admin auth (decision 0006) is unchanged and still covered by `npm test`.
 
@@ -38,8 +38,9 @@ email delivery, bucket-lock, and an end-to-end Sparkle client (see
 
 ### The deploy CLI
 
-`dev`, `deploy`, and `teardown` are a **TypeScript CLI** under `src/deploy/`; the `deploy/*.sh` files are
-three-line `tsx` wrappers. It
+`dev`, `deploy`, and `teardown` are a **TypeScript CLI** under `src/deploy/`, reached two ways: the
+thin `tsx` wrappers in `deploy/*.sh`, or the npm bin (`bin/alpha-gate.mjs`, which also routes
+`publish` and `backup` to their bash scripts). It
 follows the same pure-core/seams rule as the app: `core/` is I/O-free and unit-tested (arg parsing,
 `renderConfig`, the defensive `wrangler`-output parsers, the inspect→apply plan, the state ledger, the
 console UI), while `seams/` is the only I/O — `wrangler` (spawns with **argv arrays**, never a shell
@@ -93,9 +94,9 @@ Tests run inside the Workers runtime offline. Layout under `test/`:
 - `cuj/` — the **Critical User Journeys**. These are the feature gates; read `NN-name.cuj.test.ts`
   as the human-readable contract for a journey.
 - `support/` — the offline harness: `scenario.ts` (seed a servable world *through the prod queries*),
-  `access.ts` (a throwaway RS256 keypair signing real Access tokens against a stub JWKS), `worker.ts` /
-  `adminWorker` (apps wired to the test env with overridable Deps), `db.ts` (`resetAll` in `beforeEach`),
-  `clock.ts` (`fixedClock`), `email.ts` (recording sender).
+  `access.ts` (a throwaway RS256 keypair signing real Access tokens against a stub JWKS, plus
+  `adminWorker`), `worker.ts` (`appWorker`; apps wired to the test env with overridable Deps),
+  `db.ts` (`resetAll` in `beforeEach`), `clock.ts` (`fixedClock`), `email.ts` (recording sender).
 - `deploy/` — the deploy-CLI suite (node env, **not** workers-pool; see *The deploy CLI* above), run by
   `npm run test:deploy` and as the second half of `npm test`.
 

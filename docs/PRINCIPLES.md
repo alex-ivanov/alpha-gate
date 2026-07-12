@@ -90,7 +90,8 @@ R2 keys are built in exactly one place (`src/r2/keys.ts`): archives at
 - **Admin auth is fail-closed.** The admin Worker verifies the Cloudflare Access JWT itself
   (RS256-pinned, `aud`/`iss` + expiry checked) as defense-in-depth on top of edge Access. Any error
   rejects. With the Access secrets unset, every admin request is denied. Service tokens are accepted on
-  **only** the build upload/register routes (so a leaked CI credential is bounded to publishing).
+  **only** the publish surface — the build upload/register routes plus the read-only
+  `/admin/publish-info` pre-check — so a leaked CI credential is bounded to publishing.
 
 - **Token-in-URL trade-off.** The token travels in URLs, so it appears in Cloudflare's own request logs
   (accepted for a private alpha). Mitigations: `/get` sets `Referrer-Policy: no-referrer`, and unknown
@@ -158,10 +159,12 @@ I/O lives at the edges; the logic is **pure**. The resolver, the no-build comput
 audit hash-chain, and appcast XML generation are plain functions over plain data (no bindings), so most
 logic is testable with zero runtime. Handlers and services receive a `Deps` object (db, r2, clock,
 access, email, fetch) and never import bindings directly, so every seam is swappable in tests. `Date` /
-`Date.now()` are forbidden outside `lib/clock.ts` (a lint rule enforces it) so time-dependent behavior
-takes a seeded clock. The suite runs **offline** in the Workers runtime (`@cloudflare/vitest-pool-workers`
-/ Miniflare). What that can't simulate — the real Access JWT, Cloudflare email delivery, bucket-lock, an
-end-to-end Sparkle client — sits behind injectable seams and is the only thing needing a throwaway deploy.
+`Date.now()` are forbidden outside the two clock seams — `lib/clock.ts` for the Workers,
+`deploy/seams/clock.ts` for the deploy CLI (a lint rule enforces it) — so time-dependent behavior takes
+a seeded clock. The suites run **offline**: the Worker suite in the Workers runtime
+(`@cloudflare/vitest-pool-workers` / Miniflare), the deploy-CLI suite in plain Node. What those can't
+simulate — the real Access JWT, Cloudflare email delivery, bucket-lock, an end-to-end Sparkle client —
+sits behind injectable seams and is the only thing needing a throwaway deploy.
 
 **Client-side scripts gotcha.** The admin's small browser scripts (table sort/filter, upload autofill)
 serialize **pure** functions into the page via `Function.prototype.toString()` so the browser runs the

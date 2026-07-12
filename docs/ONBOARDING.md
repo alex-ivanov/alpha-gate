@@ -124,7 +124,8 @@ the script needs to reach the gated admin non-interactively:
 3. Provide the pair to CI as `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`.
 
 On macOS, `publish.sh` stores the token in your **login Keychain** on first use, so you enter it once
-(see [UPLOADING](UPLOADING.md)). Service tokens are accepted **only** on the upload/register routes.
+(see [UPLOADING](UPLOADING.md)). Service tokens are accepted **only** on the publish surface: the
+upload/register routes plus the read-only `/admin/publish-info` pre-check.
 
 ## 6. Verify
 
@@ -156,11 +157,13 @@ the Access application, `.deploy/<slug>.*`) is independent. Repeat steps 3–5 p
 
 ## Updating in place
 
-After `git pull`, re-run `./deploy/deploy.sh --instance myalpha`. D1/R2 are reused, pending migrations
-applied, both Workers redeployed; tokens/clients/builds/logs are preserved. **Your email and Access
-settings are remembered** — a bare re-run keeps them (pass the flags again only to change them). A
-daily cron checks for a newer Alpha Gate release (comparing against `release.json` in this checkout's
-git origin) and shows a dashboard banner + a "last checked" line on Settings when one exists.
+From npm: `npx alpha-gate@latest deploy --instance myalpha`. From a clone: `git pull`, then re-run
+`./deploy/deploy.sh --instance myalpha`. Either way D1/R2 are reused, pending migrations applied,
+both Workers redeployed; tokens/clients/builds/logs are preserved. **Your email and Access settings
+are remembered** — a bare re-run keeps them (pass the flags again only to change them). A daily cron
+polls the npm registry for a newer Alpha Gate release (a fork can point `$UPDATE_MANIFEST_URL` at its
+own package or a static `release.json` at deploy time) and shows a dashboard banner + a "last
+checked" line on Settings when one exists.
 
 ## Backup & recovery
 
@@ -182,11 +185,12 @@ it off the laptop (private storage) and prune old copies.
 npx wrangler d1 execute alpha-gate-myalpha --remote --file myalpha-<timestamp>.sql   # load the dump
 ```
 
-**What deploy state you can lose safely.** Re-running `deploy.sh` regenerates the entire `.deploy/`
-directory (configs, resolved ids, URLs, remembered email/Access inputs are re-derived from live
-resources or re-prompted) — so losing `.deploy/` costs nothing but a re-run. The one thing NOT in D1
-or `.deploy/`: your **Sparkle private key** (in your login Keychain) and the **Access service token**
-(also Keychain). Export the Sparkle key now and store it off-machine — see the warning in
+**What deploy state you can lose safely.** Re-running `deploy.sh` regenerates the `.deploy/`
+directory: configs, resolved ids, URLs, and the Access wiring are re-derived from live resources.
+The one exception is **email** — those flags are remembered only in `.deploy/`, so after losing it
+pass `--email-provider`/`--email-from` once more (a bare re-run quietly reverts invites to
+copy-paste). Not in D1 or `.deploy/` at all: your **Sparkle private key** (in your login Keychain)
+and the **Access service token** (also Keychain). Export the Sparkle key now and store it off-machine — see the warning in
 [UPLOADING §1a](UPLOADING.md#1-wire-sparkle-into-your-app-once). The service token can be recreated in
 Cloudflare Zero Trust and re-entered with `./publish.sh … --reset-token`.
 
@@ -201,8 +205,9 @@ Cloudflare Zero Trust and re-entered with `./publish.sh … --reset-token`.
 After confirmation (type the instance name, or `--yes`) it **archives the database first** to
 `.deploy/<slug>-<timestamp>.sql` (that dump contains **live tokens** — store it securely or delete it),
 then deletes both Workers and D1 and the local configs. Two things it can't do with pure wrangler,
-printed as a closing checklist: **empty/delete the R2 bucket** (do it in the dashboard) and **remove the
-Cloudflare Access application** for `<slug>-admin`.
+printed as a closing checklist: **empty the R2 bucket** (an already-empty bucket it deletes itself; a
+non-empty one you empty and delete in the dashboard) and **remove the Cloudflare Access application**
+for `<slug>-admin`.
 
 ## Troubleshooting
 

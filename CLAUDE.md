@@ -8,7 +8,7 @@ Alpha Gate is a self-hosted distribution gate for a notarized macOS app updated 
 
 ## Guidence
 
-- The durable principles & constraints are in ./docs/PRINCIPLES.md — use that as the main guidance. Operator how-to is in ./docs/ONBOARDING.md and ./docs/UPLOADING.md. When a decision is needed from the user which is not surfaced from the docs, gather all information and make the user decide. (The old ./design/ spec was removed; code comments still cite its §N section numbers as historical anchors.)
+- The durable principles & constraints are in ./docs/PRINCIPLES.md — use that as the main guidance. Operator how-to is in ./docs/ONBOARDING.md and ./docs/UPLOADING.md. When a decision is needed from the user which is not surfaced from the docs, gather all information and make the user decide. (The old ./design/ spec was removed; code comments still cite its §N section numbers and "decision NNNN" ADRs as historical anchors.)
 - Create and use checklists and plan the work before commiting to do it. Cross validate the plan and check the work against the plan. Make sure plans are up to date. If a blocker of dead end discovered - update the plan with the new information and reassess.
 - Record notable decisions and durable invariants in ./docs/ (PRINCIPLES for invariants; ONBOARDING/UPLOADING for operator how-to). Treat documentation on the same level as code and keep it up to date and update often.
 - Split the work in small chunks, commit often. Run tests before the submission to make sure they are green. Add a line to commit message about test status.
@@ -22,7 +22,7 @@ Alpha Gate is a self-hosted distribution gate for a notarized macOS app updated 
 
 ## Constraints that bite repeatedly
 
-- **Sparkle cannot downgrade.** An item below the installed version is never offered. So "rollback" = **roll-forward**: rebuild old code with a *higher* `build_number` (§9). The same no-downgrade rule means pinning below the installed build, or moving a user to a stream whose top build is lower, won't take effect until a higher-numbered build exists — this also produces the **no-build state** (§11), which admin actions surface and confirm rather than block.
+- **Sparkle cannot downgrade.** An item below the installed version is never offered — enforced by *Sparkle, client-side*: the resolver never reads the installed build, so the feed still carries the channel-top item and the app discards it. "Rollback" = **roll-forward**: rebuild old code with a *higher* `build_number` (§9). Pinning below the installed build, or moving a user to a stream whose top build is lower, therefore won't take effect until a higher-numbered build exists. The genuinely **empty feed** (the §11 no-build state — no channel, no available build, pin withdrawn) is a separate case; admin actions surface and confirm it rather than block.
 
 - **Workers never sign and never hold a signing key.** All three signatures (Developer ID + notarization, Sparkle EdDSA, optional feed signature) are produced on **macOS** during publish (§14, §20). The Worker only pastes the fixed per-archive EdDSA string into each appcast and streams bytes. `SURequireSignedFeed` is **off** for alpha (it's incompatible with per-user dynamic feeds — would put the signing key on the edge).
 
@@ -34,7 +34,7 @@ Alpha Gate is a self-hosted distribution gate for a notarized macOS app updated 
 
 ## Design for testability (§23)
 
-Keep I/O at the edges and logic pure. The resolver, the no-build computation, §11 validation, the audit hash-chain build/verify, and appcast XML generation must be **plain functions over plain data** (no bindings) so most logic is testable with zero runtime. Tests use `@cloudflare/vitest-pool-workers` (runs in `workerd`/Miniflare, isolated per-test storage, offline). What Miniflare can't simulate — Access JWT, email, outbound HTTP — sits behind injectable seams/mocks. Note beta caveats: coverage is Istanbul (not V8), and fake timers don't reach the KV/R2 simulators, so use seeded timestamps for time-dependent tests.
+Keep I/O at the edges and logic pure. The resolver, the no-build computation, §11 validation, the audit hash-chain build/verify, and appcast XML generation must be **plain functions over plain data** (no bindings) so most logic is testable with zero runtime. The worker suite uses `@cloudflare/vitest-pool-workers` (runs in `workerd`/Miniflare, isolated per-test storage, offline); the deploy-CLI suite runs in plain Node (`test/vitest.deploy.config.ts`). What Miniflare can't simulate — Access JWT, email, outbound HTTP — sits behind injectable seams/mocks. Note beta caveats: coverage is Istanbul (not V8), and fake timers don't reach the KV/R2 simulators, so use seeded timestamps for time-dependent tests.
 
 ## Commands
 
@@ -58,4 +58,4 @@ npm run check                                 # the full gate: biome + typecheck
 ./publish.sh MyApp.zip --channel beta --critical   # a signed .app .zip into a channel by NAME
 ```
 
-Deployment is a **TypeScript CLI** (`src/deploy/`, run via `tsx` from the thin `deploy/*.sh` wrappers; decision 0009) over **pure wrangler** (`wrangler login` once; no `jq`/`envsubst`) — no API token, DNS, or zone. The two things a script can't do are printed as a one-time checklist: enable Cloudflare Access on the admin hostname + allowlist your email, then feed `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` back as secrets (§19). All publish paths (the one `publish.sh` — locally or in CI — and the browser Upload page) converge on `POST /admin/builds/upload|register`.
+Deployment is a **TypeScript CLI** (`src/deploy/`, run via `tsx` from the thin `deploy/*.sh` wrappers or the npm bin `bin/alpha-gate.mjs`; decision 0009) over **pure wrangler** (`wrangler login` once; no `jq`/`envsubst`) — no API token, DNS, or zone. The two things a script can't do are printed as a one-time checklist: enable Cloudflare Access on the admin hostname + allowlist your email, then feed `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` back as secrets (§19). All publish paths (the one `publish.sh` — locally or in CI — and the browser Upload page) converge on `POST /admin/builds/upload|register`.

@@ -19,7 +19,8 @@ the signature and serves them per-user. Do the one-time app wiring once, then pu
 ## 1. Wire Sparkle into your app (once)
 
 This connects your macOS app to the instance. Two facts to keep straight: your app's Sparkle feed points
-at the **App (public)** Worker (`app_url` in `.deploy/<slug>.state.json`), while *publishing* talks to the
+at the **App (public)** Worker (`app_url` in your deploy state — `.deploy/<slug>.state.json` in a
+clone, `~/.alpha-gate/<slug>.state.json` from npm), while *publishing* talks to the
 **admin** Worker — different hostnames. And **Sparkle never sees the token**: the app holds the per-user
 token and builds the feed URL from it; the token is never embedded in the binary (that would break
 notarization).
@@ -68,7 +69,7 @@ func feedURLString(for updater: SPUUpdater) -> String? {
 }
 func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[String: String]] {
     let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
-    return [["key": "installed", "value": build]]          // powers "current version" + no-downgrade
+    return [["key": "installed", "value": build]]          // powers the admin's "current version" + stranded detection
 }
 ```
 
@@ -152,7 +153,8 @@ e.g. a non-integer `CFBundleVersion`), `--critical`, `--dry-run`.
 2. Invite yourself (§3), open the `/get?token=` link, install, activate, and let the app check for
    updates.
 3. The **Activity** log shows a `check` carrying your installed build, then a `download`/`update`
-   (activity older than 90 days is pruned nightly; download/update counts on builds are permanent).
+   (activity older than 90 days is pruned daily; the download/update counts on builds are computed
+   from that log, so they reflect the last 90 days, not all time).
 4. Raw check (replace host + token):
    ```bash
    curl "https://<app_url-host>/appcast?token=<TOKEN>&installed=1"   # should list an <item> for your build
