@@ -49,7 +49,13 @@ function fakeWrangler(s: Scenario): Wrangler & { calls: string[][] } {
 
 function makeEnv(
   wrangler: Wrangler,
-  opts: { nodeMajor?: number; prompt?: Prompt; fs?: FileSystem; interactive?: boolean } = {},
+  opts: {
+    nodeMajor?: number;
+    prompt?: Prompt;
+    fs?: FileSystem;
+    interactive?: boolean;
+    probeAccess?: DeployEnv["probeAccess"];
+  } = {},
 ): { env: DeployEnv; out: string[]; fs: FileSystem } {
   const out: string[] = [];
   const fs = opts.fs ?? createFakeFileSystem();
@@ -67,6 +73,7 @@ function makeEnv(
       updateManifestUrl: "https://example.test/release.json",
       nodeMajor: opts.nodeMajor ?? 20,
       interactive: opts.interactive ?? true,
+      probeAccess: opts.probeAccess,
     },
   };
 }
@@ -180,6 +187,53 @@ describe("runDeploy — manual Access flow", () => {
     expect(await runDeploy(["--instance", "x"], env)).toBe(1);
     // Never reached the mutating apply (no create).
     expect(cmds(w).some((x) => x.startsWith("d1 create"))).toBe(false);
+  });
+
+  it("derives the team domain from the Access probe — the operator copies only the AUD", async () => {
+    const w = fakeWrangler({});
+    // confirm "y", waitForDone "", then just the AUD (no team-domain prompt — probe supplies it).
+    const prompt = createFakePrompt(["y", "", "0123456789abcdef0123456789abcdef"]);
+    const probeAccess = async () => ({
+      enabled: true,
+      teamDomain: "myteam.cloudflareaccess.com",
+    });
+    const { env, out } = makeEnv(w, { prompt, probeAccess });
+    const code = await runDeploy(
+      [
+        "--instance",
+        "x",
+        "--app-name",
+        "A",
+        "--activate-scheme",
+        "a",
+        "--blurb",
+        "",
+        "--accent",
+        "#1",
+      ],
+      env,
+    );
+    expect(code).toBe(0);
+    expect(out.join("\n")).toContain("detected team domain: myteam.cloudflareaccess.com");
+    expect(cmds(w).some((x) => x.includes("--secrets-file"))).toBe(true);
+  });
+});
+
+describe("runDeploy — remembered inputs", () => {
+  it("a bare re-run keeps the email settings from the last deploy (no silent revert)", async () => {
+    const w = fakeWrangler({ d1Exists: true, bucketExists: true, accessConfigured: true });
+    const fs = createFakeFileSystem();
+    // Prior state recorded cloudflare email; this run passes NO --email-provider.
+    await fs.write(
+      "/repo/.deploy/x.state.json",
+      JSON.stringify({ instance: "x", email_provider: "cloudflare", email_from: "a@b.dev" }),
+    );
+    const { env, out } = makeEnv(w, { fs, prompt: createFakePrompt(["y"]) });
+    expect(await runDeploy(["--instance", "x", "--yes"], env)).toBe(0);
+    // The rendered admin config keeps cloudflare email (not reverted to none).
+    const adminCfg = (await fs.read("/repo/.deploy/x.admin.toml")) ?? "";
+    expect(adminCfg).toContain("cloudflare");
+    expect(out.join("\n")).toContain("reusing email");
   });
 });
 

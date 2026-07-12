@@ -13,6 +13,10 @@ export interface SelfUpdateOptions {
 }
 
 export async function checkSelfUpdate(deps: Deps, opts: SelfUpdateOptions): Promise<void> {
+  // Record the attempt time up front (before the fetch that may fail), so Settings can honestly show
+  // "last checked" — and distinguish "checked, up to date" from "never checked / cron not firing".
+  await meta.set(deps.db, "selfupdate_checked_at", deps.clock());
+
   let manifest: UpdateManifest;
   try {
     const res = await deps.fetch(opts.manifestUrl);

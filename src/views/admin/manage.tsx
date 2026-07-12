@@ -877,8 +877,9 @@ const EmailSetupPanel: FC<{ instance: string; email: EmailStatus }> = ({ instanc
 export const SettingsPage: FC<{
   settings: Record<string, string>;
   info: SettingsInfo;
+  now: string;
   chrome: Chrome;
-}> = ({ settings, info, chrome }) => (
+}> = ({ settings, info, now, chrome }) => (
   <AdminLayout title="Settings" chrome={chrome}>
     <section aria-label="This instance">
       <div class="slab">
@@ -937,8 +938,17 @@ export const SettingsPage: FC<{
                   </>
                 ) : null}
               </>
+            ) : info.selfUpdate.checkedAt === null ? (
+              <span class="mut">
+                not checked yet — the daily cron reports here (fires within 24h of deploy)
+              </span>
             ) : (
-              <span class="mut">up to date</span>
+              <>
+                <span class="mut">up to date</span>{" "}
+                <span class="mut">
+                  · checked <When iso={info.selfUpdate.checkedAt} now={now} />
+                </span>
+              </>
             )}
           </dd>
         </div>

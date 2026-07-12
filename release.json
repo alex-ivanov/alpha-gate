@@ -1,7 +1,7 @@
 {
-  "_comment": "§22 self-update manifest for Alpha Gate ITSELF. The deployed tool's daily cron fetches this (UPDATE_MANIFEST_URL) and compares `latest` against its TOOL_VERSION (the repo's VERSION file). Keep `latest` in sync with VERSION on every release; bump `min_supported` and set `breaking` when a deploy requires manual steps. Extra keys (like this one) are ignored by the parser.",
+  "_comment": "\u00a722 self-update manifest for Alpha Gate ITSELF. The deployed tool's daily cron fetches this (UPDATE_MANIFEST_URL) and compares `latest` against its TOOL_VERSION (the repo's VERSION file). Keep `latest` in sync with VERSION on every release; bump `min_supported` and set `breaking` when a deploy requires manual steps. Extra keys (like this one) are ignored by the parser.",
   "latest": "0.1.0",
   "min_supported": "0.1.0",
-  "notes_url": "https://github.com/your-org/alpha-gate/releases",
+  "notes_url": "https://github.com/alex-ivanov/alpha-gate/blob/main/CHANGELOG.md",
   "breaking": false
 }

@@ -77,6 +77,8 @@ export interface SelfUpdateView {
   breaking: boolean;
   belowMinSupported: boolean;
   notesUrl: string | null;
+  /** When the daily cron last polled the manifest, or null if it never has (cron not firing). */
+  checkedAt: string | null;
 }
 
 /** A user whose next check is faulted — the dashboard's attention material, with its cause. */
@@ -134,6 +136,7 @@ export function selfUpdateView(m: Record<string, string>): SelfUpdateView {
     breaking: m.selfupdate_breaking === "1",
     belowMinSupported: m.selfupdate_below_min === "1",
     notesUrl: m.selfupdate_notes_url || null,
+    checkedAt: m.selfupdate_checked_at || null,
   };
 }
 

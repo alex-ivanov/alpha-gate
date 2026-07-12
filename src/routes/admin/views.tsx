@@ -205,7 +205,8 @@ export async function setupView(c: AdminContext): Promise<Response> {
 }
 
 export async function settingsView(c: AdminContext): Promise<Response> {
-  const settings = await loadSettings(c.get("deps"));
+  const deps = c.get("deps");
+  const settings = await loadSettings(deps);
   const env = c.env;
   const info = {
     instance: env.INSTANCE,
@@ -217,7 +218,14 @@ export async function settingsView(c: AdminContext): Promise<Response> {
     appOrigin: adminToAppOrigin(new URL(c.req.url).origin),
   };
   return c.html(
-    renderPage(<SettingsPage settings={settings} info={info} chrome={await chromeFor(c)} />),
+    renderPage(
+      <SettingsPage
+        settings={settings}
+        info={info}
+        now={deps.clock()}
+        chrome={await chromeFor(c)}
+      />,
+    ),
   );
 }
 

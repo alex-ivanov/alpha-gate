@@ -18,13 +18,17 @@ describe("state ledger", () => {
     expect(s.done).toEqual(["d1"]);
   });
 
-  it("serializes to deploy.sh's snake_case keys (publish.sh compatibility) + phases", () => {
+  it("serializes to deploy.sh's snake_case keys (publish.sh compatibility) + remembered inputs", () => {
     const s: DeployState = {
       instance: "x",
       d1Id: "uuid",
       appUrl: "https://app",
       adminUrl: "https://admin",
       done: ["d1", "migrate"],
+      emailProvider: "cloudflare",
+      emailFrom: "a@b.dev",
+      accessTeamDomain: "t.cloudflareaccess.com",
+      accessAud: "abc",
     };
     const json = JSON.parse(serializeState(s));
     expect(json).toMatchObject({
@@ -33,7 +37,17 @@ describe("state ledger", () => {
       admin_url: "https://admin",
       d1_id: "uuid",
       phases: ["d1", "migrate"],
+      email_provider: "cloudflare",
+      email_from: "a@b.dev",
+      access_team_domain: "t.cloudflareaccess.com",
+      access_aud: "abc",
     });
+  });
+
+  it("remembers email + access inputs across a round-trip (bare re-run keeps them)", () => {
+    const s = { ...emptyState("x"), emailProvider: "cloudflare", emailFrom: "a@b.dev" };
+    expect(parseState(serializeState(s), "x").emailProvider).toBe("cloudflare");
+    expect(parseState(serializeState(s), "x").emailFrom).toBe("a@b.dev");
   });
 
   it("round-trips through serialize/parse", () => {

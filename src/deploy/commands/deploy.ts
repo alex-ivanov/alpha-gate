@@ -42,6 +42,16 @@ export interface DeployEnv {
   nodeMajor: number;
   /** Whether stdin is a TTY — gates interactive prompts (the manual-Access wait + first-init branding). */
   interactive: boolean;
+  /** Probes the admin URL for Cloudflare Access (confirms enabled + derives the team domain). */
+  probeAccess?:
+    | ((adminUrl: string) => Promise<{ enabled: boolean; teamDomain: string | null }>)
+    | undefined;
+}
+
+// An Access AUD tag is a 32–64 char hex string. Catch a fat-fingered paste here rather than as a
+// mystery 403 days later.
+function looksLikeAud(value: string): boolean {
+  return /^[0-9a-f]{32,64}$/i.test(value.trim());
 }
 
 function fail(env: DeployEnv, reason: string, hint: string): number {
@@ -118,13 +128,36 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
 
   const freshDb = inspection.d1Id === null;
 
+  // Load prior state up front so a bare re-run reuses remembered inputs. `deploy --instance X` with no
+  // --email-provider must NOT silently turn email off, and no --access-* must not drop the Access
+  // wiring — the #1 "it broke on the next deploy" surprise. Explicit flags always win.
+  await env.fs.mkdirp(deployDir);
+  const statePath = `${deployDir}/${args.instance}.state.json`;
+  let state = parseState((await env.fs.read(statePath)) ?? "", args.instance);
+
   // First-init branding (parity with the old deploy.sh): on a fresh instance + an interactive TTY,
   // prompt for anything not passed as a flag, so /get + the activate link are correct immediately. The
   // values are seeded with INSERT OR IGNORE, so the admin Settings page owns them thereafter.
-  let effective = args;
+  let effective = {
+    ...args,
+    // Remembered email/access default the args when the flags are absent (flags still override).
+    emailProvider: (args.emailProvider === "none" && state.emailProvider !== null
+      ? state.emailProvider
+      : args.emailProvider) as typeof args.emailProvider,
+    emailFrom: args.emailFrom ?? state.emailFrom,
+    accessTeamDomain: args.accessTeamDomain ?? state.accessTeamDomain,
+    accessAud: args.accessAud ?? state.accessAud,
+  };
+  if (
+    state.emailProvider !== null &&
+    args.emailProvider === "none" &&
+    state.emailProvider !== "none"
+  ) {
+    env.out(env.palette.dim(`  (reusing email: ${state.emailProvider} ${state.emailFrom ?? ""})`));
+  }
   if (freshDb && env.interactive && !args.yes && !args.dryRun) {
     effective = {
-      ...args,
+      ...effective,
       appName: args.appName ?? (await askWithDefault(env.prompt, "App name", "Your App")),
       activateScheme:
         args.activateScheme ?? (await askWithDefault(env.prompt, "Activate URL scheme", "myapp")),
@@ -149,9 +182,12 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
     }
   }
 
-  await env.fs.mkdirp(deployDir);
-  const statePath = `${deployDir}/${args.instance}.state.json`;
-  let state = parseState((await env.fs.read(statePath)) ?? "", args.instance);
+  // Remember the effective email settings so the next bare re-run keeps them.
+  state = {
+    ...state,
+    emailProvider: effective.emailProvider,
+    emailFrom: effective.emailFrom,
+  };
 
   // Live progress: a dim "→ …" as each step starts, a green "✓" (with the deploy URL) when it lands.
   // Failures print via fail() instead. Skipped steps were already shown in the plan above.
@@ -186,8 +222,8 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
     d1Id: databaseId,
     role,
     name: role === "admin" ? `${res}-admin` : res,
-    emailProvider: args.emailProvider,
-    emailFrom: args.emailFrom ?? "",
+    emailProvider: effective.emailProvider,
+    emailFrom: effective.emailFrom ?? "",
     toolVersion: env.toolVersion,
     updateManifestUrl: env.updateManifestUrl,
     main: "../src/worker.ts",
@@ -261,28 +297,54 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   state = { ...state, appUrl, adminUrl };
 
   // 7. Cloudflare Access. With creds → set them via --secrets-file (one deploy). Without → show the
-  // manual dashboard step and WAIT, then collect the creds the operator now has.
+  // manual dashboard step, WAIT, then POLL the admin URL: enabling Access makes it redirect to the
+  // team's login, which both confirms it's really on and hands us the team domain — so the operator
+  // copies only the AUD, and a "pressed Enter but didn't enable it" mistake is caught here, not later.
   let teamDomain = effective.accessTeamDomain;
   let aud = effective.accessAud;
   if (accessManualNeeded(effective, inspection)) {
+    // One instruction set, matching ONBOARDING §4 (the easy path — Cloudflare fills the hostname).
     env.out(
       renderManualStep(
         "Enable Cloudflare Access on the admin Worker, then come back:",
         [
-          "Zero Trust → Access → Applications → Add (Self-hosted)",
-          `Hostname: ${adminUrl.replace("https://", "")}`,
-          "Add a policy allowing your email (one-time PIN)",
-          "Copy the Application Audience (AUD) tag",
+          "Cloudflare dashboard → Workers & Pages → the -admin Worker",
+          "Settings → Domains & Routes → enable Cloudflare Access",
+          "Edit the policy: Allow → your email (identity: One-time PIN)",
+          "Copy the Application Audience (AUD): Access → Applications → your app → Overview",
         ],
         env.palette,
       ),
     );
     if (!args.dryRun && !args.yes && env.interactive) {
       await env.prompt.waitForDone("Press Enter once Access is enabled and you have the AUD …");
-      teamDomain = normalizeTeamDomain(await askNonEmpty(env.prompt, "Access team domain"));
-      aud = await askNonEmpty(env.prompt, "Access AUD tag");
+      // Confirm it's on and derive the team domain from the redirect.
+      const probe = env.probeAccess ? await env.probeAccess(adminUrl) : null;
+      if (probe && !probe.enabled) {
+        env.out(
+          env.palette.yellow(
+            "  Access doesn't seem enabled yet — the admin URL isn't redirecting to a login.",
+          ),
+        );
+      }
+      if (probe?.teamDomain) {
+        teamDomain = probe.teamDomain;
+        env.out(env.palette.green(`  ✓ detected team domain: ${teamDomain}`));
+      } else {
+        teamDomain = normalizeTeamDomain(await askNonEmpty(env.prompt, "Access team domain"));
+      }
+      // Only the AUD is hand-copied; sanity-check its shape and warn on an obvious typo (the admin's
+      // reason-bearing 403 catches a genuinely wrong one, so we accept rather than block).
+      aud = (await askNonEmpty(env.prompt, "Access AUD tag")).trim();
+      if (!looksLikeAud(aud)) {
+        env.out(
+          env.palette.yellow("  Heads up: that doesn't look like an AUD (expect 32–64 hex)."),
+        );
+      }
     }
   }
+  // Remember the wired Access values so a later bare re-run keeps them.
+  state = { ...state, accessTeamDomain: teamDomain, accessAud: aud };
   if (teamDomain !== null && teamDomain !== "" && aud !== null && aud !== "") {
     startStep("wire Cloudflare Access");
     const secretsFile = `${deployDir}/${args.instance}.secrets.json`;
@@ -313,6 +375,11 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   }
   env.out(
     "  Publish your first build: ./publish.sh MyApp.dmg --channel <name>  (see /admin/setup)",
+  );
+  env.out(
+    env.palette.dim(
+      "  Publishing from CI? Create an Access service token + Service-Auth policy — see /admin/ci.",
+    ),
   );
   return 0;
 }

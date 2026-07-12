@@ -21,10 +21,26 @@ export interface DeployState {
   appUrl: string | null;
   adminUrl: string | null;
   done: Phase[];
+  // Remembered inputs so a bare re-run (`deploy --instance X`) preserves them instead of silently
+  // reverting to defaults — the classic "email turned itself off on the next deploy" bug.
+  emailProvider: string | null;
+  emailFrom: string | null;
+  accessTeamDomain: string | null;
+  accessAud: string | null;
 }
 
 export function emptyState(instance: string): DeployState {
-  return { instance, d1Id: null, appUrl: null, adminUrl: null, done: [] };
+  return {
+    instance,
+    d1Id: null,
+    appUrl: null,
+    adminUrl: null,
+    done: [],
+    emailProvider: null,
+    emailFrom: null,
+    accessTeamDomain: null,
+    accessAud: null,
+  };
 }
 
 export function hasPhase(state: DeployState, phase: Phase): boolean {
@@ -42,6 +58,10 @@ export function serializeState(state: DeployState): string {
     admin_url: state.adminUrl,
     d1_id: state.d1Id,
     phases: state.done,
+    email_provider: state.emailProvider,
+    email_from: state.emailFrom,
+    access_team_domain: state.accessTeamDomain,
+    access_aud: state.accessAud,
   };
   return `${JSON.stringify(onDisk, null, 2)}\n`;
 }
@@ -60,6 +80,10 @@ export function parseState(json: string, instance: string): DeployState {
       appUrl: str(obj.app_url),
       adminUrl: str(obj.admin_url),
       done,
+      emailProvider: str(obj.email_provider),
+      emailFrom: str(obj.email_from),
+      accessTeamDomain: str(obj.access_team_domain),
+      accessAud: str(obj.access_aud),
     };
   } catch {
     return emptyState(instance);

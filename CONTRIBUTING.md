@@ -115,6 +115,16 @@ assert time-dependent behavior with seeded timestamps (fake timers don't reach t
    [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md); operator-facing changes go in `docs/ONBOARDING.md` /
    `docs/UPLOADING.md`.
 
+## Releasing
+
+Deployed instances self-update by polling `release.json` daily (the manifest URL is derived from the
+checkout's git origin, so forks self-point). To cut a release:
+
+1. Bump `VERSION`, `package.json`'s `version`, and `release.json`'s `latest` **to the same value**.
+2. Set `release.json`'s `breaking: true` and bump `min_supported` if the upgrade needs manual steps.
+3. Add a `## <version>` section to `CHANGELOG.md` (what `notes_url` points at).
+4. Tag and push. Operators see the banner within 24h and re-run `deploy.sh` to update.
+
 ## Commits
 
 Small, focused commits — one cohesive change each. Run the tests before committing and add a line about

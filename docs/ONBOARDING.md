@@ -135,8 +135,10 @@ the Access application, `.deploy/<slug>.*`) is independent. Repeat steps 3–5 p
 ## Updating in place
 
 After `git pull`, re-run `./deploy/deploy.sh --instance myalpha`. D1/R2 are reused, pending migrations
-applied, both Workers redeployed; tokens/clients/builds/logs are preserved. A daily cron checks for a
-newer Alpha Gate release and shows a dashboard banner when one exists.
+applied, both Workers redeployed; tokens/clients/builds/logs are preserved. **Your email and Access
+settings are remembered** — a bare re-run keeps them (pass the flags again only to change them). A
+daily cron checks for a newer Alpha Gate release (comparing against `release.json` in this checkout's
+git origin) and shows a dashboard banner + a "last checked" line on Settings when one exists.
 
 ## Teardown
 
