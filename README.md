@@ -48,12 +48,19 @@ rationale and the invariants behind the design: [`docs/PRINCIPLES.md`](docs/PRIN
 
 ## Quick start
 
-```bash
-git clone <your-fork> alpha-gate && cd alpha-gate
-npm install
-npx wrangler login                       # once, interactive
+From npm — no clone, a pinned versioned release:
 
-./deploy/deploy.sh --instance myalpha    # provision D1 + R2, deploy both Workers (idempotent)
+```bash
+npx wrangler login                       # once, interactive
+npx alpha-gate deploy --instance myalpha # provision D1 + R2, deploy both Workers (idempotent)
+npx alpha-gate publish MyApp.dmg --channel beta
+```
+
+Or from a git clone (contributors, or to run unreleased `main`):
+
+```bash
+git clone <your-fork> alpha-gate && cd alpha-gate && npm install
+./deploy/deploy.sh --instance myalpha    # the deploy/*.sh wrappers = the same CLI
 ```
 
 Then lock the admin behind Cloudflare Access and re-run deploy with your team domain + AUD. The full,

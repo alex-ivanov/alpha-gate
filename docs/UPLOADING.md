@@ -103,7 +103,8 @@ it to re-download or re-activate while the token is active.
 It reads the version straight from the app, EdDSA-signs the artifact, and uploads it:
 
 ```bash
-./publish.sh MyApp.dmg --channel beta
+./publish.sh MyApp.dmg --channel beta     # from a clone
+npx alpha-gate publish MyApp.dmg --channel beta   # from npm (same flags)
 ```
 
 **Prerequisites:** the artifact is already **built, code-signed (Developer ID), notarized, and stapled**

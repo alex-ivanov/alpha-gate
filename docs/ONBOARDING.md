@@ -19,15 +19,31 @@ public app URL (the Sparkle feed) and a gated admin URL (the back office). To th
 
 ## 1. Prerequisites
 
-- **Node ≥ 20** and **npm**. The deploy/teardown/dev commands are a TypeScript CLI run via `tsx`, so
-  `npm install` is the only setup — no `jq`/`envsubst`.
+- **Node ≥ 20** and **npm**. The commands are a TypeScript CLI run via `tsx` — no `jq`/`envsubst`.
 - A **Cloudflare account** (the free tier is enough).
 - **macOS** is only needed to *publish builds* (Apple signing/notarization), not to deploy.
 
+There are two ways to run the tooling — pick one:
+
+**A. From npm (no clone)** — install a pinned, versioned release:
+
 ```bash
-git clone <your-fork> alpha-gate && cd alpha-gate
-npm install
+npx alpha-gate deploy --instance myalpha        # or: npm i -g alpha-gate && alpha-gate deploy …
 ```
+
+`npx alpha-gate <command>` runs the exact published version (`npx alpha-gate@0.1.0 …` pins it). State
+lives in `~/.alpha-gate` (override with `$ALPHA_GATE_HOME`). Updating is just `npx alpha-gate@latest
+deploy` — the Settings banner tells you when a newer version is on npm.
+
+**B. From a git clone** — for contributors, or to run unreleased `main`:
+
+```bash
+git clone <your-fork> alpha-gate && cd alpha-gate && npm install
+./deploy/deploy.sh --instance myalpha           # the deploy/*.sh wrappers = the same CLI
+```
+
+A clone keeps state in the repo's `.deploy/`. The rest of this guide writes `./deploy/deploy.sh`; the
+`alpha-gate deploy` (npm) form takes the same flags everywhere.
 
 ## 2. Prepare your Cloudflare account
 

@@ -175,4 +175,16 @@ async/`**`) and the contract holds.
   token, DNS, or zone. The two things a script can't do (enable Access on the admin hostname; create a
   service token) are printed as a one-time checklist.
 - **Everything is namespaced by the instance slug**, so one account holds many independent instances
-  (separate D1, R2, Workers, Access app, and `.deploy/<slug>.*` state).
+  (separate D1, R2, Workers, Access app, and per-slug state).
+- **Two install channels, one CLI.** The same commands run from an npm install (`npx alpha-gate …`,
+  the `bin`) or a git clone (`./deploy/*.sh`). The only difference is where per-instance state lives:
+  `~/.alpha-gate` for npm (the package files sit in the ephemeral npm cache), `<repo>/.deploy` for a
+  clone; `$ALPHA_GATE_HOME` overrides. So the rendered wrangler config uses **absolute** paths into the
+  package for `main` and `migrations_dir` (`core/paths.ts` resolves the state dir; keep the two — code
+  root vs state dir — distinct).
+- **The self-update banner checks the npm registry.** The deployed Worker's daily cron polls
+  `registry.npmjs.org/<name>/latest` and compares against its baked-in `TOOL_VERSION` (= the deploying
+  package's version); the upgrade signals travel in `package.json`'s `alphaGate` field. It only
+  **notifies** — a Worker never deploys itself (that would need a privileged Cloudflare API token on
+  the edge, which the "no API token / hold no privileged creds" posture forbids). Updating stays an
+  operator-run, human-in-the-loop `deploy` (safe for migrations).

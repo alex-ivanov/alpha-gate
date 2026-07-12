@@ -117,13 +117,25 @@ assert time-dependent behavior with seeded timestamps (fake timers don't reach t
 
 ## Releasing
 
-Deployed instances self-update by polling `release.json` daily (the manifest URL is derived from the
-checkout's git origin, so forks self-point). To cut a release:
+Deployed instances self-update by polling the **npm registry** daily for this package's latest
+version (the manifest URL is `registry.npmjs.org/<name>/latest`, derived from `package.json`'s
+`name`). The upgrade signals ride in the `alphaGate` field of `package.json`, which npm preserves. To
+cut a release:
 
-1. Bump `VERSION`, `package.json`'s `version`, and `release.json`'s `latest` **to the same value**.
-2. Set `release.json`'s `breaking: true` and bump `min_supported` if the upgrade needs manual steps.
-3. Add a `## <version>` section to `CHANGELOG.md` (what `notes_url` points at).
-4. Tag and push. Operators see the banner within 24h and re-run `deploy.sh` to update.
+1. Bump `package.json`'s `version` (the source of truth) and `VERSION` **to the same value**. Keep
+   `release.json`'s `latest` in sync too — it's the fallback manifest for anyone overriding
+   `$UPDATE_MANIFEST_URL` to a static file.
+2. In `package.json`'s `alphaGate`, set `breaking: true` and bump `minSupported` if the upgrade needs
+   manual steps. (`release.json` mirrors these as `breaking` / `min_supported`.)
+3. Add a `## <version>` section to `CHANGELOG.md` — `homepage` points there, so it's the banner's notes.
+4. **Publish to npm** so the version becomes visible to the banner and to `npx alpha-gate@latest`:
+   ```bash
+   npm run check                       # gate must be green
+   # first release only: remove "private": true from package.json, add a LICENSE + set "license"
+   npm publish                         # (npm pack --dry-run first to eyeball the tarball)
+   ```
+5. Tag and push. Operators see the banner within 24h; they update with `npx alpha-gate@latest deploy`
+   (npm) or `git pull && ./deploy/deploy.sh` (clone).
 
 ## Commits
 

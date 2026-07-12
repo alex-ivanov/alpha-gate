@@ -38,6 +38,7 @@ Keep I/O at the edges and logic pure. The resolver, the no-build computation, §
 
 ## Commands
 
+# Two channels, same CLI: `npx alpha-gate <cmd>` (npm, state in ~/.alpha-gate) OR `./deploy/*.sh` (clone).
 ```bash
 npm test                                      # both suites: worker (vitest-pool-workers) + deploy CLI (node); offline
 npm run check                                 # the full gate: biome + typecheck (both tsconfigs) + test
