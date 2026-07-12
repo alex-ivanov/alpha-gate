@@ -18,6 +18,7 @@ interface BuildRow {
   hidden: number;
   dmg_object_key: string | null;
   dmg_length: number | null;
+  purged_at: string | null;
   created_at: string;
 }
 
@@ -36,6 +37,7 @@ function toBuild(row: BuildRow): Build {
     hidden: row.hidden !== 0,
     dmgObjectKey: row.dmg_object_key,
     dmgLength: row.dmg_length,
+    purgedAt: row.purged_at,
     createdAt: row.created_at,
   };
 }
@@ -140,6 +142,21 @@ export async function unlinkStream(
     buildId,
     streamId,
   ]);
+}
+
+/** Stamp a build's archive as purged (bytes deleted from R2; the row is kept). `at` is the clock. */
+export async function markPurged(db: D1Database, id: number, at: string): Promise<void> {
+  await execute(db, "UPDATE builds SET purged_at = ? WHERE id = ?", [at, id]);
+}
+
+/** The sum of all stored archive bytes (zip + optional DMG) — the Builds page's bucket-total line. */
+export async function totalArchiveBytes(db: D1Database): Promise<number> {
+  const row = await queryOne<{ total: number | null }>(
+    db,
+    "SELECT COALESCE(SUM(length), 0) + COALESCE(SUM(dmg_length), 0) AS total" +
+      " FROM builds WHERE purged_at IS NULL",
+  );
+  return row?.total ?? 0;
 }
 
 /** All build→stream links (the resolver/no-build World input). */

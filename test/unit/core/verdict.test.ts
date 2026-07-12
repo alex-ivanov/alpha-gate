@@ -29,6 +29,7 @@ function build(over: Partial<Build> = {}): Build {
     hidden: false,
     dmgObjectKey: null,
     dmgLength: null,
+    purgedAt: null,
     createdAt: "2026-07-01T00:00:00Z",
     ...over,
   };

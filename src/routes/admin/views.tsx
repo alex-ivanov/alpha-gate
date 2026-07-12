@@ -1,5 +1,6 @@
 import { getCookie } from "hono/cookie";
 import type { AccessEvent } from "../../core/types";
+import { totalArchiveBytes } from "../../db/builds";
 import { adminToAppOrigin, inviteUrl } from "../../lib/hosts";
 import { emailStatus } from "../../services/email";
 import { CiPage } from "../../views/admin/ci-page";
@@ -121,7 +122,11 @@ export async function userManageView(c: AdminContext): Promise<Response> {
 
 export async function buildsView(c: AdminContext): Promise<Response> {
   const deps = c.get("deps");
-  const [builds, channels] = await Promise.all([loadBuilds(deps), loadChannels(deps)]);
+  const [builds, channels, storageBytes] = await Promise.all([
+    loadBuilds(deps),
+    loadChannels(deps),
+    totalArchiveBytes(deps.db),
+  ]);
   const showHidden = c.req.query("hidden") === "1"; // default: visible only
   const hiddenCount = builds.filter((b) => b.build.hidden).length;
   const rows = showHidden ? builds : builds.filter((b) => !b.build.hidden);
@@ -132,6 +137,7 @@ export async function buildsView(c: AdminContext): Promise<Response> {
         channels={channels}
         showHidden={showHidden}
         hiddenCount={hiddenCount}
+        storageBytes={storageBytes}
         now={deps.clock()}
         chrome={await chromeFor(c)}
       />,

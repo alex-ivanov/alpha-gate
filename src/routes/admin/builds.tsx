@@ -1,8 +1,10 @@
 import type { AdminAction } from "../../core/no-build";
 import * as builds from "../../db/builds";
 import * as streams from "../../db/streams";
+import { deleteArchivePrefix } from "../../r2/builds-bucket";
+import { buildPrefix } from "../../r2/keys";
 import { recordAudit } from "../../services/audit";
-import { ResultPage } from "../../views/admin/manage-pages";
+import { ConfirmActionPage, ResultPage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
@@ -89,10 +91,98 @@ export async function restoreBuild(c: AdminContext): Promise<Response> {
       `${buildSubject(build)} is already available.`,
     );
   }
+  // A purged build has no archive to serve — restoring would offer a 404 to Sparkle. Block it until
+  // the operator re-uploads (a fresh publish with a higher number is the real path).
+  if (build.purgedAt !== null) {
+    return c.html(
+      renderPage(
+        <ResultPage
+          title="Archive was purged"
+          intent="error"
+          back={{ href: `/admin/builds/${id}`, label: "← Back to build" }}
+        >
+          <p>
+            {buildSubject(build)} can't be restored — its archive bytes were purged to reclaim
+            space. Re-publish the code with a higher build number instead (a roll-forward).
+          </p>
+        </ResultPage>,
+      ),
+      409,
+    );
+  }
 
   await builds.setStatus(deps.db, id, "available"); // restoring never strands
   await recordAudit(deps, auditFields(c, "build.restore", String(build.buildNumber)));
   return doneRedirect(c, body, "/admin/builds", "build.restored", buildSubject(build));
+}
+
+// Storage lifecycle: delete a WITHDRAWN build's archive bytes from R2 to reclaim free-tier space.
+// The D1 row is kept (build_number uniqueness, counts, and the audit chain stay intact) and stamped
+// purged_at. Safe by construction: the resolver only ever serves status='available' builds, so a
+// withdrawn build's bytes are already unreachable. Always confirmed (destructive + irreversible).
+export async function purgeArchive(c: AdminContext): Promise<Response> {
+  if (requireUser(c) === null) return c.text("Forbidden", 403);
+  const deps = c.get("deps");
+  const body = await c.req.parseBody();
+  const { id, build } = await loadBuild(c);
+  if (id === null) return c.text("Bad request", 400);
+  if (build === null) return c.text("Not found", 404);
+  const here = `/admin/builds/${id}`;
+
+  if (build.status !== "withdrawn") {
+    return c.html(
+      renderPage(
+        <ResultPage
+          title="Withdraw it first"
+          intent="error"
+          back={{ href: here, label: "← Back to build" }}
+        >
+          <p>
+            Only a withdrawn build's archive can be purged — an available build is still served.
+            Withdraw {buildSubject(build)} first, then purge.
+          </p>
+        </ResultPage>,
+      ),
+      409,
+    );
+  }
+  if (build.purgedAt !== null) {
+    return doneRedirect(
+      c,
+      body,
+      here,
+      "noop",
+      `${buildSubject(build)}'s archive is already purged.`,
+    );
+  }
+
+  if (field(body, "confirm") !== "true") {
+    return c.html(
+      renderPage(
+        <ConfirmActionPage
+          subject={`Purge the archive for ${buildSubject(build)}`}
+          confirmLabel="Purge archive"
+          postTo={`${here}/purge-archive`}
+          hidden={{ confirm: "true", return_to: here }}
+          cancelTo={here}
+        >
+          <p class="muted">
+            Deletes the stored bytes from R2 to reclaim space. The build stays in the history with
+            its download counts and audit trail, but it can no longer be restored — re-publish with
+            a higher build number if you need it back.
+          </p>
+        </ConfirmActionPage>,
+      ),
+    );
+  }
+
+  const deleted = await deleteArchivePrefix(deps.r2, buildPrefix(build.buildNumber));
+  await builds.markPurged(deps.db, id, deps.clock());
+  await recordAudit(
+    deps,
+    auditFields(c, "build.purge", String(build.buildNumber), JSON.stringify({ objects: deleted })),
+  );
+  return doneRedirect(c, body, here, "build.purged", buildSubject(build));
 }
 
 export async function markCritical(c: AdminContext): Promise<Response> {

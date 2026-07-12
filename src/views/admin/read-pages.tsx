@@ -1,6 +1,7 @@
 import type { Child, FC } from "hono/jsx";
 import type { AuditRow, ChainAssessment } from "../../core/audit-chain";
 import type { Stream } from "../../core/types";
+import { formatBytes } from "../../core/verdict";
 import type { AccessLogEntry } from "../../db/access-log";
 import type { AccessRequest } from "../../db/access-requests";
 import type {
@@ -653,23 +654,33 @@ export const UsersPage: FC<{
 
 // ————————————————————————————— Builds —————————————————————————————
 
+const FREE_TIER_BYTES = 10 * 1024 * 1024 * 1024; // R2 free tier = 10 GB
+
 export const BuildsPage: FC<{
   builds: BuildView[];
   channels: Stream[];
   showHidden: boolean;
   hiddenCount: number;
+  storageBytes: number;
   now: string;
   chrome: Chrome;
-}> = ({ builds, channels, showHidden, hiddenCount, now, chrome }) => {
+}> = ({ builds, channels, showHidden, hiddenCount, storageBytes, now, chrome }) => {
   const channelId = new Map(channels.map((s) => [s.name, s.id]));
+  const nearCap = storageBytes > FREE_TIER_BYTES * 0.8;
   return (
     <AdminLayout
       title="Builds"
       chrome={chrome}
       head={
-        <p class="inv">
-          <a href="/admin/upload">Upload a build →</a>
-        </p>
+        <>
+          <p class="sub" title={`${storageBytes} bytes stored in R2`}>
+            {nearCap ? <Tag kind="warn" label="storage" /> : null} {formatBytes(storageBytes)} of
+            archives{nearCap ? " — near the 10 GB free tier; purge withdrawn builds" : ""}
+          </p>
+          <p class="inv">
+            <a href="/admin/upload">Upload a build →</a>
+          </p>
+        </>
       }
     >
       {builds.length === 0 ? (
@@ -756,6 +767,9 @@ export const BuildsPage: FC<{
                   <Th sort="num" right>
                     Updates
                   </Th>
+                  <Th sort="num" right>
+                    Size
+                  </Th>
                   <Th sort="text">Published</Th>
                 </tr>
               </thead>
@@ -796,6 +810,16 @@ export const BuildsPage: FC<{
                     </td>
                     <td class="r">{b.downloads}</td>
                     <td class="r">{b.updates}</td>
+                    <td
+                      class="r"
+                      data-value={String(b.build.purgedAt !== null ? 0 : b.build.length)}
+                    >
+                      {b.build.purgedAt !== null ? (
+                        <Tag kind="mut" label="purged" title="Archive bytes deleted; record kept" />
+                      ) : (
+                        <span title={`${b.build.length} bytes`}>{formatBytes(b.build.length)}</span>
+                      )}
+                    </td>
                     <td data-value={b.build.createdAt}>
                       <When iso={b.build.createdAt} now={now} />
                     </td>

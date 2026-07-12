@@ -37,6 +37,7 @@ export function aBuild(overrides: Partial<Build> = {}): Build {
     status: "available",
     dmgObjectKey: null,
     dmgLength: null,
+    purgedAt: null,
     createdAt: EPOCH,
     ...overrides,
   };

@@ -41,6 +41,8 @@ export interface Build {
   /** Optional first-install DMG (decision 0003); no EdDSA — notarization seals it. */
   dmgObjectKey: string | null;
   dmgLength: number | null;
+  /** When the R2 archive bytes were deleted to reclaim space (the row is kept). Null = present. */
+  purgedAt: string | null;
   createdAt: string;
 }
 

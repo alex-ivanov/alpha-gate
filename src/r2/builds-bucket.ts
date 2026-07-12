@@ -23,6 +23,14 @@ export function getObject(r2: R2Bucket, key: string): Promise<R2ObjectBody | nul
   return r2.get(key);
 }
 
+/** Delete every object under a build's prefix (the zip and any DMG) — the archive-purge action. */
+export async function deleteArchivePrefix(r2: R2Bucket, prefix: string): Promise<number> {
+  const listed = await r2.list({ prefix });
+  const keys = listed.objects.map((o) => o.key);
+  if (keys.length > 0) await r2.delete(keys);
+  return keys.length;
+}
+
 /** Metadata-only existence/size check (the §20 register path asserts size == declared). */
 export function headObject(r2: R2Bucket, key: string): Promise<R2Object | null> {
   return r2.head(key);

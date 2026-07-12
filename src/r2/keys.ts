@@ -13,6 +13,11 @@ export function archiveKey(buildNumber: number, filename: string): string {
   return `build/${buildNumber}/${sanitizeFilename(filename)}`;
 }
 
+/** The prefix holding a build's archive object(s) — the unit the purge action deletes. */
+export function buildPrefix(buildNumber: number): string {
+  return `build/${buildNumber}/`;
+}
+
 export const BRANDING_ICON_KEY = "branding/icon";
 export const BRANDING_HEADER_KEY = "branding/header";
 

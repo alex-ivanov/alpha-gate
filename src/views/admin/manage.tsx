@@ -466,6 +466,24 @@ export const BuildManagePage: FC<{ detail: BuildDetail; now: string; chrome: Chr
             />
           </div>
         </section>
+      ) : build.purgedAt === null ? (
+        <section class="dangerzone" aria-label="Purge archive">
+          <div class="slab">
+            <h2>Purge archive</h2>
+          </div>
+          <p>
+            Delete this withdrawn build's {formatBytes(build.length)} of archive bytes from R2 to
+            reclaim free-tier space. The record stays (counts and audit intact), but it can't be
+            restored afterwards — re-publish with a higher number if you need it back.
+          </p>
+          <div class="actions">
+            <Post
+              action={`/admin/builds/${build.id}/purge-archive`}
+              label="Purge archive…"
+              hidden={ret(here)}
+            />
+          </div>
+        </section>
       ) : null}
     </AdminLayout>
   );

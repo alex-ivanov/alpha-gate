@@ -8,6 +8,7 @@ import {
   linkBuildStream,
   markCritical,
   markRollbackTarget,
+  purgeArchive,
   restoreBuild,
   setBuildHidden,
   unlinkBuildStream,
@@ -28,7 +29,7 @@ import { adminAuth } from "./middleware";
 import { dismissPending, invitePending } from "./pending";
 import { assignUsersToStream, createStream, deleteStream, linkBuildsToStream } from "./streams";
 import { setTheme } from "./theme";
-import { registerBuild, uploadBuild } from "./upload";
+import { publishInfo, registerBuild, uploadBuild } from "./upload";
 import {
   activityView,
   auditView,
@@ -89,6 +90,10 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.get("/admin/activity", activityView);
   app.get("/admin/audit", auditView);
 
+  // Read-only publish helper (service-token allowed, decision 0006): top build + channels + caps,
+  // so a publish script pre-checks locally instead of failing after a full upload.
+  app.get("/admin/publish-info", publishInfo);
+
   // UI preference (theme toggle) — human only, not audited (no domain change)
   app.post("/admin/theme", setTheme);
 
@@ -129,6 +134,7 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.post("/admin/builds/:id/critical", markCritical);
   app.post("/admin/builds/:id/rollback", markRollbackTarget);
   app.post("/admin/builds/:id/hidden", setBuildHidden);
+  app.post("/admin/builds/:id/purge-archive", purgeArchive);
   app.post("/admin/builds/:id/streams/link", linkBuildStream);
   app.post("/admin/builds/:id/streams/unlink", unlinkBuildStream);
 

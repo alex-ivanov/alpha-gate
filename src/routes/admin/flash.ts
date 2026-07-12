@@ -24,6 +24,7 @@ const MESSAGES: Record<string, (subject: string | null) => string> = {
   "build.unrollback": (s) => `${s ?? "The build"} is no longer the rollback target.`,
   "build.hidden": (s) => `Hid ${s ?? "the build"} from this list. Serving is unchanged.`,
   "build.unhidden": (s) => `${s ?? "The build"} is visible in this list again.`,
+  "build.purged": (s) => `Purged the archive for ${s ?? "the build"}. The record is kept.`,
   "build.linked": (s) => `Linked ${s ?? "the build"} to the channel.`,
   "build.unlinked": (s) => `Unlinked ${s ?? "the build"} from the channel.`,
   "channel.created": (s) => `Created the ${s ?? "new"} channel.`,
