@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%E2%9B%A9%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<title>Alpha Gate — Sparkle hosting on your own Cloudflare</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Host your Mac app's Sparkle updates on your own Cloudflare account. One link per tester, revocable. One command to publish. Free tier, open source.">
+
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #FAFBFB;
+    --ink: #17191B;
+    --orange: #B85000;
+    --green: #1E7A55;
+    --amber: #9A6A00;
+    --gray: #666C70;
+    --hairline: color-mix(in srgb, #17191B 14%, transparent);
+    --flash: color-mix(in srgb, #B85000 18%, transparent);
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --paper: #121417;
+      --ink: #E7E9EB;
+      --orange: #F08A3C;
+      --green: #4CC38A;
+      --amber: #E0B43B;
+      --gray: #8B9196;
+      --hairline: color-mix(in srgb, #E7E9EB 16%, transparent);
+      --flash: color-mix(in srgb, #F08A3C 22%, transparent);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --paper: #FAFBFB; --ink: #17191B; --orange: #B85000; --green: #1E7A55;
+    --amber: #9A6A00; --gray: #666C70;
+    --hairline: color-mix(in srgb, #17191B 14%, transparent);
+    --flash: color-mix(in srgb, #B85000 18%, transparent);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #121417; --ink: #E7E9EB; --orange: #F08A3C; --green: #4CC38A;
+    --amber: #E0B43B; --gray: #8B9196;
+    --hairline: color-mix(in srgb, #E7E9EB 16%, transparent);
+    --flash: color-mix(in srgb, #F08A3C 22%, transparent);
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 72rem;
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 4vw, 3rem);
+  }
+  p, .measure { max-width: 46rem; }
+  a { color: inherit; text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: currentColor; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 1px; }
+  h1, h2 { text-wrap: balance; }
+  code, pre { font-family: var(--mono); }
+
+  /* ── header ─────────────────────────────────────── */
+  header.site {
+    border-bottom: 1px solid var(--hairline);
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 1rem; padding-block: 1rem;
+  }
+  .brand {
+    font-weight: 650; font-size: 13px; letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .hright { display: flex; align-items: center; gap: 1.6rem; }
+  nav.top { display: flex; gap: 1.4rem; font-size: 14px; }
+  nav.top a { text-decoration: none; color: var(--gray); }
+  nav.top a:hover { color: var(--ink); }
+
+  /* ── hero ───────────────────────────────────────── */
+  .hero { padding-block: clamp(3.5rem, 8vw, 6rem) 0; }
+  h1 {
+    font-size: clamp(2.4rem, 6vw, 4.1rem);
+    font-weight: 800; letter-spacing: -0.025em; line-height: 1.05;
+    margin: 0 0 1.4rem;
+  }
+  .sub { font-size: 1.1rem; color: var(--ink); margin: 0 0 2.2rem; }
+
+  .cta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.8rem 1.6rem; }
+  .cmdline {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    font-family: var(--mono); font-size: 1.02rem;
+    border: 0; background: none; color: var(--ink);
+    padding: 0.15rem 0; cursor: pointer; text-align: left;
+  }
+  .cmdline:hover .cmd { text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 4px; }
+  .cmdline svg { flex: none; color: var(--orange); }
+  .cmdline .done {
+    position: absolute; top: 100%; left: 0;
+    font-size: 0.8rem; color: var(--orange); white-space: nowrap;
+  }
+  .alt { font-size: 0.95rem; }
+
+  /* ── section rhythm ─────────────────────────────── */
+  section { margin-block: clamp(5rem, 10vw, 8rem); }
+  h2 {
+    font-size: clamp(1.45rem, 3vw, 1.85rem);
+    font-weight: 700; letter-spacing: -0.015em; line-height: 1.2;
+    margin: 0 0 1rem; max-width: 46rem;
+  }
+  .caption { color: var(--gray); font-size: 0.95rem; }
+
+  /* ── three-column strips (benefits, how it works) ─ */
+  .trio { display: grid; grid-template-columns: 1fr 1fr 1fr; margin-block: 2rem 1.4rem; max-width: 66rem; }
+  .trio > div { border-left: 1px solid var(--hairline); padding: 0.2rem 1.3rem; }
+  .trio > div:first-child { border-left: 0; padding-left: 0; }
+  .trio h3 { font-size: 1.02rem; font-weight: 650; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+  .trio .k {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.12em; color: var(--gray); text-transform: uppercase;
+    display: block; margin-bottom: 0.7rem;
+  }
+  .trio p { font-size: 0.95rem; color: var(--gray); margin: 0; }
+  .trio p + p { margin-top: 0.6rem; }
+  .trio code { font-size: 0.86em; }
+
+  /* ── command specimens ──────────────────────────── */
+  .specimen { margin-block: 2.2rem; max-width: 62rem; overflow-x: auto; }
+  .specimen pre { margin: 0; font-size: 1.02rem; line-height: 1.6; }
+  .specimen .ann { color: var(--gray); font-size: 0.85em; }
+  .specimen .out { color: var(--ink); font-size: 0.85em; }
+  .specimen .lock { font-weight: 600; }
+
+  /* ── ownership ledger ───────────────────────────── */
+  .ledger {
+    display: grid; grid-template-columns: 1fr 1fr;
+    margin-block: 2.4rem 1rem; max-width: 62rem;
+    border-block: 1px solid var(--hairline);
+  }
+  .ledger > div { padding: 1.1rem 1.5rem 1.3rem; min-inline-size: 0; }
+  .ledger > div + div { border-left: 1px solid var(--hairline); }
+  .ledger h3 {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.12em; color: var(--gray); margin: 0 0 0.8rem;
+  }
+  .ledger ul { list-style: none; margin: 0; padding: 0; font-size: 0.98rem; }
+  .ledger li { padding-block: 0.35rem; border-top: 1px solid var(--hairline); }
+  .ledger li:first-child { border-top: 0; }
+  .ledger .nothing { color: var(--gray); }
+  .crossing {
+    font-family: var(--mono); font-size: 12.5px; color: var(--gray);
+    margin: 0 0 2rem; max-width: 62rem;
+  }
+  .facts { font-family: var(--mono); font-size: 13.5px; margin: 1.6rem 0 0; color: var(--ink); max-width: none; }
+  .facts span { color: var(--gray); }
+
+  /* ── the schema (what runs where) ───────────────── */
+  .schema {
+    display: grid; grid-template-columns: 1fr auto 1.9fr auto 1fr;
+    gap: 0; align-items: stretch; margin-block: 2.4rem 1rem; max-width: 72rem;
+  }
+  .schema .node { border: 1px solid var(--hairline); border-radius: 4px; padding: 1rem 1.1rem; }
+  .schema .k {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.12em; color: var(--gray); text-transform: uppercase;
+    display: block; margin-bottom: 0.6rem;
+  }
+  .schema .node > p { font-size: 0.9rem; color: var(--gray); margin: 0; max-width: none; }
+  .schema .arr {
+    align-self: center; text-align: center; padding: 0 0.9rem;
+    font-family: var(--mono); font-size: 11px; color: var(--gray);
+  }
+  .schema .arr .glyph { display: block; font-size: 15px; color: var(--ink); margin-top: 0.2rem; }
+  .schema .cells { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .schema .cells > div {
+    border: 1px solid var(--hairline); border-radius: 3px;
+    padding: 0.55rem 0.7rem; font-size: 0.84rem; color: var(--gray); line-height: 1.45;
+  }
+  .schema .cells b { display: block; color: var(--ink); font-weight: 600; font-size: 0.9rem; }
+
+  /* ── collapsible demo ───────────────────────────── */
+  details.feedpeek { margin-block: 2rem 0; }
+  details.feedpeek summary {
+    cursor: pointer; width: fit-content;
+    font-size: 0.95rem; color: var(--gray);
+  }
+  details.feedpeek summary:hover { color: var(--ink); }
+
+  .lockup { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .chain {
+    font-family: var(--mono); font-size: 13.5px; color: var(--gray);
+    margin: 1.8rem 0; overflow-x: auto; white-space: nowrap;
+  }
+  .chain .anchor { color: var(--ink); font-weight: 600; }
+
+  /* ── back-office screenshots (carousel) ─────────── */
+  .carousel {
+    display: grid; grid-template-columns: minmax(14rem, 17rem) 1fr;
+    gap: 1.6rem; margin-block: 2.4rem 0; max-width: 72rem;
+  }
+  .panel { border: 0; padding: 0; margin: 0; min-inline-size: 0; display: flex; flex-direction: column; }
+  .pitem {
+    display: block; padding: 0.75rem 0.75rem;
+    border-top: 1px solid var(--hairline); cursor: pointer;
+  }
+  .panel .pitem:last-of-type { border-bottom: 1px solid var(--hairline); }
+  .pitem:has(:checked) { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .pitem input { accent-color: var(--ink); margin: 0 0.5rem 0 0; vertical-align: -1px; }
+  .pitem .t { font-weight: 600; font-size: 0.98rem; }
+  .pitem .x { display: none; font-size: 0.88rem; color: var(--gray); margin: 0.35rem 0 0 1.45rem; }
+  .pitem:has(:checked) .x { display: block; }
+  .shotswitch { display: flex; align-items: center; gap: 0.7rem; margin-top: 1rem; }
+  .swlabel {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--gray);
+  }
+  .seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 4px; overflow: hidden; }
+  .seg button {
+    font: inherit; font-size: 12.5px; padding: 0.12rem 0.65rem;
+    background: none; border: 0; color: var(--gray); cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--hairline); }
+  .seg button.on { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); font-weight: 600; }
+  .seg button:disabled { cursor: default; opacity: 0.55; }
+
+  .slides { min-inline-size: 0; }
+  .slides .shot { display: none; margin: 0; }
+  .carousel:has(input[value="s1"]:checked) .shot.s1 { display: block; }
+  .carousel:has(input[value="s2"]:checked) .shot.s2 { display: block; }
+  .carousel:has(input[value="s3"]:checked) .shot.s3 { display: block; }
+  .carousel:has(input[value="s4"]:checked) .shot.s4 { display: block; }
+  .carousel:has(input[value="s5"]:checked) .shot.s5 { display: block; }
+  .carousel:has(input[value="s6"]:checked) .shot.s6 { display: block; }
+  .shot img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--hairline); border-radius: 6px;
+  }
+  .shot .td { display: none; }
+  @media (prefers-color-scheme: dark) {
+    .shot .tl { display: none; }
+    .shot .td { display: block; }
+  }
+  :root[data-theme="light"] .shot .tl { display: block; }
+  :root[data-theme="light"] .shot .td { display: none; }
+  :root[data-theme="dark"] .shot .tl { display: none; }
+  :root[data-theme="dark"] .shot .td { display: block; }
+  /* explicit screenshot-theme override beats everything above */
+  .carousel[data-shots="light"] .shot .tl { display: block !important; }
+  .carousel[data-shots="light"] .shot .td { display: none !important; }
+  .carousel[data-shots="dark"] .shot .tl { display: none !important; }
+  .carousel[data-shots="dark"] .shot .td { display: block !important; }
+
+  /* ── resolver demo ──────────────────────────────── */
+  .demo {
+    display: grid; grid-template-columns: minmax(13rem, 15rem) 1fr;
+    gap: 1.6rem; margin-block: 2.6rem 1.2rem;
+  }
+  .sr {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+  .users { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+  .users legend {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .user {
+    display: block; padding: 0.7rem 0.75rem;
+    border-top: 1px solid var(--hairline);
+    cursor: pointer;
+  }
+  .users .user:last-of-type { border-bottom: 1px solid var(--hairline); }
+  .user:has(:checked) { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+  .user input { accent-color: var(--ink); margin: 0 0.5rem 0 0; vertical-align: -1px; }
+  .user .who { font-family: var(--mono); font-size: 13.5px; }
+  .user .state {
+    display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: center;
+    margin: 0.3rem 0 0 1.45rem;
+    font-size: 12.5px; color: var(--gray);
+  }
+  .user .state .m { font-family: var(--mono); font-size: 11.5px; }
+  .tag {
+    font-family: var(--mono); font-size: 11px;
+    border: 1px solid var(--hairline); border-radius: 3px;
+    padding: 0 0.35em; color: var(--gray); white-space: nowrap;
+  }
+  .nojs { font-size: 12.5px; color: var(--gray); margin: 0.8rem 0 0; }
+
+  .pane {
+    border: 1px solid var(--hairline); border-radius: 4px;
+    overflow-x: auto; min-inline-size: 0;
+  }
+  .pane pre {
+    margin: 0; padding: 1rem 0; font-size: 13px; line-height: 1.55;
+    min-width: max-content;
+  }
+  .ln { display: block; padding-inline: 1.1rem; white-space: pre; }
+  .ln.sv { border-left: 2px solid var(--orange); padding-left: calc(1.1rem - 2px); }
+  .x-t { color: color-mix(in srgb, var(--ink) 62%, transparent); } /* tags & punctuation */
+  .x-c { color: var(--gray); }                                     /* comments */
+  .seal { color: var(--green); }
+  .v.flash { animation: flash 0.6s ease-out 1; }
+  @keyframes flash { from { background: var(--flash); } to { background: transparent; } }
+  .ln.in { animation: linein 0.18s ease-out backwards; }
+  @keyframes linein { from { opacity: 0; transform: translateY(4px); } }
+  #feedbody.out { opacity: 0; transition: opacity 0.12s ease-out; }
+  #feedbody { opacity: 1; transition: opacity 0.12s ease-out; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ln.in { animation: none; }
+    .v.flash { animation: none; background: var(--flash); }
+    #feedbody, #feedbody.out { transition: none; opacity: 1; }
+  }
+
+  /* ── the parts that bite ────────────────────────── */
+  .bite { border-left: 2px solid var(--amber); padding-left: 1.5rem; max-width: 46rem; }
+  .bite ul { list-style: none; margin: 0; padding: 0; }
+  .bite li { margin-block: 1.1rem; }
+  .bite b { color: var(--amber); font-weight: 600; }
+
+  /* ── footer ─────────────────────────────────────── */
+  footer.site { margin-top: clamp(5rem, 10vw, 8rem); border-top: 1px solid var(--hairline); padding-block: 2.6rem 2rem; }
+  .quickstart { font-family: var(--mono); font-size: 0.95rem; line-height: 1.9; margin: 0 0 2.2rem; overflow-x: auto; }
+  .quickstart .ann { color: var(--gray); font-size: 0.85em; }
+  .doclinks { display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; font-size: 14px; }
+
+  /* ── responsive ─────────────────────────────────── */
+  @media (max-width: 47.5rem) {
+    .demo { grid-template-columns: 1fr; }
+    .users { display: grid; grid-template-columns: 1fr 1fr; }
+    .user { border: 1px solid var(--hairline); margin: -1px 0 0 -1px; }
+    .users .user:last-of-type { border-bottom: 1px solid var(--hairline); }
+    .trio { grid-template-columns: 1fr; }
+    .trio > div { border-left: 0; padding: 0.9rem 0; border-top: 1px solid var(--hairline); }
+    .trio > div:first-child { border-top: 0; }
+    .ledger { grid-template-columns: 1fr; }
+    .ledger > div + div { border-left: 0; border-top: 1px solid var(--hairline); }
+    .specimen pre { white-space: pre-wrap; font-size: 0.92rem; }
+    .schema { grid-template-columns: 1fr; }
+    .carousel { grid-template-columns: 1fr; }
+    .schema .arr { padding: 0.7rem 0; }
+    .schema .arr .glyph { transform: rotate(90deg); }
+    .schema .cells { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="site">
+    <span class="brand">Alpha Gate</span>
+    <div class="hright">
+      <nav class="top">
+        <a href="https://github.com/alex-ivanov/alpha-gate/tree/main/docs">Docs</a>
+        <a href="https://github.com/alex-ivanov/alpha-gate">GitHub</a>
+      </nav>
+      <span class="seg" id="themeseg" role="group" aria-label="Page theme">
+        <button type="button" data-t="light" disabled>Light</button><button type="button" data-t="auto" class="on" disabled>Auto</button><button type="button" data-t="dark" disabled>Dark</button>
+      </span>
+    </div>
+  </header>
+
+  <main>
+
+  <div class="hero">
+    <h1>Sparkle hosting<br>on your own Cloudflare.</h1>
+    <p class="sub">Distribute your Mac app to a closed group of testers from your own Cloudflare
+      account. Every tester gets a private link, updates arrive through Sparkle, and you can
+      revoke access at any time. Setup is one command. The free tier is enough.</p>
+    <div class="cta">
+      <button class="cmdline" id="copycta" type="button">
+        <span class="cmd">npx alpha-gate deploy <span style="white-space:nowrap">--instance myalpha</span></span>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>
+        <span class="done" aria-live="polite" id="copydone"></span>
+      </button>
+      <a class="alt" href="https://github.com/alex-ivanov/alpha-gate">Read the source →</a>
+    </div>
+  </div>
+
+  <!-- ═══════════════ what it does ═══════════════ -->
+  <section aria-label="What it does">
+    <h2>What it does.</h2>
+    <div class="trio">
+      <div>
+        <span class="k">testers</span>
+        <h3>One link each</h3>
+        <p>One link covers the download, activation, and updates. You can revoke it at any
+          time, and restore it later.</p>
+      </div>
+      <div>
+        <span class="k">releases</span>
+        <h3>One command to publish</h3>
+        <p>Publish the notarized <code>.dmg</code> or <code>.zip</code> you just built.
+          Everyone on the channel gets it at their next check.</p>
+      </div>
+      <div>
+        <span class="k">oversight</span>
+        <h3>A back office</h3>
+        <p>Channels like beta and stable, pins, rollbacks, and who runs which build. Behind a
+          Cloudflare Access login.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ two commands ═══════════════ -->
+  <section aria-label="Set up once, ship in one command">
+    <h2>The whole workflow is two commands.</h2>
+
+    <div class="specimen">
+      <pre>npx alpha-gate deploy --instance myalpha
+<span class="ann">  └ sets up the database, storage, and both Workers in your account.
+    Safe to re-run. Needs no custom domain, DNS, or API token.</span>
+
+npx alpha-gate publish MyApp.dmg --channel beta
+<span class="ann">  └ reads the version from the app, signs the update on your Mac
+    (the key stays in your Keychain), and publishes it to the channel.</span>
+<span class="out">  → <span class="lockup">#1502 · v1.3.0-beta.2</span> live on beta</span></pre>
+    </div>
+
+    <p class="measure">If you’d rather not use the terminal, the back office has an upload page.
+      CI can publish too, with a service token.</p>
+  </section>
+
+
+  <!-- ═══════════════ the back office ═══════════════ -->
+  <section aria-label="Seeing who gets what">
+    <h2>Seeing who gets what.</h2>
+    <p>The back office, as it actually looks. These screenshots come from a local instance
+      with five testers and three builds.</p>
+
+    <div class="carousel" id="carousel">
+      <fieldset class="panel" id="slides">
+        <legend class="sr">Choose a back-office page</legend>
+        <label class="pitem"><input type="radio" name="slide" value="s1" checked disabled autocomplete="off">
+          <span class="t">The overview</span>
+          <span class="x">What each channel serves, who receives it, and anything that needs
+            attention, with the remedy one click away.</span></label>
+        <label class="pitem"><input type="radio" name="slide" value="s2" disabled autocomplete="off">
+          <span class="t">Testers</span>
+          <span class="x">Every tester’s next check, answered before their app asks: gets
+            <span class="lockup">#1502</span>, up to date, pinned, revoked, no channel yet.</span></label>
+        <label class="pitem"><input type="radio" name="slide" value="s3" disabled autocomplete="off">
+          <span class="t">Builds</span>
+          <span class="x">Every publish, with its channels, downloads, and update counts.
+            Withdraw a bad build or mark one critical from here.</span></label>
+        <label class="pitem"><input type="radio" name="slide" value="s4" disabled autocomplete="off">
+          <span class="t">Channels</span>
+          <span class="x">beta, stable, or whatever you name them. A channel serves its highest
+            linked build to everyone on it. Changes that would leave someone without updates
+            ask first.</span></label>
+        <label class="pitem"><input type="radio" name="slide" value="s5" disabled autocomplete="off">
+          <span class="t">Activity</span>
+          <span class="x">Every check, download, and update as it happens, filterable by
+            tester, event, and build.</span></label>
+        <label class="pitem"><input type="radio" name="slide" value="s6" disabled autocomplete="off">
+          <span class="t">Audit</span>
+          <span class="x">Every admin action in a hash-chained log: who did what and to whom,
+            and whether the chain still matches its anchor.</span></label>
+        <div class="shotswitch">
+          <span class="swlabel">screenshots</span>
+          <span class="seg" role="group" aria-label="Screenshot theme">
+            <button type="button" data-shots="light" disabled>Light</button><button type="button" data-shots="dark" disabled>Dark</button>
+          </span>
+        </div>
+      </fieldset>
+      <div class="slides">
+        <figure class="shot s1">
+          <img class="tl" src="shots/overview-light.png" alt="The overview page: a serving map showing the beta channel offering build 1502 to 1 user and stable offering build 1496 to 3 users with one pinned, an off-the-map row for one unrouted tester, a needs-attention note saying mia has no channel with an assign link, and a recent activity feed.">
+          <img class="td" src="shots/overview-dark.png" alt="The same overview page in dark theme.">
+        </figure>
+        <figure class="shot s2">
+          <img class="tl" src="shots/users-light.png" alt="The users page: a table of five testers showing each one's channel and next update check — ana gets build 1502, sam is up to date and pinned, leo is up to date, kai is not served while revoked, mia has no channel yet — with installed builds and last-seen times.">
+          <img class="td" src="shots/users-dark.png" alt="The same users page in dark theme.">
+        </figure>
+        <figure class="shot s3">
+          <img class="tl" src="shots/builds-light.png" alt="The builds page: three published builds — 1502 on beta, 1496 and 1487 on stable — with download and update counts, sizes, publish dates, and bulk actions to withdraw or mark critical.">
+          <img class="td" src="shots/builds-dark.png" alt="The same builds page in dark theme.">
+        </figure>
+        <figure class="shot s4">
+          <img class="tl" src="shots/channels-light.png" alt="The channels page: beta serving build 1502 to 1 user, stable serving build 1496 to 4 users, and a form to create another channel.">
+          <img class="td" src="shots/channels-dark.png" alt="The same channels page in dark theme.">
+        </figure>
+        <figure class="shot s5">
+          <img class="tl" src="shots/activity-light.png" alt="The activity page: a log of update checks, downloads, and one update, per tester with the build involved, filterable by user, event, and build.">
+          <img class="td" src="shots/activity-dark.png" alt="The same activity page in dark theme.">
+        </figure>
+        <figure class="shot s6">
+          <img class="tl" src="shots/audit-light.png" alt="The audit page: chain intact, 16 entries — every admin action with its actor, action, and target: channel creations, build uploads, tester invitations, a pin, and a revocation.">
+          <img class="td" src="shots/audit-dark.png" alt="The same audit page in dark theme.">
+        </figure>
+      </div>
+    </div>
+
+
+    <details class="feedpeek">
+    <summary>Live demo: the update feed each tester’s app would receive right now</summary>
+
+    <div class="demo">
+      <fieldset class="users" id="users">
+        <legend>Choose a tester to see their update feed</legend>
+        <label class="user"><input type="radio" name="u" value="ana" checked disabled autocomplete="off"><span class="who">ana@example.com</span>
+          <span class="state">channel <span class="m">beta</span></span></label>
+        <label class="user"><input type="radio" name="u" value="sam" disabled autocomplete="off"><span class="who">sam@example.com</span>
+          <span class="state">channel <span class="m">stable</span> <span class="tag">pinned #1487</span></span></label>
+        <label class="user"><input type="radio" name="u" value="kai" disabled autocomplete="off"><span class="who">kai@example.com</span>
+          <span class="state"><span class="tag">revoked</span></span></label>
+        <label class="user"><input type="radio" name="u" value="mia" disabled autocomplete="off"><span class="who">mia@example.com</span>
+          <span class="state">invited · no channel yet</span></label>
+        <noscript><p class="nojs">Enable JavaScript for the live demo — showing ana@’s feed.</p></noscript>
+      </fieldset>
+
+      <div class="pane">
+        <pre><span class="ln x-t">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span><span class="ln x-t">&lt;rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"&gt;</span><span class="ln x-t">  &lt;channel&gt;</span><span class="ln x-t">    &lt;title&gt;MyApp&lt;/title&gt;</span><span id="feedbody"><span class="ln x-c">    &lt;!-- generated <span class="v" data-k="ts">2026-07-12T00:41:03Z</span> for <span class="v" data-k="who">ana@example.com</span> --&gt;</span><span class="ln sv x-t">    &lt;item&gt;</span><span class="ln sv x-t">      &lt;title&gt;<span class="v" data-k="sver">1.3.0-beta.2</span>&lt;/title&gt;</span><span class="ln sv x-t">      &lt;sparkle:version&gt;<span class="v" data-k="ver">1502</span>&lt;/sparkle:version&gt;</span><span class="ln sv x-t">      &lt;sparkle:shortVersionString&gt;<span class="v" data-k="sver2">1.3.0-beta.2</span>&lt;/sparkle:shortVersionString&gt;</span><span class="ln sv x-t">      &lt;enclosure</span><span class="ln sv x-t">       url="https://alpha-gate-myalpha.acme.workers.dev/download?token=<span class="v" data-k="tok">9J7K2M4T…</span>&amp;amp;via=update"</span><span class="ln sv x-t">       length="<span class="v" data-k="len">48211457</span>"</span><span class="ln sv x-t">       type="application/octet-stream"</span><span class="ln sv x-t">       sparkle:edSignature="<span class="v" data-k="sig">mDp5Gv…J8wQ==</span>" /&gt;</span><span class="ln sv x-c">      &lt;!-- verified by Sparkle against your public key <span class="seal">✓</span> --&gt;</span><span class="ln sv x-t">    &lt;/item&gt;</span></span><span class="ln x-t">  &lt;/channel&gt;</span><span class="ln x-t">&lt;/rss&gt;</span></pre>
+      </div>
+      <p class="sr" role="status" id="feedstatus">Feed for ana@example.com: one update item, build 1502, version 1.3.0-beta.2.</p>
+    </div>
+
+    <p class="caption measure">The XML is what Sparkle reads, so don’t worry about the details.
+      Watch what happens instead: sam stays on the build you pinned him to, kai lost his access
+      so his app asks him to renew it, and mia isn’t on a channel yet, so her app just says
+      it’s up to date. None of them ever sees an error.</p>
+    </details>
+
+    <p class="chain">every admin action: 9f31c2 → 5b07aa → e91d44 → c2a871 → <span class="anchor">anchored</span></p>
+    <p class="measure">Everything you do in the back office is written to an audit log. The log
+      is hash-chained and anchored daily to storage that can’t be overwritten, so tampering
+      shows. If the login check fails for any reason, the request is rejected. A CI token can
+      only upload builds.</p>
+  </section>
+
+  <!-- ═══════════════ how it works ═══════════════ -->
+  <section aria-label="How it works">
+    <h2>How it works.</h2>
+
+    <div class="schema">
+      <div class="node">
+        <span class="k">your mac</span>
+        <p>You sign and notarize as usual. Publishing adds Sparkle’s update signature here.
+          No key ever leaves this Mac.</p>
+      </div>
+      <div class="arr" aria-hidden="true">signed build<span class="glyph">→</span></div>
+      <div class="node">
+        <span class="k">your cloudflare account</span>
+        <div class="cells">
+          <div><b>App Worker</b> public. Checks each token, serves downloads and update
+            feeds.</div>
+          <div><b>Admin Worker</b> the back office, behind Cloudflare Access.</div>
+          <div><b>D1 database</b> testers, tokens, builds, channels, the audit log.</div>
+          <div><b>R2 storage</b> the app archives.</div>
+        </div>
+      </div>
+      <div class="arr" aria-hidden="true">link · update checks<span class="glyph">←</span></div>
+      <div class="node">
+        <span class="k">your testers</span>
+        <p>Install from their link. The app updates itself through Sparkle. No accounts.</p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════ wiring it into your app ═══════════════ -->
+  <section aria-label="Wiring it into your app">
+    <h2>Wiring it into your app.</h2>
+    <p>Your Sparkle setup stays standard. The one difference: the feed URL carries the tester’s
+      token, so the app builds it at runtime. One delegate method:</p>
+
+    <div class="specimen">
+      <pre>func feedURLString(for updater: SPUUpdater) -&gt; String? {
+    guard let token = Keychain.token else { return nil }   <span class="ann">// not activated yet</span>
+    return "https://&lt;your-app-host&gt;/appcast?token=\(token)"
+}</pre>
+    </div>
+
+    <p class="measure">The token arrives when the tester clicks their link: it opens
+      <code>myapp://activate?token=…</code> through your app’s URL scheme, and you store it in
+      the Keychain. Keep a paste field on first launch for people who prefer to copy the key.
+      The token can’t ship inside the binary, because changing a notarized app breaks its
+      seal.</p>
+    <p class="measure">In Info.plist you add your Sparkle public key and the URL scheme, and
+      leave <code>SUFeedURL</code> unset, since there is no single feed. A second delegate
+      method can report the installed build number; that is what fills the who-runs-what table
+      in the back office.</p>
+    <p class="measure">If you revoke a tester, their next check shows a note asking them to
+      renew access. Reactivate them and updates resume, with no reinstall. The full checklist
+      is in <a href="https://github.com/alex-ivanov/alpha-gate/blob/main/docs/UPLOADING.md">the
+      uploading guide</a>.</p>
+  </section>
+
+  <!-- ═══════════════ ownership ═══════════════ -->
+  <section aria-label="Ownership">
+    <h2>You own all of it.</h2>
+    <p>This is the point of Alpha Gate. Your testers, your builds, and your signing keys stay
+      with you: the keys on your Mac, everything else in your Cloudflare account. Nothing is
+      shared with anyone, and there is nothing to subscribe to. It runs on Cloudflare’s free
+      <code>workers.dev</code> addresses out of the box, or behind your own domain if you’d
+      rather.</p>
+
+    <div class="ledger">
+      <div>
+        <h3>SIGNED ON YOUR MAC</h3>
+        <ul>
+          <li>Developer ID + notarization</li>
+          <li>Sparkle’s update signature — <code>sign_update</code></li>
+          <li>The private key, in your login Keychain</li>
+        </ul>
+      </div>
+      <div>
+        <h3>STORED ON CLOUDFLARE</h3>
+        <ul>
+          <li>The app archives</li>
+          <li>One fixed signature string per archive</li>
+          <li class="nothing">…and nothing else. The server never signs.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="crossing">what crosses the boundary: archive bytes + one signature string — produced at publish time, on your machine</p>
+
+    <p class="facts">backup = one SQL file <span>·</span> teardown = one command <span>·</span> many isolated instances per account</p>
+    <p class="measure" style="margin-top:1.2rem">One command backs everything up as a single
+      SQL file. Teardown archives the database first, then removes it all and tells you about
+      the two steps that still need the Cloudflare dashboard.</p>
+  </section>
+
+
+  <!-- ═══════════════ trade-offs ═══════════════ -->
+  <section aria-label="Trade-offs">
+    <h2>Trade-offs.</h2>
+    <div class="bite">
+      <ul>
+        <li><b>Sparkle can’t downgrade.</b> That’s Sparkle’s own rule, so a rollback is a
+          re-release: the old version published with a higher build number.</li>
+        <li><b>The token travels in URLs,</b> so it shows up in Cloudflare’s request logs.
+          It’s a URL because that’s what a browser and a stock Sparkle app can open without
+          extra code. Unknown tokens get a plain 404, and the landing page sends no
+          referrer.</li>
+        <li><b>The update feed isn’t signed.</b> Signing each tester’s feed would require
+          keeping the key on the server. Each archive is signed instead, and that’s what stops
+          tampered downloads.</li>
+        <li><b>Your Cloudflare account can read everything.</b> That’s how Cloudflare works:
+          the dashboard can always read its own databases, live tokens included. Use a
+          dedicated account if that matters to you.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ═══════════════ the code ═══════════════ -->
+  <section aria-label="The code">
+    <h2>Open source.</h2>
+    <p class="measure">The code is on GitHub. It’s a small TypeScript project: two Workers, a
+      deploy CLI, and a test suite that runs offline, so developing needs no Cloudflare
+      account. Issues and pull requests are welcome.</p>
+    <p><a href="https://github.com/alex-ivanov/alpha-gate">github.com/alex-ivanov/alpha-gate →</a></p>
+  </section>
+
+  </main>
+
+  <footer class="site">
+    <pre class="quickstart">npx wrangler login                          <span class="ann"># once, interactive</span>
+npx alpha-gate deploy --instance myalpha    <span class="ann"># provision + deploy, idempotent</span>
+npx alpha-gate publish MyApp.dmg --channel beta</pre>
+
+    <nav class="doclinks">
+      <a href="https://github.com/alex-ivanov/alpha-gate/blob/main/docs/ONBOARDING.md">Onboarding</a>
+      <a href="https://github.com/alex-ivanov/alpha-gate/blob/main/docs/UPLOADING.md">Uploading</a>
+      <a href="https://github.com/alex-ivanov/alpha-gate/blob/main/docs/PRINCIPLES.md">Principles</a>
+      <a href="https://github.com/alex-ivanov/alpha-gate/blob/main/CONTRIBUTING.md">Contributing</a>
+    </nav>
+
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── feed states: arrays of {id, sv?, c?, h} — h is the line's innerHTML (pre-escaped) ──
+  var HOST = "https://alpha-gate-myalpha.acme.workers.dev";
+
+  function genLine(who) {
+    return { id: "gen", h: '    &lt;!-- generated <span class="v" data-k="ts">' + new Date().toISOString().replace(/\.\d+Z$/, "Z") + '</span> for <span class="v" data-k="who">' + who + '</span> --&gt;', c: true };
+  }
+
+  function updateItem(o) {
+    return [
+      { id: "i0", sv: true, h: '    &lt;item&gt;' },
+      { id: "i1", sv: true, h: '      &lt;title&gt;<span class="v" data-k="sver">' + o.sver + '</span>&lt;/title&gt;' },
+      { id: "i2", sv: true, h: '      &lt;sparkle:version&gt;<span class="v" data-k="ver">' + o.ver + '</span>&lt;/sparkle:version&gt;' },
+      { id: "i3", sv: true, h: '      &lt;sparkle:shortVersionString&gt;<span class="v" data-k="sver2">' + o.sver + '</span>&lt;/sparkle:shortVersionString&gt;' },
+      { id: "i4", sv: true, h: '      &lt;enclosure' },
+      { id: "i5", sv: true, h: '       url="' + HOST + '/download?token=<span class="v" data-k="tok">' + o.tok + '</span>&amp;amp;via=update"' },
+      { id: "i6", sv: true, h: '       length="<span class="v" data-k="len">' + o.len + '</span>"' },
+      { id: "i7", sv: true, h: '       type="application/octet-stream"' },
+      { id: "i8", sv: true, h: '       sparkle:edSignature="<span class="v" data-k="sig">' + o.sig + '</span>" /&gt;' },
+      { id: "seal", sv: true, c: true, h: '      &lt;!-- verified by Sparkle against your public key <span class="seal">✓</span> --&gt;' },
+      { id: "i9", sv: true, h: '    &lt;/item&gt;' }
+    ];
+  }
+
+  var STATES = {
+    ana: function () {
+      return [genLine("ana@example.com")].concat(updateItem({
+        sver: "1.3.0-beta.2", ver: "1502", tok: "9J7K2M4T…", len: "48211457", sig: "mDp5Gv…J8wQ=="
+      }));
+    },
+    sam: function () {
+      return [genLine("sam@example.com"),
+        { id: "pin", c: true, h: '    &lt;!-- pinned #1487 — below stable&apos;s top #1496 --&gt;' }
+      ].concat(updateItem({
+        sver: "1.2.0", ver: "1487", tok: "C4XR8T2N…", len: "47990102", sig: "Qk9rWf…T2xA=="
+      }));
+    },
+    kai: function () {
+      return [genLine("kai@example.com"),
+        { id: "i0", h: '    &lt;item&gt;' },
+        { id: "n1", h: '      &lt;title&gt;Reactivate your access&lt;/title&gt;' },
+        { id: "n2", h: '      &lt;description&gt;&lt;![CDATA[&lt;p&gt;Your access to MyApp has expired or been revoked, so updates are paused. Open your access page to get a new activation link.&lt;/p&gt;]]&gt;&lt;/description&gt;' },
+        { id: "i2", h: '      &lt;sparkle:version&gt;<span class="v" data-k="ver">999000000</span>&lt;/sparkle:version&gt;' },
+        { id: "i3", h: '      &lt;sparkle:shortVersionString&gt;<span class="v" data-k="sver2">Access renewal</span>&lt;/sparkle:shortVersionString&gt;' },
+        { id: "n5", h: '      &lt;sparkle:informationalUpdate&gt;&lt;/sparkle:informationalUpdate&gt;' },
+        { id: "n6", h: '      &lt;link&gt;' + HOST + '/access&lt;/link&gt;' },
+        { id: "i9", h: '    &lt;/item&gt;' },
+        { id: "noe", c: true, h: '    &lt;!-- no enclosure — never installable --&gt;' }
+      ];
+    },
+    mia: function () {
+      return [genLine("mia@example.com"),
+        { id: "m1", c: true, h: '    &lt;!-- no channel assigned — nothing to serve --&gt;' },
+        { id: "m2", c: true, h: '    &lt;!-- empty feed: Sparkle reports &quot;up to date&quot; --&gt;' }
+      ];
+    }
+  };
+
+  var SUMMARY = {
+    ana: "Feed for ana@example.com: one update item, build 1502, version 1.3.0-beta.2.",
+    sam: "Feed for sam@example.com: one update item, build 1487, version 1.2.0, pinned below the channel top.",
+    kai: "Feed for kai@example.com: a reactivation notice, no installable update.",
+    mia: "Feed for mia@example.com: empty — Sparkle reports up to date."
+  };
+
+  var body = document.getElementById("feedbody");
+  var status = document.getElementById("feedstatus");
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var swapTimer = null;
+
+  function valuesOf(root) {
+    var map = {};
+    root.querySelectorAll(".v").forEach(function (el) { map[el.getAttribute("data-k")] = el.textContent; });
+    return map;
+  }
+
+  function render(key) {
+    var prev = valuesOf(body);
+    var lines = STATES[key]();
+    var html = lines.map(function (l) {
+      var cls = "ln" + (l.sv ? " sv" : "") + (l.c ? " x-c" : " x-t");
+      return '<span class="' + cls + '" data-id="' + l.id + '">' + l.h + "</span>";
+    }).join("");
+
+    function swap() {
+      body.innerHTML = html;
+      // diff-flash values that changed (or are new) relative to the previous state
+      body.querySelectorAll(".v").forEach(function (el) {
+        var k = el.getAttribute("data-k");
+        if (prev[k] === undefined || prev[k] !== el.textContent) { el.classList.add("flash"); }
+      });
+      if (!reduced.matches) {
+        body.querySelectorAll(".ln").forEach(function (el, i) {
+          el.classList.add("in");
+          el.style.animationDelay = Math.min(i, 4) * 0.12 + "s";
+        });
+      }
+      body.classList.remove("out");
+      if (status) { status.textContent = SUMMARY[key]; }
+    }
+
+    if (swapTimer) { clearTimeout(swapTimer); swapTimer = null; }
+    if (reduced.matches) { swap(); return; }
+    body.classList.add("out");
+    swapTimer = setTimeout(swap, 120);
+  }
+
+  // enable the radios (disabled without JS) and wire changes
+  var radios = document.querySelectorAll('#users input[type="radio"]');
+  radios.forEach(function (r) {
+    r.disabled = false;
+    r.addEventListener("change", function () { if (r.checked) { render(r.value); } });
+  });
+
+  // if the browser restored a non-default selection (back/forward cache), sync the pane to it
+  var restored = document.querySelector('#users input[name="u"]:checked');
+  if (restored && restored.value !== "ana") {
+    render(restored.value);
+  } else {
+    // freshen the pre-rendered timestamp so "generated per request" is true on load
+    var ts = body.querySelector('.v[data-k="ts"]');
+    if (ts) { ts.textContent = new Date().toISOString().replace(/\.\d+Z$/, "Z"); }
+  }
+
+  // ── copy CTA ──
+  var cta = document.getElementById("copycta");
+  var done = document.getElementById("copydone");
+  var timer = null;
+  function say(msg) {
+    done.textContent = msg;
+    if (timer) { clearTimeout(timer); }
+    timer = setTimeout(function () { done.textContent = ""; }, 1800);
+  }
+  function copyFallback(cmd) {
+    var ta = document.createElement("textarea");
+    ta.value = cmd;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    var okd = false;
+    try { okd = document.execCommand("copy"); } catch (e) { okd = false; }
+    document.body.removeChild(ta);
+    say(okd ? "copied" : "select the command and copy it");
+  }
+  cta.addEventListener("click", function () {
+    var cmd = "npx alpha-gate deploy --instance myalpha";
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(cmd).then(function () { say("copied"); }, function () { copyFallback(cmd); });
+    } else { copyFallback(cmd); }
+  });
+
+  // ── page theme toggle (header) ──
+  var seg = document.getElementById("themeseg");
+  function markSeg(v) {
+    seg.querySelectorAll("button").forEach(function (o) {
+      o.classList.toggle("on", o.getAttribute("data-t") === v);
+    });
+  }
+  seg.querySelectorAll("button").forEach(function (b) {
+    b.disabled = false;
+    b.addEventListener("click", function () {
+      var v = b.getAttribute("data-t");
+      if (v === "auto") { delete document.documentElement.dataset.theme; }
+      else { document.documentElement.dataset.theme = v; }
+      markSeg(v);
+      try {
+        if (v === "auto") { localStorage.removeItem("ag-theme"); }
+        else { localStorage.setItem("ag-theme", v); }
+      } catch (e) { /* storage unavailable */ }
+    });
+  });
+  try {
+    var saved = localStorage.getItem("ag-theme");
+    if (saved === "light" || saved === "dark") {
+      document.documentElement.dataset.theme = saved;
+      markSeg(saved);
+    }
+  } catch (e) { /* storage unavailable */ }
+
+  // ── screenshot carousel: enable the slide radios; wire the screenshot-theme switch ──
+  document.querySelectorAll('#slides input[type="radio"]').forEach(function (r) { r.disabled = false; });
+  var car = document.getElementById("carousel");
+  car.querySelectorAll(".shotswitch button").forEach(function (b) {
+    b.disabled = false;
+    b.addEventListener("click", function () {
+      var v = b.getAttribute("data-shots");
+      if (car.getAttribute("data-shots") === v) {
+        car.removeAttribute("data-shots");           // second click: follow the page theme again
+        b.classList.remove("on");
+      } else {
+        car.setAttribute("data-shots", v);
+        car.querySelectorAll(".shotswitch button").forEach(function (o) { o.classList.toggle("on", o === b); });
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
