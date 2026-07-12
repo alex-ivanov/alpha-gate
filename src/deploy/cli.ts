@@ -1,5 +1,4 @@
-import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,26 +17,35 @@ import { createWrangler } from "./seams/wrangler";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, "../.."); // repo root (src/deploy → ../../)
 
-// The self-update manifest the daily cron polls. Derived from THIS checkout's git origin so every
-// fork self-points with zero config (a fork's own release.json is what its instances should check);
-// $UPDATE_MANIFEST_URL overrides. Falls back to the canonical upstream when origin can't be read.
-const CANONICAL_MANIFEST =
-  "https://raw.githubusercontent.com/alex-ivanov/alpha-gate/main/release.json";
-
-function manifestFromGitOrigin(): string {
-  if (process.env.UPDATE_MANIFEST_URL) return process.env.UPDATE_MANIFEST_URL;
+// The self-update manifest the daily cron polls: the npm registry's `/latest` endpoint for THIS
+// package, so the deployed Worker's banner tracks whatever version is published to npm. Derived from
+// package.json's `name`; $UPDATE_MANIFEST_URL overrides (e.g. to point at a fork's own package or a
+// static release.json). Until the package is published to npm, the fetch just 404s and the banner
+// stays quiet — a graceful no-op, same as before.
+function readPkg(): { name?: string; version?: string } {
   try {
-    const url = execFileSync("git", ["-C", ROOT, "remote", "get-url", "origin"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    // Accept git@github.com:owner/repo.git and https://github.com/owner/repo(.git)
-    const m = /github\.com[:/]([^/]+)\/(.+?)(?:\.git)?$/.exec(url);
-    if (m) return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/main/release.json`;
+    return JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8"));
   } catch {
-    // no git, no origin, or not a github remote — fall through
+    return {};
   }
-  return CANONICAL_MANIFEST;
+}
+
+function npmManifestUrl(): string {
+  if (process.env.UPDATE_MANIFEST_URL) return process.env.UPDATE_MANIFEST_URL;
+  const name = readPkg().name ?? "alpha-gate";
+  return `https://registry.npmjs.org/${name}/latest`;
+}
+
+// TOOL_VERSION baked into the deployed Worker = the version that deployed it, so the banner compares
+// like-for-like against npm's latest. package.json is the npm source of truth; VERSION is the fallback.
+function toolVersion(): string {
+  const fromPkg = readPkg().version;
+  if (typeof fromPkg === "string" && fromPkg.length > 0) return fromPkg;
+  try {
+    return readFileSync(path.join(ROOT, "VERSION"), "utf8").trim();
+  } catch {
+    return "0.0.0";
+  }
 }
 
 const HELP: Record<string, string> = {
@@ -126,14 +134,11 @@ async function main(): Promise<number> {
   }
 
   if (command === "deploy") {
-    const toolVersion = (
-      await readFile(path.join(ROOT, "VERSION"), "utf8").catch(() => "0.0.0")
-    ).trim();
     const nodeMajor = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
     const env: DeployEnv = {
       ...shared(rest),
-      toolVersion,
-      updateManifestUrl: manifestFromGitOrigin(),
+      toolVersion: toolVersion(),
+      updateManifestUrl: npmManifestUrl(),
       nodeMajor,
       probeAccess,
     };
@@ -146,13 +151,10 @@ async function main(): Promise<number> {
   }
 
   if (command === "dev") {
-    const toolVersion = (
-      await readFile(path.join(ROOT, "VERSION"), "utf8").catch(() => "0.0.0")
-    ).trim();
     const env: DevEnv = {
       ...shared(rest),
-      toolVersion,
-      updateManifestUrl: manifestFromGitOrigin(),
+      toolVersion: toolVersion(),
+      updateManifestUrl: npmManifestUrl(),
       portInUse,
     };
     return runDev(rest, env);

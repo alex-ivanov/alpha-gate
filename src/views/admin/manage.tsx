@@ -930,7 +930,7 @@ export const SettingsPage: FC<{
                   kind="warn"
                   label={`${info.selfUpdate.latest} available${info.selfUpdate.breaking ? " (breaking)" : ""}`}
                 />{" "}
-                — re-run deploy.sh
+                — update and re-deploy
                 {info.selfUpdate.notesUrl ? (
                   <>
                     {" "}

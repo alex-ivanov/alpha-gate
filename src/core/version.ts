@@ -1,13 +1,30 @@
 // §22 self-update version logic. Pure: the manifest is passed in (the fetch lives in
 // services/self-update). The manifest is untrusted input from an upstream URL, so isUpdateAvailable
 // is defensive — it never throws and defaults to "no update" on anything malformed.
+//
+// Two manifest shapes are accepted so the check works against the npm registry OR a static file:
+//   - npm's registry `/latest` endpoint returns the published package.json: { version, homepage,
+//     alphaGate? }. The upgrade signals (breaking / min-supported / notes) ride in a custom
+//     `alphaGate` field, which npm preserves in the version manifest.
+//   - the legacy static release.json: { latest, min_supported, notes_url, breaking }.
 
-/** The upstream release manifest shape (§22, decision 0004). Extra keys are tolerated. */
+/** The upstream release manifest — either npm's `/latest` response or a static release.json. */
 export interface UpdateManifest {
-  latest: string;
+  /** Static release.json: the latest version string. */
+  latest?: string;
+  /** npm registry `/latest`: the published version. */
+  version?: string;
   min_supported?: string;
   notes_url?: string;
   breaking?: boolean;
+  /** npm package.json `homepage` — a notes-URL fallback for the npm channel. */
+  homepage?: string;
+  /** Upgrade signals carried through npm (a custom package.json field npm preserves). */
+  alphaGate?: {
+    minSupported?: string;
+    breaking?: boolean;
+    notesUrl?: string;
+  };
 }
 
 export interface UpdateStatus {
@@ -65,16 +82,32 @@ export function isUpdateAvailable(toolVersion: string, manifest: UpdateManifest)
   };
 
   if (typeof manifest !== "object" || manifest === null) return noUpdate;
-  const latest = (manifest as { latest?: unknown }).latest;
-  if (typeof latest !== "string" || latest.length === 0) return noUpdate;
+  // The latest version: release.json's `latest`, else npm's `version`.
+  const latestRaw = manifest.latest ?? manifest.version;
+  if (typeof latestRaw !== "string" || latestRaw.length === 0) return noUpdate;
+  const latest = latestRaw;
 
-  const minSupported = typeof manifest.min_supported === "string" ? manifest.min_supported : null;
+  const ag = manifest.alphaGate;
+  const minSupported =
+    typeof manifest.min_supported === "string"
+      ? manifest.min_supported
+      : typeof ag?.minSupported === "string"
+        ? ag.minSupported
+        : null;
+  const notesUrl =
+    typeof manifest.notes_url === "string"
+      ? manifest.notes_url
+      : typeof ag?.notesUrl === "string"
+        ? ag.notesUrl
+        : typeof manifest.homepage === "string"
+          ? manifest.homepage
+          : null;
 
   return {
     available: compareVersion(latest, toolVersion) > 0,
-    breaking: manifest.breaking === true,
+    breaking: manifest.breaking === true || ag?.breaking === true,
     belowMinSupported: minSupported !== null && compareVersion(toolVersion, minSupported) < 0,
     latest,
-    notesUrl: typeof manifest.notes_url === "string" ? manifest.notes_url : null,
+    notesUrl,
   };
 }

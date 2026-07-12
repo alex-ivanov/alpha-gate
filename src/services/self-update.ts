@@ -43,7 +43,7 @@ export async function checkSelfUpdate(deps: Deps, opts: SelfUpdateOptions): Prom
         subject: `Alpha Gate ${status.latest} is available`,
         body: `A newer Alpha Gate (${status.latest}) is available${
           status.breaking ? " — note: breaking changes" : ""
-        }.${notes !== null ? ` Release notes: ${notes}.` : ""} Re-run deploy.sh to update.`,
+        }.${notes !== null ? ` Release notes: ${notes}.` : ""} Update Alpha Gate (git pull or npx alpha-gate@latest) and re-run deploy.`,
       });
       await meta.set(deps.db, "last_notified_version", status.latest);
     }

@@ -178,8 +178,8 @@ export const OverviewPage: FC<{ data: Dashboard; now: string; chrome: Chrome }> 
       title: <>Alpha Gate {data.selfUpdate.latest} is available</>,
       body: (
         <>
-          {data.selfUpdate.breaking ? "Includes breaking changes. " : ""}Re-run deploy.sh to update
-          this instance.
+          {data.selfUpdate.breaking ? "Includes breaking changes. " : ""}Update Alpha Gate (git
+          pull, or npx alpha-gate@latest) and re-deploy this instance.
           {data.selfUpdate.notesUrl ? (
             <>
               {" "}

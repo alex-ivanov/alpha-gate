@@ -51,7 +51,27 @@ describe("isUpdateAvailable", () => {
     expect(isUpdateAvailable("1.2.0", { latest: 123 }).available).toBe(false);
     // @ts-expect-error manifest must be an object
     expect(isUpdateAvailable("1.2.0", null).available).toBe(false);
-    // @ts-expect-error latest is required
-    expect(isUpdateAvailable("1.2.0", {}).available).toBe(false);
+    expect(isUpdateAvailable("1.2.0", {}).available).toBe(false); // neither latest nor version
+  });
+
+  it("reads npm's registry shape: `version` + the alphaGate signals + homepage fallback", () => {
+    // What registry.npmjs.org/<pkg>/latest returns: the published package.json.
+    const npmManifest = {
+      version: "1.4.0",
+      homepage: "https://github.com/x/alpha-gate/blob/main/CHANGELOG.md",
+      alphaGate: { minSupported: "1.2.0", breaking: true },
+    };
+    const status = isUpdateAvailable("1.3.0", npmManifest);
+    expect(status.available).toBe(true);
+    expect(status.latest).toBe("1.4.0");
+    expect(status.breaking).toBe(true); // from alphaGate.breaking
+    expect(status.notesUrl).toBe("https://github.com/x/alpha-gate/blob/main/CHANGELOG.md"); // homepage
+    expect(isUpdateAvailable("1.1.0", npmManifest).belowMinSupported).toBe(true); // alphaGate.minSupported
+  });
+
+  it("still reads the legacy static release.json shape (`latest`)", () => {
+    const status = isUpdateAvailable("1.2.0", { latest: "1.5.0", breaking: false });
+    expect(status.available).toBe(true);
+    expect(status.latest).toBe("1.5.0");
   });
 });
