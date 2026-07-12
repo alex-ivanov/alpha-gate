@@ -247,6 +247,27 @@ describe("channel delete + request handling", () => {
     expect(await accessRequests.listByStatus(deps.db, "pending")).toHaveLength(0); // both handled
   });
 
+  it("theme toggle: sets the cookie, returns whence toggled, and the page renders it", async () => {
+    const res = await postAdmin("/admin/theme", { value: "dark", return_to: "/admin/users" });
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/admin/users");
+    const cookie = res.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain("theme=dark");
+
+    const page = await adminWorker(access).request("/admin/users", {
+      headers: { "Cf-Access-Jwt-Assertion": await userToken(), Cookie: "theme=dark" },
+    });
+    expect(await page.text()).toContain('<html lang="en" data-theme="dark">');
+
+    // "system" clears the override — back to following the OS.
+    const clear = await postAdmin("/admin/theme", { value: "system" });
+    expect(clear.headers.get("set-cookie") ?? "").toMatch(/theme=;|Max-Age=0/);
+    // A garbage value changes nothing.
+    expect((await postAdmin("/admin/theme", { value: "blink" })).status).toBe(400);
+    // No audit rows for a UI preference.
+    expect((await listInOrder(deps.db)).some((r) => r.action.startsWith("theme"))).toBe(false);
+  });
+
   it("no-op re-withdraw of an already-withdrawn build writes no second audit row", async () => {
     const { build } = await seedServableClient(deps);
     await postAdmin(`/admin/builds/${build.id}/withdraw`, { confirm: "true" });

@@ -1,3 +1,4 @@
+import { getCookie } from "hono/cookie";
 import type { AccessEvent } from "../../core/types";
 import { adminToAppOrigin, inviteUrl } from "../../lib/hosts";
 import { emailStatus } from "../../services/email";
@@ -46,10 +47,13 @@ import {
 // the shared chrome (flash notice, instance slug, pending-requests chip) and the clock's now.
 
 async function chromeFor(c: AdminContext): Promise<Chrome> {
+  const theme = getCookie(c, "theme");
   return {
     notice: flashMessage(c),
     instance: c.env?.INSTANCE,
     pending: await loadPendingCount(c.get("deps")),
+    theme: theme === "light" || theme === "dark" ? theme : undefined,
+    path: c.req.path,
   };
 }
 

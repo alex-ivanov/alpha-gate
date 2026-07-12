@@ -5,7 +5,25 @@ import { TABLE_ENHANCE_SCRIPT } from "./table-enhance";
 // strict type hierarchy, color spent almost exclusively on state, mono only where data is machine-ish
 // (build numbers, tokens, channels, timestamps). No cards, no shadows; elevation is two hairline
 // weights. The serving map (dashboard) is the one decorated object; everything else is restraint.
-// Pure JSX over props; light + dark from one token set via prefers-color-scheme.
+// Pure JSX over props; light + dark from one token set. Theme follows the OS by default, with a
+// per-operator override (the sidebar toggle → a `theme` cookie → data-theme on <html>).
+
+// The dark rules exist ONCE and apply two ways: under prefers-color-scheme when the operator hasn't
+// forced light, and unconditionally under a forced data-theme="dark". `root` is the selector prefix.
+const darkRules = (root: string) => `
+${root}{color-scheme:dark;
+  --paper:#202126; --pane:#1a1b1f; --inset:#27282e;
+  --ink:#e9eaee; --ink2:#b1b3ba; --ink3:#8f9199;
+  --line:#33343b; --line2:#4a4b53;
+  --accent:#5cc6d8; --accent-ink:#0b262c; --accent-weak:#173237;
+  --ok:#5dbd72; --ok-dot:#3fa85c; --ok-weak:#15251a;
+  --warn:#d9a521; --warn-dot:#c69026; --warn-weak:#2b2310;
+  --danger:#f38175; --danger-dot:#e05d51; --danger-weak:#331a17;
+  --crit-bg:#f38175; --crit-ink:#33100b;
+}
+${root} pre{background:#141519;border:1px solid var(--line)}
+${root} .btn-danger{color:#2a0f0b}
+`;
 
 const styles = `
 *{margin:0;padding:0;box-sizing:border-box}
@@ -22,16 +40,9 @@ const styles = `
   --danger:#b42318; --danger-dot:#d6493e; --danger-weak:#fdecec;
   --crit-bg:#b42318; --crit-ink:#ffffff;
 }
-@media (prefers-color-scheme:dark){:root{
-  --paper:#202126; --pane:#1a1b1f; --inset:#27282e;
-  --ink:#e9eaee; --ink2:#b1b3ba; --ink3:#8f9199;
-  --line:#33343b; --line2:#4a4b53;
-  --accent:#5cc6d8; --accent-ink:#0b262c; --accent-weak:#173237;
-  --ok:#5dbd72; --ok-dot:#3fa85c; --ok-weak:#15251a;
-  --warn:#d9a521; --warn-dot:#c69026; --warn-weak:#2b2310;
-  --danger:#f38175; --danger-dot:#e05d51; --danger-weak:#331a17;
-  --crit-bg:#f38175; --crit-ink:#33100b;
-}}
+:root[data-theme=light]{color-scheme:light}
+@media (prefers-color-scheme:dark){${darkRules(":root:not([data-theme=light])")}}
+${darkRules(":root[data-theme=dark]")}
 body{display:flex;min-height:100vh;background:var(--paper);color:var(--ink);
   font:13px/1.5 var(--sans);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 ::selection{background:var(--accent-weak)}
@@ -64,6 +75,12 @@ nav.primary a[aria-current]::before{content:"";position:absolute;left:-8px;top:6
   width:2px;border-radius:2px;background:var(--accent)}
 .chip{margin-left:auto;font:600 10.5px var(--mono);color:var(--warn);
   background:var(--warn-weak);padding:1px 6px;border-radius:999px}
+.theme{margin-top:auto;display:flex;border:1px solid var(--line2);border-radius:5px;overflow:hidden}
+.theme button{flex:1;font:500 10.5px var(--sans);padding:4px 0;border:none;border-radius:0;
+  background:transparent;color:var(--ink3);cursor:pointer}
+.theme button+button{border-left:1px solid var(--line2)}
+.theme button:hover{color:var(--ink);background:var(--inset)}
+.theme button[aria-pressed=true]{background:var(--inset);color:var(--ink);font-weight:600}
 
 /* ————— main + page head ————— */
 main{flex:1;min-width:0;max-width:1180px;padding:26px 36px 56px}
@@ -183,7 +200,6 @@ button:hover,.btn:hover{background:var(--inset)}
 .btn-primary:hover{background:var(--accent);filter:brightness(1.06)}
 .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
 .btn-danger:hover{background:var(--danger);filter:brightness(1.06)}
-@media (prefers-color-scheme:dark){.btn-danger{color:#2a0f0b}}
 .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
 
 /* ————— labeled form fields ————— */
@@ -225,7 +241,6 @@ fieldset legend{font:600 10.5px var(--sans);letter-spacing:.1em;text-transform:u
 code{font-family:var(--mono);font-size:.92em}
 pre{background:#17181c;color:#e9eaee;padding:12px 14px;border-radius:8px;overflow-x:auto;
   font-size:11.5px;line-height:1.6;margin-top:10px}
-@media (prefers-color-scheme:dark){pre{background:#141519;border:1px solid var(--line)}}
 pre code{font-size:inherit}
 
 /* ————— serving map (signature) ————— */
@@ -365,7 +380,16 @@ export interface Chrome {
   instance?: string | undefined;
   /** Pending access requests → the amber chip on the Requests nav item. */
   pending?: number | undefined;
+  /** The operator's theme override (the `theme` cookie); undefined = follow the OS. */
+  theme?: "light" | "dark" | undefined;
+  /** The current path — where the theme toggle returns to after its POST. */
+  path?: string | undefined;
 }
+
+// Applies the theme cookie before first paint, so pages rendered WITHOUT chrome (confirmations,
+// invite results) still honor the override. The server-rendered data-theme covers the JS-off case
+// on every page that threads chrome. Hand-written string — keep it free of outer references.
+const THEME_SCRIPT = `(function(){var m=document.cookie.match(/(?:^|; )theme=(dark|light)(?:;|$)/);if(m)document.documentElement.setAttribute("data-theme",m[1]);})();`;
 
 export const AdminLayout: FC<{
   title: string;
@@ -378,9 +402,10 @@ export const AdminLayout: FC<{
   notice?: string | null | undefined;
   children?: Child;
 }> = ({ title, chrome, head, crumb, notice, children }) => (
-  <html lang="en">
+  <html lang="en" data-theme={chrome?.theme}>
     <head>
       <meta charset="utf-8" />
+      <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>{title} · Alpha Gate</title>
       <link rel="icon" href={FAVICON} />
@@ -421,6 +446,19 @@ export const AdminLayout: FC<{
             </div>
           ))}
         </nav>
+        <form method="post" action="/admin/theme" class="theme" aria-label="Theme">
+          <input type="hidden" name="return_to" value={chrome?.path ?? "/admin"} />
+          {(["light", "system", "dark"] as const).map((value) => (
+            <button
+              type="submit"
+              name="value"
+              value={value}
+              aria-pressed={(chrome?.theme ?? "system") === value ? "true" : "false"}
+            >
+              {value === "light" ? "Light" : value === "dark" ? "Dark" : "System"}
+            </button>
+          ))}
+        </form>
       </aside>
       <main id="main">
         {crumb ? <p class="crumb">{crumb}</p> : null}

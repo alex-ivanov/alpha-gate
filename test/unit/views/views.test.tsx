@@ -125,6 +125,29 @@ describe("AdminLayout (design-system chrome)", () => {
     expect(html).toContain('role="status"');
     expect(html).toContain("Revoked x@y.");
   });
+
+  it("ships the three-state theme toggle and honors a forced theme", () => {
+    const system = render();
+    expect(system).toContain('action="/admin/theme"'); // the toggle posts (works JS-off)
+    for (const v of ["light", "system", "dark"]) expect(system).toContain(`value="${v}"`);
+    expect(system).toContain('<html lang="en">'); // no data-theme attr → follow the OS
+    // System is the active segment by default.
+    expect(system).toMatch(/value="system"[^>]*aria-pressed="true"/);
+
+    const dark = renderPage(
+      <AdminLayout title="Users" chrome={{ theme: "dark", path: "/admin/users" }}>
+        <p>content</p>
+      </AdminLayout>,
+    );
+    expect(dark).toContain('<html lang="en" data-theme="dark">'); // server-rendered (JS-off safe)
+    expect(dark).toMatch(/value="dark"[^>]*aria-pressed="true"/);
+    expect(dark).toContain('name="return_to" value="/admin/users"'); // returns whence toggled
+    // Forced-dark selector + forced-light color-scheme both exist in the sheet.
+    expect(dark).toContain(":root[data-theme=dark]");
+    expect(dark).toContain(":root[data-theme=light]{color-scheme:light}");
+    // The pre-paint script covers chrome-less pages (confirmations, invite results).
+    expect(dark).toContain("document.cookie.match");
+  });
 });
 
 describe("NotFoundPage", () => {

@@ -27,6 +27,7 @@ import {
 import { adminAuth } from "./middleware";
 import { dismissPending, invitePending } from "./pending";
 import { createStream, deleteStream } from "./streams";
+import { setTheme } from "./theme";
 import { registerBuild, uploadBuild } from "./upload";
 import {
   activityView,
@@ -71,6 +72,9 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   app.get("/admin/settings", settingsView);
   app.get("/admin/activity", activityView);
   app.get("/admin/audit", auditView);
+
+  // UI preference (theme toggle) — human only, not audited (no domain change)
+  app.post("/admin/theme", setTheme);
 
   // Channel mutations (§13)
   app.post("/admin/streams", createStream);

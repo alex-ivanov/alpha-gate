@@ -129,6 +129,9 @@ The admin UI follows a few durable rules ("quiet instrument"), so changes should
   `assessChain` judgment the daily anchor records.
 - **One vocabulary on operator surfaces:** user, channel, request. (URLs and DB keep `stream` /
   `pending` as stable contracts; only copy changed.)
+- **Theme follows the OS by default**, with a light/system/dark override (sidebar toggle → `theme`
+  cookie → `data-theme` on `<html>`). The dark tokens exist once (`darkRules` in the admin layout)
+  and apply both via `prefers-color-scheme` and via the forced attribute — never fork them.
 
 ## Email
 
