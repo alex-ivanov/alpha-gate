@@ -22,7 +22,7 @@ Key facts:
 ## Links
 
 - [Website](https://alphagate.dev/)
-- [Contact](mailto:hello@alphagate.dev)
+- Contact: hello@alphagate.dev
 - [Source code](https://github.com/alex-ivanov/alpha-gate)
 - [Onboarding guide](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/ONBOARDING.md)
 - [Publishing guide](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/UPLOADING.md)

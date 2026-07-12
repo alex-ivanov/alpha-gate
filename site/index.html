@@ -364,7 +364,8 @@
   .quickstart { font-family: var(--mono); font-size: 0.95rem; line-height: 1.9; margin: 0 0 2.2rem; overflow-x: auto; }
   .quickstart .ann { color: var(--gray); font-size: 0.85em; }
   .doclinks { display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; font-size: 14px; }
-  .contact { font-size: 14px; color: var(--gray); margin-top: 2.2rem; }
+  #contact { scroll-margin-top: 1.5rem; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 
   /* ── responsive ─────────────────────────────────── */
   @media (max-width: 47.5rem) {
@@ -396,7 +397,7 @@
       <nav class="top">
         <a href="https://github.com/alex-ivanov/alpha-gate/tree/main/docs">Docs</a>
         <a href="https://github.com/alex-ivanov/alpha-gate">GitHub</a>
-        <a href="mailto:hello@alphagate.dev">Contact</a>
+        <a href="#contact">Contact</a>
       </nav>
       <span class="seg" id="themeseg" role="group" aria-label="Page theme">
         <button type="button" data-t="light" disabled>Light</button><button type="button" data-t="auto" class="on" disabled>Auto</button><button type="button" data-t="dark" disabled>Dark</button>
@@ -696,6 +697,17 @@ npx alpha-gate publish MyApp.dmg --channel beta
     <p><a href="https://github.com/alex-ivanov/alpha-gate">github.com/alex-ivanov/alpha-gate →</a></p>
   </section>
 
+  <!-- ═══════════════ contact ═══════════════ -->
+  <section aria-label="Contact" id="contact">
+    <h2>Contact.</h2>
+    <p class="measure">Questions, feedback, or something broken? Write me.</p>
+    <button class="cmdline" id="copymail" type="button">
+      <span class="cmd">hello@alphagate.dev</span>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="4.5" y="4.5" width="8" height="8" rx="1"/><path d="M9.5 4.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>
+      <span class="done" aria-live="polite" id="maildone"></span>
+    </button>
+  </section>
+
   </main>
 
   <footer class="site">
@@ -709,9 +721,6 @@ npx alpha-gate publish MyApp.dmg --channel beta</pre>
       <a href="https://github.com/alex-ivanov/alpha-gate/blob/main/docs/PRINCIPLES.md">Principles</a>
       <a href="https://github.com/alex-ivanov/alpha-gate/blob/main/CONTRIBUTING.md">Contributing</a>
     </nav>
-
-    <p class="contact">Questions or feedback:
-      <a href="mailto:hello@alphagate.dev">hello@alphagate.dev</a></p>
 
   </footer>
 
@@ -844,34 +853,38 @@ npx alpha-gate publish MyApp.dmg --channel beta</pre>
     if (ts) { ts.textContent = new Date().toISOString().replace(/\.\d+Z$/, "Z"); }
   }
 
-  // ── copy CTA ──
-  var cta = document.getElementById("copycta");
-  var done = document.getElementById("copydone");
-  var timer = null;
-  function say(msg) {
-    done.textContent = msg;
-    if (timer) { clearTimeout(timer); }
-    timer = setTimeout(function () { done.textContent = ""; }, 1800);
+  // ── click-to-copy: the hero command and the contact address ──
+  function wireCopy(buttonId, doneId, text) {
+    var btn = document.getElementById(buttonId);
+    var done = document.getElementById(doneId);
+    if (!btn || !done) return;
+    var timer = null;
+    function say(msg) {
+      done.textContent = msg;
+      if (timer) { clearTimeout(timer); }
+      timer = setTimeout(function () { done.textContent = ""; }, 1800);
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      var okd = false;
+      try { okd = document.execCommand("copy"); } catch (e) { okd = false; }
+      document.body.removeChild(ta);
+      say(okd ? "copied" : "select it and copy");
+    }
+    btn.addEventListener("click", function () {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { say("copied"); }, fallback);
+      } else { fallback(); }
+    });
   }
-  function copyFallback(cmd) {
-    var ta = document.createElement("textarea");
-    ta.value = cmd;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    var okd = false;
-    try { okd = document.execCommand("copy"); } catch (e) { okd = false; }
-    document.body.removeChild(ta);
-    say(okd ? "copied" : "select the command and copy it");
-  }
-  cta.addEventListener("click", function () {
-    var cmd = "npx alpha-gate deploy --instance myalpha";
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(cmd).then(function () { say("copied"); }, function () { copyFallback(cmd); });
-    } else { copyFallback(cmd); }
-  });
+  wireCopy("copycta", "copydone", "npx alpha-gate deploy --instance myalpha");
+  wireCopy("copymail", "maildone", "hello@alphagate.dev");
 
   // ── page theme toggle (header) ──
   var seg = document.getElementById("themeseg");
