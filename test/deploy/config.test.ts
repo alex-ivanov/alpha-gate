@@ -10,18 +10,19 @@ const BASE: ConfigVars = {
   emailFrom: "",
   toolVersion: "0.1.0",
   updateManifestUrl: "https://example.test/release.json",
-  main: "../src/worker.ts",
+  main: "/pkg/src/worker.ts",
+  migrationsDir: "/pkg/migrations",
 };
 
 describe("renderConfig", () => {
-  it("renders the shared bindings, vars, migrations_dir, and cron", () => {
+  it("renders the shared bindings, vars, absolute main + migrations_dir, and cron", () => {
     const out = renderConfig(BASE);
     expect(out).toContain('name = "alpha-gate-myalpha"');
-    expect(out).toContain('main = "../src/worker.ts"');
+    expect(out).toContain('main = "/pkg/src/worker.ts"'); // absolute → resolves from any config location
     expect(out).toContain("[[d1_databases]]");
     expect(out).toContain('database_name = "alpha-gate-myalpha"');
     expect(out).toContain('database_id = "uuid-123"');
-    expect(out).toContain('migrations_dir = "../migrations"');
+    expect(out).toContain('migrations_dir = "/pkg/migrations"');
     expect(out).toContain("[[r2_buckets]]");
     expect(out).toContain('INSTANCE = "myalpha"');
     expect(out).toContain('ROLE = "app"');

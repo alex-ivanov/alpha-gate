@@ -29,10 +29,14 @@ export interface WranglerOptions {
   dryRun?: boolean;
   /** Sink for the dry-run echo / live command echo (defaults to console.error). */
   log?: (line: string) => void;
+  /** Directory to run `npx wrangler` from — set to the package root so the bundled wrangler (a
+      dependency) resolves even when the user's CWD has no node_modules (an npx install). */
+  cwd?: string;
 }
 
 export function createWrangler(options: WranglerOptions = {}): Wrangler {
   const log = options.log ?? ((line) => console.error(line));
+  const cwd = options.cwd;
   return {
     run(args, opts = {}) {
       if (options.dryRun) {
@@ -43,7 +47,7 @@ export function createWrangler(options: WranglerOptions = {}): Wrangler {
         const child = execFile(
           "npx",
           ["wrangler", ...args],
-          { maxBuffer: 64 * 1024 * 1024 },
+          { maxBuffer: 64 * 1024 * 1024, cwd },
           (error, stdout, stderr) => {
             const code = error && typeof error.code === "number" ? error.code : error ? 1 : 0;
             resolve({ ok: code === 0, code, stdout, stderr });
@@ -60,7 +64,7 @@ export function createWrangler(options: WranglerOptions = {}): Wrangler {
         return Promise.resolve(0);
       }
       return new Promise<number>((resolve) => {
-        const child = spawn("npx", ["wrangler", ...args], { stdio: "inherit" });
+        const child = spawn("npx", ["wrangler", ...args], { stdio: "inherit", cwd });
         child.on("exit", (code) => resolve(code ?? 0));
         child.on("error", () => resolve(1));
       });

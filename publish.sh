@@ -19,6 +19,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=deploy/lib/statedir.sh
+. "${ROOT}/deploy/lib/statedir.sh"
+STATE_DIR="$(alpha_gate_state_dir "${ROOT}")"
 
 ARTIFACT=""; INSTANCE=""; ADMIN_URL=""; CHANNEL=""; STREAM_ID=""; CRITICAL_FLAG=""
 DRY_RUN=0; RESET_TOKEN=0; BUILD_OVERRIDE=""; SHORT_OVERRIDE=""; MIN_OS_OVERRIDE=""
@@ -54,7 +57,7 @@ done
 # the steady-state command './publish.sh MyApp.dmg' with no flags at all.
 if [ -z "${ADMIN_URL}" ] && [ -z "${INSTANCE}" ]; then
   shopt -s nullglob
-  STATES=("${ROOT}"/.deploy/*.state.json)
+  STATES=("${STATE_DIR}"/*.state.json)
   shopt -u nullglob
   if [ "${#STATES[@]}" -eq 1 ]; then
     INSTANCE="$(basename "${STATES[0]}" .state.json)"
@@ -66,7 +69,7 @@ if [ -z "${ADMIN_URL}" ] && [ -z "${INSTANCE}" ]; then
   fi
 fi
 if [ -z "${ADMIN_URL}" ] && [ -n "${INSTANCE}" ]; then
-  STATE="${ROOT}/.deploy/${INSTANCE}.state.json"
+  STATE="${STATE_DIR}/${INSTANCE}.state.json"
   [ -f "${STATE}" ] || { echo "no deploy state for instance '${INSTANCE}'; pass --admin-url" >&2; exit 1; }
   ADMIN_URL="$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).admin_url||""))' "${STATE}" 2>/dev/null)" \
     || { echo "could not read admin_url from ${STATE}; pass --admin-url" >&2; exit 1; }
@@ -286,7 +289,7 @@ else
   # register metadata-only. This removes the old manual two-step for large DMGs.
   echo "artifact is ${SIZE} bytes (> 90 MB) — uploading to R2 with wrangler, then registering." >&2
   OBJECT_KEY="build/${BUILD_NUMBER}/${FILENAME}"
-  BUCKET="$(node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(s.bucket||("alpha-gate-"+(process.argv[2]||"")))' "${ROOT}/.deploy/${INSTANCE}.state.json" "${INSTANCE}" 2>/dev/null || echo "alpha-gate-${INSTANCE}")"
+  BUCKET="$(node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(s.bucket||("alpha-gate-"+(process.argv[2]||"")))' "${STATE_DIR}/${INSTANCE}.state.json" "${INSTANCE}" 2>/dev/null || echo "alpha-gate-${INSTANCE}")"
   ( cd "${ROOT}" && npx wrangler r2 object put "${BUCKET}/${OBJECT_KEY}" --file "${ARTIFACT}" --remote ) \
     || { echo "wrangler R2 upload failed" >&2; exit 1; }
   api POST /admin/builds/register \

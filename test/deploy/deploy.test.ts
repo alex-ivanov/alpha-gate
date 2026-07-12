@@ -69,6 +69,7 @@ function makeEnv(
       palette: plainPalette,
       out: (line) => out.push(line),
       rootDir: "/repo",
+      stateDir: "/repo/.deploy",
       toolVersion: "0.1.0",
       updateManifestUrl: "https://example.test/release.json",
       nodeMajor: opts.nodeMajor ?? 20,

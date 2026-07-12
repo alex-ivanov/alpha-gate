@@ -36,7 +36,11 @@ export interface DeployEnv {
   fs: FileSystem;
   palette: Palette;
   out: (line: string) => void;
+  /** The PACKAGE root — where src/ and migrations/ live (the repo, or the npm install dir). */
   rootDir: string;
+  /** Where per-instance state (.deploy configs + state.json) is written — `<root>/.deploy` for a
+      checkout, `~/.alpha-gate` for an npm install (see core/paths). */
+  stateDir: string;
   toolVersion: string;
   updateManifestUrl: string;
   nodeMajor: number;
@@ -79,7 +83,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   if (!parsed.ok) return fail(env, parsed.error, parsed.hint ?? "");
   const args = parsed.value;
   const res = resourceName(args.instance);
-  const deployDir = `${env.rootDir}/.deploy`;
+  const deployDir = env.stateDir;
   const appCfg = `${deployDir}/${args.instance}.app.toml`;
   const adminCfg = `${deployDir}/${args.instance}.admin.toml`;
   const wr = env.wrangler;
@@ -226,7 +230,10 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
     emailFrom: effective.emailFrom ?? "",
     toolVersion: env.toolVersion,
     updateManifestUrl: env.updateManifestUrl,
-    main: "../src/worker.ts",
+    // Absolute paths into the package, so the rendered config resolves them whether it lives in the
+    // repo `.deploy/` or the relocated `~/.alpha-gate` (which isn't a sibling of src/migrations).
+    main: `${env.rootDir}/src/worker.ts`,
+    migrationsDir: `${env.rootDir}/migrations`,
   });
   if (!args.dryRun) {
     await env.fs.write(appCfg, renderConfig(configVars("app")));

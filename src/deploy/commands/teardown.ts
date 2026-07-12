@@ -19,6 +19,8 @@ export interface TeardownEnv {
   palette: Palette;
   out: (line: string) => void;
   rootDir: string;
+  /** Where this instance's state lives — must match deploy (see core/paths). */
+  stateDir: string;
   nowStamp: () => string;
   interactive: boolean;
 }
@@ -34,7 +36,7 @@ export async function runTeardown(argv: readonly string[], env: TeardownEnv): Pr
   if (!parsed.ok) return fail(env, parsed.error, parsed.hint ?? "");
   const args = parsed.value;
   const res = resourceName(args.instance);
-  const deployDir = `${env.rootDir}/.deploy`;
+  const deployDir = env.stateDir;
   const archiveDir = args.archiveDir ?? deployDir;
   const archiveFile = `${archiveDir}/${args.instance}-${env.nowStamp()}.sql`;
   const wr = env.wrangler;

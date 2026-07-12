@@ -24,8 +24,10 @@ done
 [ -n "${INSTANCE}" ] || { echo "usage: ./deploy/backup.sh --instance <slug> [--out <dir>]" >&2; exit 1; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/statedir.sh
+. "${ROOT}/deploy/lib/statedir.sh"
 RES="alpha-gate-${INSTANCE}"
-OUT="${OUT:-${ROOT}/.deploy}"
+OUT="${OUT:-$(alpha_gate_state_dir "${ROOT}")}"
 mkdir -p "${OUT}"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 FILE="${OUT}/${INSTANCE}-${STAMP}.sql"

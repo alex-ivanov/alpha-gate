@@ -74,7 +74,11 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
       emailFrom: "",
       toolVersion: env.toolVersion,
       updateManifestUrl: env.updateManifestUrl,
-      main: args.role === "admin" ? "../src/dev/admin-entry.ts" : "../src/worker.ts",
+      main:
+        args.role === "admin"
+          ? `${env.rootDir}/src/dev/admin-entry.ts`
+          : `${env.rootDir}/src/worker.ts`,
+      migrationsDir: `${env.rootDir}/migrations`,
     }),
   );
 

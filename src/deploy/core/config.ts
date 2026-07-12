@@ -14,8 +14,11 @@ export interface ConfigVars {
   emailFrom: string;
   toolVersion: string;
   updateManifestUrl: string;
-  /** Worker entry, relative to the rendered config's directory (.deploy/). */
+  /** Worker entry — an ABSOLUTE path into the package src, so the config resolves it wherever the
+      rendered .toml lives (repo `.deploy/`, or `~/.alpha-gate` for an npm install). */
   main: string;
+  /** ABSOLUTE path to the migrations dir (same reason as `main`). */
+  migrationsDir: string;
 }
 
 function tomlString(value: string): string {
@@ -34,8 +37,9 @@ export function renderConfig(v: ConfigVars): string {
     `binding = "DB"`,
     `database_name = ${q(`alpha-gate-${v.instance}`)}`,
     `database_id = ${q(v.d1Id)}`,
-    // Resolved relative to this config file (.deploy/) so `wrangler d1 migrations apply` finds ./migrations.
-    `migrations_dir = "../migrations"`,
+    // Absolute path into the package, so `wrangler d1 migrations apply` finds it no matter where the
+    // rendered config lives (repo `.deploy/` or the relocated `~/.alpha-gate`).
+    `migrations_dir = ${q(v.migrationsDir)}`,
     "",
     "[[r2_buckets]]",
     `binding = "BUILDS"`,

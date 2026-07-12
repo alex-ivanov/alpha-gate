@@ -47,7 +47,7 @@ describe("runDev", () => {
         (x) => x.startsWith("dev --config") && x.includes("--port 9000") && x.includes("--local"),
       ),
     ).toBe(true);
-    expect(cfgOf(fs, "/repo/.deploy/local.app.toml")).toContain('main = "../src/worker.ts"');
+    expect(cfgOf(fs, "/repo/.deploy/local.app.toml")).toContain('main = "/repo/src/worker.ts"');
   });
 
   it("admin role: points main at the dev entry and passes DEV_ADMIN", async () => {
@@ -55,7 +55,7 @@ describe("runDev", () => {
     const { env, fs } = makeEnv(w);
     await runDev(["--role", "admin"], env);
     expect(cfgOf(fs, "/repo/.deploy/local.admin.toml")).toContain(
-      'main = "../src/dev/admin-entry.ts"',
+      'main = "/repo/src/dev/admin-entry.ts"',
     );
     expect(
       cmds(w).some((x) => x.startsWith("dev --config") && x.includes("--var DEV_ADMIN:1")),

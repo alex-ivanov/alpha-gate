@@ -41,6 +41,7 @@ function makeEnv(
       palette: plainPalette,
       out: (line) => out.push(line),
       rootDir: "/repo",
+      stateDir: "/repo/.deploy",
       nowStamp: () => "20260101T000000Z",
       interactive: opts.interactive ?? true,
     },

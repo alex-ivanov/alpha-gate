@@ -1,21 +1,33 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import net from "node:net";
+import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type DeployEnv, runDeploy } from "./commands/deploy";
 import { type DevEnv, runDev } from "./commands/dev";
 import { runTeardown, type TeardownEnv } from "./commands/teardown";
 import { selectPalette, shouldColor } from "./core/colors";
+import { resolveStateDir } from "./core/paths";
 import { nowStamp } from "./seams/clock";
 import { createFileSystem } from "./seams/files";
 import { createPrompt } from "./seams/io";
 import { createWrangler } from "./seams/wrangler";
 
 // The deploy CLI entry: assembles the real seams (wrangler/prompt/fs/clock), picks the color palette
-// from the terminal, and dispatches to a command. Run via tsx from the thin deploy/*.sh wrappers.
+// from the terminal, and dispatches to a command. Run via tsx from the thin deploy/*.sh wrappers OR
+// from the npm `bin` (npx alpha-gate …).
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(here, "../.."); // repo root (src/deploy → ../../)
+const ROOT = path.resolve(here, "../.."); // package root (src/deploy → ../../)
+
+// State lives at <root>/.deploy for a git checkout, ~/.alpha-gate for an npm install (the package
+// files are in the ephemeral npm cache; state there would vanish on the next version). See core/paths.
+const STATE_DIR = resolveStateDir({
+  packageRoot: ROOT,
+  home: process.env.ALPHA_GATE_HOME,
+  userHome: homedir(),
+  isGitCheckout: existsSync(path.join(ROOT, ".git")),
+});
 
 // The self-update manifest the daily cron polls: the npm registry's `/latest` endpoint for THIS
 // package, so the deployed Worker's banner tracks whatever version is published to npm. Derived from
@@ -111,12 +123,14 @@ function portInUse(port: number): Promise<boolean> {
 }
 
 const shared = (rest: readonly string[]) => ({
-  wrangler: createWrangler({ dryRun: rest.includes("--dry-run") }),
+  // cwd = the package root so `npx wrangler` finds the bundled wrangler even from an npx install.
+  wrangler: createWrangler({ dryRun: rest.includes("--dry-run"), cwd: ROOT }),
   prompt: createPrompt(),
   fs: createFileSystem(),
   palette: selectPalette(shouldColor(process.env, process.stdout.isTTY === true)),
   out: (line: string) => console.log(line),
   rootDir: ROOT,
+  stateDir: STATE_DIR,
   interactive: process.stdin.isTTY === true,
 });
 
