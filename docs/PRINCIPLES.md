@@ -65,10 +65,13 @@ source of truth (`src/core/resolver.ts`) the runtime, the download target, and t
   access logging and instant revocation hold.
 
 - **The "no-build" state is surfaced, never silently blocked.** A user with no servable build (no
-  available build in their channels, no channel at all, stranded under no-downgrade, or pinned to a
-  withdrawn build) gets an **empty appcast** — Sparkle stays "up to date". Admin actions that would
-  create this state (withdraw, unlink, unassign, pin/unpin) are not blocked; they show which users would
-  be affected and proceed on explicit confirmation. The remedy is roll-forward, reassignment, or unpin.
+  available build in their channels, no channel at all, or pinned to a withdrawn build) gets an
+  **empty appcast** — Sparkle stays "up to date". A user *stranded under no-downgrade* (their
+  channel's top is below what they run) still receives that top item — the resolver never reads the
+  installed build; Sparkle itself discards the lower item, with the same quiet "up to date" result.
+  Admin actions that would create either state (withdraw, unlink, unassign, pin/unpin) are not
+  blocked; they show which users would be affected and proceed on explicit confirmation. The remedy
+  is roll-forward, reassignment, or unpin.
 
 ## The artifact model
 

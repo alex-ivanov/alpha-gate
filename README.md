@@ -6,7 +6,7 @@ channels / pins / rollbacks from an admin back office behind **Cloudflare Access
 **Cloudflare (Workers + D1 + R2)** within the free tier — no custom domain, deployable to any account from
 one script, with many isolated instances per account.
 
-> Status: feature-complete and tested — 317 worker + 86 deploy-CLI tests, all offline; `tsc` (both
+> Status: feature-complete and tested — 376 worker + 93 deploy-CLI tests, all offline; `tsc` (both
 > configs) and Biome clean.
 
 ## Features
