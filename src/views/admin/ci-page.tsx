@@ -30,31 +30,20 @@ export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrig
         <h2>2 · Publish from CI</h2>
       </div>
       <p>
-        Build, sign Developer ID, notarize, staple, and run <code>sign_update</code> on macOS for
-        the Sparkle EdDSA signature (the Worker never signs), then:
+        On a macOS runner, build → sign Developer ID → notarize → staple → produce the signed
+        artifact, then run the same <code>publish.sh</code> you use locally. It reads the version
+        from the app, signs with <code>sign_update</code> (the Worker never signs), links the
+        channel by name, and handles the {">"} 90 MB register path itself:
       </p>
       <pre>
         <code>{`export CF_ACCESS_CLIENT_ID=...  CF_ACCESS_CLIENT_SECRET=...
-./ci-publish.sh \\
-  --admin-url ${adminOrigin} \\
-  --archive dist/MyApp.zip --short-version 1.4.0 --build-number 1500 \\
-  --ed-signature "<sparkle:edSignature>" --stream-id 1`}</code>
+./publish.sh dist/MyApp.zip --admin-url ${adminOrigin} --channel beta`}</code>
       </pre>
-    </section>
-
-    <section>
-      <div class="slab">
-        <h2>Large archives (&gt; ~90 MB)</h2>
-      </div>
-      <p>
-        PUT the archive to R2 out of band (a Cloudflare API token with R2 write), then register
-        metadata-only — the Worker HEADs the object and rejects a length mismatch:
+      <p class="muted">
+        A runner with no readable app bundle (a bare zip): pass <code>--build-number</code> /{" "}
+        <code>--short-version</code> and set <code>ED_SIGNATURE</code> from your own{" "}
+        <code>sign_update</code> step.
       </p>
-      <pre>
-        <code>{`./ci-publish.sh --admin-url ${adminOrigin} \\
-  --object-key build/1500/MyApp.zip --size 123456789 \\
-  --short-version 1.4.0 --build-number 1500 --ed-signature "..." --stream-id 1`}</code>
-      </pre>
     </section>
 
     <section>

@@ -61,11 +61,14 @@ step-by-step path — prepare the account, deploy, Access, CI service token, ver
 **[docs/ONBOARDING.md](docs/ONBOARDING.md)**.
 
 To ship builds (wire Sparkle into your app, create a channel, invite a user, publish a `.dmg`/`.zip`):
-**[docs/UPLOADING.md](docs/UPLOADING.md)**. The one-command DMG path:
+**[docs/UPLOADING.md](docs/UPLOADING.md)**. Once set up, publishing is one command:
 
 ```bash
-./publish-dmg.sh MyApp.dmg --instance myalpha --sign-update ~/path/to/Sparkle/bin/sign_update
+./publish.sh MyApp.dmg --channel beta
 ```
+
+It reads the version from the app, signs with Sparkle's `sign_update`, links the channel by name, and
+picks the instance automatically when only one is deployed.
 
 ## Develop
 
@@ -103,9 +106,9 @@ src/
   services/          # audit, email, self-update, anchor, branding (orchestration over db/r2/core)
   routes/{app,admin} # Hono handlers; deps injected, never bindings directly
   deploy/            # deploy/teardown/dev CLI: core/ (pure) + seams/ (wrangler,fs,io,clock) + commands/
-migrations/          # 0001–0008 D1 schema (SQL)
+migrations/          # 0001–0010 D1 schema (SQL)
 deploy/              # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → the TS CLI
-publish.sh  publish-dmg.sh  ci-publish.sh  .github/workflows/
+publish.sh           # ONE publish command (dmg | .app.zip | CI); .github/workflows/ has a sample
 test/                # unit/ integration/ cuj/ + support/ (offline vitest-pool-workers)
 docs/                # ONBOARDING, UPLOADING, PRINCIPLES
 ```

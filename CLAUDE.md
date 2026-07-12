@@ -48,10 +48,11 @@ npm run check                                 # the full gate: biome + typecheck
 ./deploy/deploy.sh --instance <slug> --email-provider cloudflare --email-from alpha@<sending-domain>
 ./deploy/teardown.sh --instance <slug>        # destructive: archives D1 first, removes both Workers + D1 (R2/Access manual)
 
-./publish.sh   --instance <slug>              # macOS: build → sign → notarize → staple → sign_update → upload + register
-./publish-dmg.sh MyApp.dmg --instance <slug>  # macOS: mount DMG → read version from Info.plist → sign_update → upload
-                                              #   the DMG itself as the Sparkle enclosure (format-agnostic; decision 0003)
-./ci-publish.sh                               # portable: upload an already-signed archive + register (browser-less, CI)
+./publish.sh MyApp.dmg                        # macOS: ONE command — reads version from the app (dmg OR
+                                              #   .app.zip), sign_update, links --channel <name>, uploads.
+                                              #   Auto-picks the instance when only one is deployed; handles
+                                              #   the >90 MB register path itself via your wrangler auth.
+./publish.sh MyApp.zip --channel beta --critical   # a signed .app .zip into a channel by NAME
 ```
 
-Deployment is a **TypeScript CLI** (`src/deploy/`, run via `tsx` from the thin `deploy/*.sh` wrappers; decision 0009) over **pure wrangler** (`wrangler login` once; no `jq`/`envsubst`) — no API token, DNS, or zone. The two things a script can't do are printed as a one-time checklist: enable Cloudflare Access on the admin hostname + allowlist your email, then feed `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` back as secrets (§19). All three publish paths (local script, browser upload, GitHub Actions) converge on `POST /admin/builds/upload`.
+Deployment is a **TypeScript CLI** (`src/deploy/`, run via `tsx` from the thin `deploy/*.sh` wrappers; decision 0009) over **pure wrangler** (`wrangler login` once; no `jq`/`envsubst`) — no API token, DNS, or zone. The two things a script can't do are printed as a one-time checklist: enable Cloudflare Access on the admin hostname + allowlist your email, then feed `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` back as secrets (§19). All publish paths (the one `publish.sh` — locally or in CI — and the browser Upload page) converge on `POST /admin/builds/upload|register`.

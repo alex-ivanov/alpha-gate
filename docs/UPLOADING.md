@@ -9,8 +9,8 @@ the signature and serves them per-user. Do the one-time app wiring once, then pu
 - [1. Wire Sparkle into your app (once)](#1-wire-sparkle-into-your-app-once)
 - [2. Create a channel](#2-create-a-channel)
 - [3. Invite a user](#3-invite-a-user)
-- [4. Publish a DMG](#4-publish-a-dmg)
-- [5. Other publish paths (zip / CI / large)](#5-other-publish-paths-zip--ci--large)
+- [4. Publish — one command](#4-publish--one-command)
+- [5. Other publish paths (browser, CI)](#5-other-publish-paths-browser-ci)
 - [6. Verify end to end](#6-verify-end-to-end)
 - [Rollback](#rollback)
 - [Getting the invite link to users (email vs copy-paste)](#getting-the-invite-link-to-users)
@@ -90,73 +90,53 @@ link stays viewable on the user's page later (viewing never rotates the token). 
 email is configured — see [below](#getting-the-invite-link-to-users)). The link is durable: they revisit
 it to re-download or re-activate while the token is active.
 
-## 4. Publish a DMG
+## 4. Publish — one command
 
-`publish-dmg.sh` is the one-command path for shipping a **signed, notarized DMG** as the Sparkle update.
-It mounts the DMG, reads the version from the app's `Info.plist`, EdDSA-signs the DMG, and uploads it.
-
-**Prerequisites:**
-- The DMG is **already built, code-signed (Developer ID), notarized, and stapled**. `publish-dmg.sh` does
-  *not* build or notarize — produce the DMG first.
-- Sparkle's **`sign_update`** tool is available (it ships inside the Sparkle package, often not on
-  `PATH`).
-- The DMG's app has an integer `CFBundleVersion` (see the box in §1b).
+`publish.sh` ships a **signed, notarized** build (a `.dmg` **or** a signed `.app` `.zip`) in one command.
+It reads the version straight from the app, EdDSA-signs the artifact, and uploads it:
 
 ```bash
-./publish-dmg.sh MyApp.dmg --instance myalpha \
-  --sign-update ~/path/to/Sparkle/bin/sign_update
+./publish.sh MyApp.dmg --channel beta
 ```
 
-What it does, in order: mounts the DMG read-only → reads `CFBundleShortVersionString` /
-`CFBundleVersion` / `LSMinimumSystemVersion` with PlistBuddy (prints what it read and from which `.app`)
-→ runs `sign_update` for the EdDSA signature → uploads the DMG as the enclosure via `ci-publish.sh`.
+**Prerequisites:** the artifact is already **built, code-signed (Developer ID), notarized, and stapled**
+(`publish.sh` does not build or notarize), its app has an integer `CFBundleVersion` (see the box in §1b),
+and Sparkle's `sign_update` is findable (auto-discovered in Xcode's DerivedData, or pass `--sign-update`).
 
-**The service token, the first time.** On the first publish to an instance it tells you how to create a
+What it does, in order: reads `CFBundleShortVersionString` / `CFBundleVersion` / `LSMinimumSystemVersion`
+from the app inside the artifact (mounting a DMG, or reading the plist out of a zip — prints what it read)
+→ **pre-checks the build number and channel against the running instance** (so a duplicate or a typo fails
+in a second, not after a multi-minute upload) → finds `sign_update` and signs → uploads, automatically
+using the R2 register path for artifacts over ~90 MB (via your own `wrangler` auth — no extra token).
+
+- **Instance is automatic** when only one is deployed; otherwise pass `--instance <slug>` (or `--admin-url`).
+- **Channels by name:** `--channel beta` — no DB ids. A single signed DMG serves **both** first-install
+  (the `/get` download) and updates; the enclosure is format-agnostic.
+
+**The service token, the first time.** On the first publish to a real instance it tells you how to create a
 Cloudflare Access service token (Zero Trust → Service Auth) and prompts for the Client ID + Secret, then
 stores them in your **login Keychain** keyed by instance. Every later run reads them automatically. Pass
 `--reset-token` to re-enter them. (Publishing to a `localhost` dev admin needs no token.)
 
-**Useful flags:**
+**Useful flags:** `--instance <slug>` / `--admin-url <url>`, `--sign-update <path>` (or `$SIGN_UPDATE`, or
+`ED_SIGNATURE=<sig>` to skip signing), `--build-number <n>` / `--short-version <s>` (override what's read —
+e.g. a non-integer `CFBundleVersion`), `--critical`, `--dry-run`.
 
-| Flag | Effect |
-|---|---|
-| `--instance <slug>` / `--admin-url <url>` | which instance (resolves the admin URL from deploy state, or pass it) |
-| `--sign-update <path>` | path to Sparkle's `sign_update` (or set `$SIGN_UPDATE`; or `ED_SIGNATURE=<sig>` to skip signing) |
-| `--build-number <n>` | override the DMG's `CFBundleVersion` (e.g. when it isn't an integer) |
-| `--short-version <s>` | override the displayed version |
-| `--stream-id <id>` | link the build to a channel on publish |
-| `--critical` | mark a mandatory update |
-| `--dry-run` | print the upload command without sending |
+## 5. Other publish paths (browser, CI)
 
-A single signed DMG serves **both** first-install (the `/get` download) and updates — Alpha Gate's
-enclosure is format-agnostic.
-
-## 5. Other publish paths (zip / CI / large)
-
-The DMG is one artifact format; a signed **`.zip`** works identically. All paths converge on one upload
-endpoint; the Worker never signs.
-
-- **A signed zip from a script** — `publish.sh` is the full local pipeline (build → sign → notarize →
-  staple → `sign_update` → upload). Fill in the marked app-specific build block for your project.
-- **CI (headless)** — `ci-publish.sh` on a macOS runner, with `CF_ACCESS_CLIENT_ID` /
-  `CF_ACCESS_CLIENT_SECRET` (the service token) in the environment:
-  ```bash
-  export CF_ACCESS_CLIENT_ID=…  CF_ACCESS_CLIENT_SECRET=…
-  ./ci-publish.sh --admin-url https://alpha-gate-myalpha-admin.<account>.workers.dev \
-    --archive dist/MyApp.zip --short-version 1.4.0 --build-number 1500 \
-    --ed-signature "<sparkle:edSignature>" --stream-id 1
-  ```
 - **Browser** — the admin **Upload** page. Picking the archive **autofills** version/build/min-OS from
   the `Info.plist` (editable). It has a **New release** and a **Roll back** mode — roll back shows the
-  current highest build number and **enforces** it as a floor (a rollback at or below it is rejected);
-  it's still a normal upload of a rebuilt artifact. Autofill needs the signed `.app` `.zip`; a
-  `.dmg`/`.tar` can't be read in the browser, so type the values for those.
-- **Large archives (> ~90 MB)** exceed the Worker body cap. PUT the archive to R2 out of band, then
-  register metadata-only — the Worker HEADs the object and rejects a length mismatch:
+  current highest build number and **enforces** it as a floor (a rollback at or below it is rejected).
+  Autofill needs the signed `.app` `.zip`; a `.dmg`/`.tar` can't be read in the browser, so type those.
+- **CI (headless)** — the same `publish.sh` on a macOS runner, with `CF_ACCESS_CLIENT_ID` /
+  `CF_ACCESS_CLIENT_SECRET` (the service token) in the environment and `--admin-url`:
   ```bash
-  ./ci-publish.sh --admin-url … --object-key build/1500/MyApp.zip --size 123456789 \
-    --short-version 1.4.0 --build-number 1500 --ed-signature "…" --stream-id 1
+  export CF_ACCESS_CLIENT_ID=…  CF_ACCESS_CLIENT_SECRET=…
+  ./publish.sh dist/MyApp.dmg \
+    --admin-url https://alpha-gate-myalpha-admin.<account>.workers.dev --channel beta
   ```
+  A runner without a readable app bundle (a bare zip) passes `--build-number`/`--short-version` and sets
+  `ED_SIGNATURE` from its own `sign_update` step. `.github/workflows/publish.yml` is a ready sample.
 
 ## 6. Verify end to end
 
@@ -201,5 +181,5 @@ Sparkle can't downgrade, so withdrawing a bad version is a **roll-forward**:
 - **HTTP 302 / "Access rejected the service token"** — add the **Service Auth** policy on the admin
   Access app (see [ONBOARDING §5](ONBOARDING.md#5-ci-only-create-a-service-token)); re-enter creds with
   `--reset-token` if they're wrong.
-- **`hdiutil: Resource busy`** — handled (`publish-dmg.sh` mounts at a random point); if you mounted the
+- **`hdiutil: Resource busy`** — handled (`publish.sh` mounts the DMG at a random point); if you mounted the
   DMG manually, ejecting it first doesn't hurt.

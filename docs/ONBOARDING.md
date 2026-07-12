@@ -91,7 +91,7 @@ rejected. Now open the admin URL in a browser, log in with the one-time PIN, and
 
 ## 5. (CI only) create a service token
 
-Skip this if you'll publish from your Mac with `publish.sh`/`publish-dmg.sh`. For headless CI publishing,
+Skip this if you'll publish from your Mac with `publish.sh`. For headless CI publishing,
 the script needs to reach the gated admin non-interactively:
 
 1. Zero Trust → **Access → Service Auth → Create service token**. Copy the **Client ID** and **Client
@@ -101,7 +101,7 @@ the script needs to reach the gated admin non-interactively:
    this, the token is redirected to the login page (an HTTP 302) and publishing fails.
 3. Provide the pair to CI as `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`.
 
-On macOS, `publish-dmg.sh` stores the token in your **login Keychain** on first use, so you enter it once
+On macOS, `publish.sh` stores the token in your **login Keychain** on first use, so you enter it once
 (see [UPLOADING](UPLOADING.md)). Service tokens are accepted **only** on the upload/register routes.
 
 ## 6. Verify

@@ -11,7 +11,7 @@ import { appWorker } from "../../support/worker";
 // §20 / decision 0003 — the Sparkle update enclosure is FORMAT-AGNOSTIC: a signed .dmg can be the update
 // artifact, not only a .zip. The resolver/appcast/download never assume a format; /download names the
 // file from its object key so Sparkle recognizes the .dmg and uses the disk-image installer. This is the
-// path publish-dmg.sh feeds (mount → read version → sign_update the dmg → upload it as the enclosure).
+// path publish.sh feeds for a DMG (mount → read version → sign_update the dmg → upload it as the enclosure).
 const deps = buildDeps(env);
 beforeEach(resetAll);
 

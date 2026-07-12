@@ -143,7 +143,7 @@ describe("admin operation pages", () => {
     const html = await getAdmin("/admin/ci");
     expect(html).toContain("CF_ACCESS_CLIENT_ID");
     expect(html).toContain("/admin/builds/register");
-    expect(html).toContain("ci-publish.sh");
+    expect(html).toContain("publish.sh");
   });
 
   it("settings page has the Sparkle public-key field", async () => {

@@ -311,6 +311,8 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
       "  Access not wired — re-run with --access-team-domain/--access-aud once it's enabled.",
     );
   }
-  env.out("  Publish your first build: see /admin/setup, or ./publish.sh");
+  env.out(
+    "  Publish your first build: ./publish.sh MyApp.dmg --channel <name>  (see /admin/setup)",
+  );
   return 0;
 }
