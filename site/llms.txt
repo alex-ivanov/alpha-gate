@@ -1,0 +1,28 @@
+# Alpha Gate
+
+> A self-hosted distribution gate for notarized macOS apps updated via Sparkle. It serves private,
+> per-tester download links and Sparkle update feeds from the developer's own Cloudflare account
+> (Workers + D1 + R2, free tier). Open source.
+
+What it does: each tester gets one private link covering the download, activation, and their
+personal update feed. Links are revocable and restorable. Publishing a notarized .dmg or .zip is
+one command (`npx alpha-gate publish MyApp.dmg --channel beta`); setup is one command
+(`npx alpha-gate deploy --instance myalpha`). A back office behind Cloudflare Access shows which
+build every tester receives, with release channels, per-tester pins, and roll-forward rollback.
+
+Key facts:
+- The signing keys (Developer ID, notarization, Sparkle EdDSA) never leave the developer's Mac;
+  the server stores archive bytes plus one signature string per archive and never signs.
+- The update feed (Sparkle appcast) is generated per request, per tester, from a database.
+- Sparkle cannot downgrade; rollback is a re-release with a higher build number.
+- Tester tokens travel in URLs; unknown tokens get a plain 404; revoked testers get a
+  renew-access notice instead of updates.
+- Everything runs in the developer's own Cloudflare account: no vendor, nothing to subscribe to.
+
+## Links
+
+- [Website](https://alphagate.dev/)
+- [Source code](https://github.com/alex-ivanov/alpha-gate)
+- [Onboarding guide](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/ONBOARDING.md)
+- [Publishing guide](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/UPLOADING.md)
+- [Architecture and invariants](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/PRINCIPLES.md)

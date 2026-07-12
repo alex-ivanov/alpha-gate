@@ -3,6 +3,12 @@
 The marketing page: one static HTML file plus its screenshots. No build step, no external
 requests — system fonts, inline CSS/JS, images from `shots/`.
 
+**Canonical URL is `https://alphagate.dev/`** (301 `alpha-gate.dev` → `alphagate.dev`). SEO lives
+next to the page: `robots.txt`, `sitemap.xml` (bump `lastmod` on content changes), `llms.txt`
+(the summary AI agents read), `og.png` (the 1200×630 social card — regenerate in the site's
+palette if the headline changes), `favicon.svg`, and `_headers` (image caching). The JSON-LD
+and OG tags are in `index.html`'s head.
+
 **Serve it** with any static host pointed at this directory:
 
 - **Cloudflare Pages**: connect the repo, set the output directory to `site/`. Deploys on push.
