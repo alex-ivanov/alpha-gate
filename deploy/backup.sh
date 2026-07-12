@@ -24,7 +24,7 @@ done
 [ -n "${INSTANCE}" ] || { echo "usage: ./deploy/backup.sh --instance <slug> [--out <dir>]" >&2; exit 1; }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=lib/statedir.sh
+# shellcheck source=deploy/lib/statedir.sh
 . "${ROOT}/deploy/lib/statedir.sh"
 RES="alpha-gate-${INSTANCE}"
 OUT="${OUT:-$(alpha_gate_state_dir "${ROOT}")}"

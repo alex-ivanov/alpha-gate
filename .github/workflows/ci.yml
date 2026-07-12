@@ -19,4 +19,5 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
       - name: shellcheck
-        run: shellcheck deploy/*.sh ./*.sh
+        # -x follows the sourced deploy/lib/statedir.sh (via the shellcheck source= directives)
+        run: shellcheck -x deploy/*.sh deploy/lib/*.sh ./*.sh

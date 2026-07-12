@@ -105,7 +105,9 @@ if [ "${LOCAL}" -eq 0 ] && [ "${DRY_RUN}" -eq 0 ]; then
     echo "  2. On the admin Access application, add a policy (Action: Service Auth) allowing it." >&2
     printf 'Service Token Client ID: ' >&2;     IFS= read -r CF_ACCESS_CLIENT_ID || true
     printf 'Service Token Client Secret: ' >&2; IFS= read -rs CF_ACCESS_CLIENT_SECRET || true; echo "" >&2
-    [ -n "${CF_ACCESS_CLIENT_ID}" ] && [ -n "${CF_ACCESS_CLIENT_SECRET}" ] || { echo "both are required" >&2; exit 1; }
+    if [ -z "${CF_ACCESS_CLIENT_ID}" ] || [ -z "${CF_ACCESS_CLIENT_SECRET}" ]; then
+      echo "both are required" >&2; exit 1
+    fi
     security add-generic-password -U -s "${KC_SERVICE}" -a "${KEY}-client-id"     -w "${CF_ACCESS_CLIENT_ID}"     >/dev/null
     security add-generic-password -U -s "${KC_SERVICE}" -a "${KEY}-client-secret" -w "${CF_ACCESS_CLIENT_SECRET}" >/dev/null
     echo "Stored in your login Keychain; future runs read it automatically." >&2
@@ -156,7 +158,7 @@ case "${ARTIFACT##*.}" in
     DEV="$(printf '%s\n' "${ATTACH}" | grep -Eo '^/dev/disk[0-9]+' | head -1 || true)"
     MOUNTS="$(printf '%s\n' "${ATTACH}" | grep -Eo '/tmp/[^[:space:]]+' || true)"
     cleanup() {
-      [ -n "${DEV:-}" ] && hdiutil detach "${DEV}" -quiet >/dev/null 2>&1 || true
+      if [ -n "${DEV:-}" ]; then hdiutil detach "${DEV}" -quiet >/dev/null 2>&1 || true; fi
       for m in ${MOUNTS:-}; do hdiutil detach "${m}" -quiet >/dev/null 2>&1 || true; done
     }
     trap cleanup EXIT INT TERM
