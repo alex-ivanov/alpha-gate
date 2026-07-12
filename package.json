@@ -30,9 +30,7 @@
     "migrations/",
     "deploy/",
     "publish.sh",
-    "templates/",
     "tsconfig.json",
-    "VERSION",
     "release.json",
     "CHANGELOG.md",
     "docs/"

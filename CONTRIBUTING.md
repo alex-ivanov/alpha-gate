@@ -96,7 +96,7 @@ Tests run inside the Workers runtime offline. Layout under `test/`:
 - `support/` — the offline harness: `scenario.ts` (seed a servable world *through the prod queries*),
   `access.ts` (a throwaway RS256 keypair signing real Access tokens against a stub JWKS, plus
   `adminWorker`), `worker.ts` (`appWorker`; apps wired to the test env with overridable Deps),
-  `db.ts` (`resetAll` in `beforeEach`), `clock.ts` (`fixedClock`), `email.ts` (recording sender).
+  `db.ts` (`resetAll` in `beforeEach`), `email.ts` (recording sender).
 - `deploy/` — the deploy-CLI suite (node env, **not** workers-pool; see *The deploy CLI* above), run by
   `npm run test:deploy` and as the second half of `npm test`.
 
@@ -123,9 +123,8 @@ version (the manifest URL is `registry.npmjs.org/<name>/latest`, derived from `p
 `name`). The upgrade signals ride in the `alphaGate` field of `package.json`, which npm preserves. To
 cut a release:
 
-1. Bump `package.json`'s `version` (the source of truth) and `VERSION` **to the same value**. Keep
-   `release.json`'s `latest` in sync too — it's the fallback manifest for anyone overriding
-   `$UPDATE_MANIFEST_URL` to a static file.
+1. Bump `package.json`'s `version` (the single source of truth). Keep `release.json`'s `latest` in
+   sync — it's the fallback manifest for anyone overriding `$UPDATE_MANIFEST_URL` to a static file.
 2. In `package.json`'s `alphaGate`, set `breaking: true` and bump `minSupported` if the upgrade needs
    manual steps. (`release.json` mirrors these as `breaking` / `min_supported`.)
 3. Add a `## <version>` section to `CHANGELOG.md` — `homepage` points there, so it's the banner's notes.

@@ -182,7 +182,7 @@ const GLUE = `
   function say(msg, ok) {
     if (!status) return;
     status.textContent = msg;
-    status.className = ok ? "hint muted" : "callout callout-warn";
+    status.className = ok ? "fhint" : "callout warn";
     status.hidden = false;
   }
   form.addEventListener("input", function (e) {

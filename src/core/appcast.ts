@@ -16,7 +16,7 @@ export const INFORMATIONAL_SENTINEL_VERSION = 999_000_000;
 
 // Shown in Sparkle's dialog in place of the raw sentinel number: sparkle:shortVersionString is the
 // human-readable version string (the sentinel stays the machine-comparable sparkle:version).
-export const INFORMATIONAL_DISPLAY_VERSION = "Access renewal";
+const INFORMATIONAL_DISPLAY_VERSION = "Access renewal";
 
 export interface InformationalNotice {
   /** The /access page the notice links to. */

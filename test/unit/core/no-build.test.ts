@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type AdminAction,
-  computeAffectedUsers,
+  computeAffectedUsersForActions,
   isServableResult,
   noBuildState,
   resolveForClient,
@@ -122,7 +122,7 @@ describe("noBuildState", () => {
   });
 });
 
-describe("computeAffectedUsers (§11 confirmation preview)", () => {
+describe("computeAffectedUsersForActions (§11 confirmation preview)", () => {
   // A world: two clients in `stable`, both currently servable by build #1500.
   function baseWorld() {
     return aWorld({
@@ -145,7 +145,7 @@ describe("computeAffectedUsers (§11 confirmation preview)", () => {
 
   it("withdrawing the only available build strands everyone on it", () => {
     const action: AdminAction = { type: "withdraw-build", buildId: 1500 };
-    expect(computeAffectedUsers(baseWorld(), action, installed).sort()).toEqual([
+    expect(computeAffectedUsersForActions(baseWorld(), [action], installed).sort()).toEqual([
       "a@example.test",
       "b@example.test",
     ]);
@@ -161,12 +161,14 @@ describe("computeAffectedUsers (§11 confirmation preview)", () => {
       ],
     });
     const action: AdminAction = { type: "withdraw-build", buildId: 1500 };
-    expect(computeAffectedUsers(world, action, installed)).toEqual([]);
+    expect(computeAffectedUsersForActions(world, [action], installed)).toEqual([]);
   });
 
   it("unassigning a user from their only stream affects just that user", () => {
     const action: AdminAction = { type: "unassign-user-stream", clientId: 1, streamId: STABLE };
-    expect(computeAffectedUsers(baseWorld(), action, installed)).toEqual(["a@example.test"]);
+    expect(computeAffectedUsersForActions(baseWorld(), [action], installed)).toEqual([
+      "a@example.test",
+    ]);
   });
 
   it("removing the build from the stream affects everyone served by it", () => {
@@ -175,7 +177,7 @@ describe("computeAffectedUsers (§11 confirmation preview)", () => {
       buildId: 1500,
       streamId: STABLE,
     };
-    expect(computeAffectedUsers(baseWorld(), action, installed).sort()).toEqual([
+    expect(computeAffectedUsersForActions(baseWorld(), [action], installed).sort()).toEqual([
       "a@example.test",
       "b@example.test",
     ]);
@@ -191,7 +193,7 @@ describe("computeAffectedUsers (§11 confirmation preview)", () => {
       buildStreams: [{ buildId: 1500, streamId: STABLE }],
     });
     const action: AdminAction = { type: "pin-client", clientId: 1, buildId: 1400 };
-    expect(computeAffectedUsers(world, action, installed)).toEqual(["a@example.test"]);
+    expect(computeAffectedUsersForActions(world, [action], installed)).toEqual(["a@example.test"]);
   });
 
   it("restoring a build never strands anyone", () => {
@@ -200,12 +202,12 @@ describe("computeAffectedUsers (§11 confirmation preview)", () => {
       builds: [aBuild({ id: 1500, buildNumber: 1500, status: "withdrawn" })],
     });
     const action: AdminAction = { type: "restore-build", buildId: 1500 };
-    expect(computeAffectedUsers(world, action, installed)).toEqual([]);
+    expect(computeAffectedUsersForActions(world, [action], installed)).toEqual([]);
   });
 
   it("deleting a channel strands the users whose only build was served by it", () => {
     const action: AdminAction = { type: "delete-stream", streamId: STABLE };
-    expect(computeAffectedUsers(baseWorld(), action, installed).sort()).toEqual([
+    expect(computeAffectedUsersForActions(baseWorld(), [action], installed).sort()).toEqual([
       "a@example.test",
       "b@example.test",
     ]);

@@ -9,6 +9,7 @@ import { ResultPage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
 import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
+import { doneRedirect } from "./flash";
 import { field, isEmail } from "./form";
 import { requireUser } from "./middleware";
 
@@ -75,7 +76,8 @@ export async function saveBranding(c: AdminContext): Promise<Response> {
   }
 
   await recordAudit(deps, auditFields(c, "branding.update"));
-  return c.redirect("/admin", 303);
+  // Close the feedback loop: land back on Settings with the "Settings saved." flash.
+  return doneRedirect(c, body, "/admin/settings", "settings.saved");
 }
 
 const back = { href: "/admin/settings", label: "← Settings" } as const;

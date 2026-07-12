@@ -1,8 +1,9 @@
 # Changelog
 
-Notable changes to Alpha Gate (the tool). The deployed instance's daily self-update check compares
-its `TOOL_VERSION` against `release.json`'s `latest`; the dashboard/Settings link here for notes.
-Keep `latest` in `release.json` in sync with `VERSION` on every release.
+Notable changes to Alpha Gate (the tool). The deployed instance's daily self-update check polls the
+npm registry's `latest` for this package and compares it against its `TOOL_VERSION`; the
+dashboard/Settings link here for notes. `release.json` is only the static-manifest fallback for
+`$UPDATE_MANIFEST_URL` overrides — keep its `latest` in sync with `package.json`'s `version`.
 
 ## 0.1.0
 

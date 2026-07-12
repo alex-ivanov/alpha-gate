@@ -13,7 +13,6 @@ import {
   type ActivityFilter,
   countByBuild,
   currentBuild,
-  lastActivityForBuild,
   lastEventAt,
   lastSeenAt,
   recent,
@@ -41,11 +40,7 @@ export interface UserView {
   status: string;
   streams: string[];
   pinnedBuildId: number | null;
-  /** The pinned build resolved for display (never show a raw row id). */
-  pinnedBuild: Build | null;
   currentBuild: number | null;
-  lastInstalled: string | null;
-  lastUpdated: string | null;
   /** Most recent event of any kind — the "last seen" column. */
   lastSeen: string | null;
   /** What this user's next update check actually does, by cause (core/verdict). */
@@ -59,7 +54,6 @@ export interface BuildView {
   streams: string[];
   downloads: number;
   updates: number;
-  lastActivity: string | null;
 }
 
 export interface StreamView {
@@ -75,7 +69,6 @@ export interface SelfUpdateView {
   available: boolean;
   latest: string | null;
   breaking: boolean;
-  belowMinSupported: boolean;
   notesUrl: string | null;
   /** When the daily cron last polled the manifest, or null if it never has (cron not firing). */
   checkedAt: string | null;
@@ -107,9 +100,7 @@ export interface Dashboard {
   users: number;
   hiddenUsers: number;
   builds: number;
-  hiddenBuilds: number;
   streams: number;
-  noBuild: number;
   pendingRequests: number;
   /** Oldest pending request time + a couple of addresses for the attention row. */
   pendingSample: { emails: string[]; oldest: string | null };
@@ -134,7 +125,6 @@ export function selfUpdateView(m: Record<string, string>): SelfUpdateView {
     available: m.selfupdate_available === "1",
     latest: m.selfupdate_latest || null,
     breaking: m.selfupdate_breaking === "1",
-    belowMinSupported: m.selfupdate_below_min === "1",
     notesUrl: m.selfupdate_notes_url || null,
     checkedAt: m.selfupdate_checked_at || null,
   };
@@ -151,7 +141,7 @@ async function loadWorld(deps: Deps) {
   return { world, streams, streamName };
 }
 
-export async function loadUsers(deps: Deps): Promise<UserView[]> {
+async function loadUsers(deps: Deps): Promise<UserView[]> {
   const { world, streamName } = await loadWorld(deps);
   const users: UserView[] = [];
   for (const client of world.clients) {
@@ -166,13 +156,7 @@ export async function loadUsers(deps: Deps): Promise<UserView[]> {
       status: client.status,
       streams: streamIds.map((id) => streamName.get(id) ?? `#${id}`),
       pinnedBuildId: client.pinnedBuildId,
-      pinnedBuild:
-        client.pinnedBuildId === null
-          ? null
-          : (world.builds.find((b) => b.id === client.pinnedBuildId) ?? null),
       currentBuild: installed,
-      lastInstalled: await lastEventAt(deps.db, client.id, "download"),
-      lastUpdated: await lastEventAt(deps.db, client.id, "update"),
       lastSeen: await lastSeenAt(deps.db, client.id),
       verdict: verdictFor(world, client, installed),
       noBuild: noBuildState(world, client, installed),
@@ -197,7 +181,6 @@ export async function loadBuilds(deps: Deps): Promise<BuildView[]> {
       streams: streamIds.map((id) => streamName.get(id) ?? `#${id}`),
       downloads: await countByBuild(deps.db, build.buildNumber, "download"),
       updates: await countByBuild(deps.db, build.buildNumber, "update"),
-      lastActivity: await lastActivityForBuild(deps.db, build.buildNumber),
     });
   }
   return views;
@@ -308,9 +291,7 @@ export async function loadDashboard(deps: Deps): Promise<Dashboard> {
     users: world.clients.filter((c) => !c.hidden).length,
     hiddenUsers: world.clients.filter((c) => c.hidden).length,
     builds: world.builds.filter((b) => !b.hidden).length,
-    hiddenBuilds: world.builds.filter((b) => b.hidden).length,
     streams: streams.length,
-    noBuild: faults.length,
     pendingRequests: pending.length,
     pendingSample: {
       emails: pending.slice(0, 2).map((r) => r.email),
@@ -398,7 +379,6 @@ export interface BuildDetail {
   linkedStreamIds: number[];
   downloads: number;
   updates: number;
-  lastActivity: string | null;
   /** How many active users this build is the resolver's answer for right now. */
   audience: { offeredTo: number; currentFor: number };
 }
@@ -426,7 +406,6 @@ export async function loadBuildDetail(deps: Deps, id: number): Promise<BuildDeta
     linkedStreamIds: links.filter((link) => link.buildId === id).map((link) => link.streamId),
     downloads: await countByBuild(deps.db, build.buildNumber, "download"),
     updates: await countByBuild(deps.db, build.buildNumber, "update"),
-    lastActivity: await lastActivityForBuild(deps.db, build.buildNumber),
     audience: { offeredTo, currentFor },
   };
 }

@@ -207,7 +207,7 @@ function published(
             on their next update check (unless a higher build already serves them).
           </p>
         ) : (
-          <p class="callout callout-warn">
+          <p class="callout warn">
             It isn't in any channel yet, so <strong>no one receives it</strong> until you link a
             channel from the <a href={`/admin/builds/${build.id}`}>build page</a>.
           </p>

@@ -1,6 +1,5 @@
 // Shared domain vocabulary — plain data the pure core operates on. The db/ layer maps snake_case D1
-// rows onto these camelCase shapes; the core never sees a binding. Types grow as later milestones
-// need them (AdminAuditEntry, AppcastItem, AccessIdentity arrive with M5/M4/M11).
+// rows onto these camelCase shapes; the core never sees a binding.
 
 export type ClientStatus = "active" | "revoked";
 export type BuildStatus = "available" | "withdrawn";

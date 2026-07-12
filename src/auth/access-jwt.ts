@@ -155,7 +155,7 @@ export function extractKid(token: string): string | null {
   }
 }
 
-export async function defaultFetchJwks(teamDomain: string): Promise<readonly Jwk[]> {
+async function defaultFetchJwks(teamDomain: string): Promise<readonly Jwk[]> {
   const res = await fetch(`https://${teamDomain}/cdn-cgi/access/certs`);
   if (!res.ok) throw new Error(`JWKS fetch returned ${res.status}`);
   const body = (await res.json()) as { keys?: Jwk[] };

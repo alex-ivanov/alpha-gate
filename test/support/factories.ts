@@ -1,5 +1,5 @@
 import type { World } from "../../src/core/no-build";
-import type { Build, Client, Stream } from "../../src/core/types";
+import type { Build, Client } from "../../src/core/types";
 
 // Plain-data builders for the pure-core tests. Sensible defaults, override what the case is about —
 // so each test row reads as "a client like X, a build like Y" with only the relevant fields stated.
@@ -41,10 +41,6 @@ export function aBuild(overrides: Partial<Build> = {}): Build {
     createdAt: EPOCH,
     ...overrides,
   };
-}
-
-export function aStream(overrides: Partial<Stream> = {}): Stream {
-  return { id: 1, name: "stable", ...overrides };
 }
 
 export function aWorld(overrides: Partial<World> = {}): World {

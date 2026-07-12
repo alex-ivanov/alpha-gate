@@ -78,20 +78,10 @@ export function noBuildState(
 }
 
 /**
- * The emails of clients who are servable now but would fall into the no-build state if `action` were
- * applied. §11: such actions are confirmed, not blocked.
- */
-export function computeAffectedUsers(
-  world: World,
-  action: AdminAction,
-  installed: ReadonlyMap<number, number> = new Map(),
-): string[] {
-  return computeAffectedUsersForActions(world, [action], installed);
-}
-
-/**
- * Like {@link computeAffectedUsers} but for a batch applied together — the §13 #3 bulk withdraw shows
- * the union of everyone the whole selection would strand, so the operator confirms once for the lot.
+ * The emails of clients who are servable now but would fall into the no-build state if the batch of
+ * `actions` were applied together. §11: such actions are confirmed, not blocked — the §13 #3 bulk
+ * withdraw shows the union of everyone the whole selection would strand, so the operator confirms
+ * once for the lot (single actions pass a one-element batch).
  */
 export function computeAffectedUsersForActions(
   world: World,
@@ -114,12 +104,12 @@ export function computeAffectedUsersForActions(
 }
 
 /** Fold a sequence of actions into the world (the bulk operations apply several at once). */
-export function applyActions(world: World, actions: readonly AdminAction[]): World {
+function applyActions(world: World, actions: readonly AdminAction[]): World {
   return actions.reduce(applyAction, world);
 }
 
 /** Pure transform: a new World with `action` applied. */
-export function applyAction(world: World, action: AdminAction): World {
+function applyAction(world: World, action: AdminAction): World {
   switch (action.type) {
     case "withdraw-build":
       return { ...world, builds: withBuildStatus(world.builds, action.buildId, "withdrawn") };

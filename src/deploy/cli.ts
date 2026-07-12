@@ -49,15 +49,10 @@ function npmManifestUrl(): string {
 }
 
 // TOOL_VERSION baked into the deployed Worker = the version that deployed it, so the banner compares
-// like-for-like against npm's latest. package.json is the npm source of truth; VERSION is the fallback.
+// like-for-like against npm's latest. package.json's `version` is the single source of truth.
 function toolVersion(): string {
   const fromPkg = readPkg().version;
-  if (typeof fromPkg === "string" && fromPkg.length > 0) return fromPkg;
-  try {
-    return readFileSync(path.join(ROOT, "VERSION"), "utf8").trim();
-  } catch {
-    return "0.0.0";
-  }
+  return typeof fromPkg === "string" && fromPkg.length > 0 ? fromPkg : "0.0.0";
 }
 
 const HELP: Record<string, string> = {

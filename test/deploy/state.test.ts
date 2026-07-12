@@ -2,29 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   type DeployState,
   emptyState,
-  hasPhase,
   parseState,
   serializeState,
-  withPhase,
 } from "../../src/deploy/core/state";
 
 describe("state ledger", () => {
-  it("withPhase marks a phase done (idempotent) and hasPhase reads it", () => {
-    let s = emptyState("x");
-    expect(hasPhase(s, "d1")).toBe(false);
-    s = withPhase(s, "d1");
-    s = withPhase(s, "d1"); // idempotent
-    expect(hasPhase(s, "d1")).toBe(true);
-    expect(s.done).toEqual(["d1"]);
-  });
-
   it("serializes to deploy.sh's snake_case keys (publish.sh compatibility) + remembered inputs", () => {
     const s: DeployState = {
       instance: "x",
       d1Id: "uuid",
       appUrl: "https://app",
       adminUrl: "https://admin",
-      done: ["d1", "migrate"],
       emailProvider: "cloudflare",
       emailFrom: "a@b.dev",
       accessTeamDomain: "t.cloudflareaccess.com",
@@ -36,7 +24,6 @@ describe("state ledger", () => {
       app_url: "https://app",
       admin_url: "https://admin",
       d1_id: "uuid",
-      phases: ["d1", "migrate"],
       email_provider: "cloudflare",
       email_from: "a@b.dev",
       access_team_domain: "t.cloudflareaccess.com",
@@ -51,13 +38,14 @@ describe("state ledger", () => {
   });
 
   it("round-trips through serialize/parse", () => {
-    const s = withPhase(withPhase({ ...emptyState("x"), adminUrl: "https://a" }, "d1"), "r2");
+    const s = { ...emptyState("x"), adminUrl: "https://a", d1Id: "uuid" };
     expect(parseState(serializeState(s), "x")).toEqual(s);
   });
 
-  it("is tolerant: corrupt/missing JSON yields an empty state for the instance", () => {
+  it("is tolerant: corrupt/missing JSON and unknown keys yield a clean state", () => {
     expect(parseState("not json", "x")).toEqual(emptyState("x"));
     expect(parseState("{}", "x").instance).toBe("x");
-    expect(parseState('{"phases":["d1","bogus"]}', "x").done).toEqual(["d1"]); // unknown phase dropped
+    // older versions wrote a `phases` array — it is simply ignored now
+    expect(parseState('{"phases":["d1"],"admin_url":"https://a"}', "x").adminUrl).toBe("https://a");
   });
 });

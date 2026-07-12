@@ -87,7 +87,6 @@ nav.primary a[aria-current]::before{content:"";position:absolute;left:-8px;top:6
 main{flex:1;min-width:0;max-width:1180px;padding:26px 36px 56px}
 .pagehead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
 h1{font-size:19px;font-weight:650;letter-spacing:-.013em}
-h1 .idlk{font-family:var(--mono);font-size:22px;font-weight:600}
 .sub{color:var(--ink3);font-size:12.5px}
 .inv{margin-left:auto;font-size:12px;color:var(--ink3)}
 .inv a{color:inherit;text-decoration:none}
@@ -174,7 +173,6 @@ th.th-sort{cursor:pointer;user-select:none}
 th.th-sort::after{content:"↕";opacity:.35;margin-left:.35em;font-weight:400}
 th.th-sort[aria-sort="ascending"]::after{content:"↑";opacity:.9}
 th.th-sort[aria-sort="descending"]::after{content:"↓";opacity:.9}
-.table-status{margin-top:8px;font-size:11.5px;color:var(--ink3)}
 .tfoot{display:flex;gap:8px;margin-top:10px;font-size:11.5px;color:var(--ink3)}
 .tfoot a{color:inherit}
 .tfoot a:hover{color:var(--accent)}
@@ -283,7 +281,6 @@ pre code{font-size:inherit}
 .aud em{font-style:normal;color:var(--ink3);margin-left:6px;font-size:12px}
 .aud em.w{color:var(--warn)}
 a.aud:hover b{text-decoration:underline}
-.aud .lkm{font-family:var(--mono);font-size:11.5px}
 .map li.offrow{background:none}
 .map li.offrow .ch{color:var(--warn);font-size:12px;white-space:nowrap}
 
@@ -418,10 +415,8 @@ export const AdminLayout: FC<{
   head?: Child;
   /** Breadcrumb line rendered above the h1 (e.g. Users / alice@…). */
   crumb?: Child;
-  /** @deprecated pages pass `chrome` now; kept until every page is on the new signature. */
-  notice?: string | null | undefined;
   children?: Child;
-}> = ({ title, chrome, head, crumb, notice, children }) => (
+}> = ({ title, chrome, head, crumb, children }) => (
   <html lang="en" data-theme={chrome?.theme}>
     <head>
       <meta charset="utf-8" />
@@ -486,9 +481,9 @@ export const AdminLayout: FC<{
           <h1>{title}</h1>
           {head}
         </header>
-        {(chrome?.notice ?? notice) ? (
+        {chrome?.notice ? (
           <p class="notice" role="status">
-            {chrome?.notice ?? notice}
+            {chrome.notice}
           </p>
         ) : null}
         {children}

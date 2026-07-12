@@ -2,8 +2,7 @@
 // this shape, switched at runtime by `ROLE`. Declared on the global `Cloudflare.Env` so the
 // `cloudflare:test` runtime `env` is typed identically to production.
 //
-// A defensive `readEnv()` guard is added in M7 when the runtime code that consumes these lands; for
-// now this file is the type-only source of truth.
+// `readEnv()` below is the defensive guard: it fails fast on a misconfigured `ROLE`.
 
 export type Role = "app" | "admin";
 export type EmailProvider = "none" | "cloudflare";
