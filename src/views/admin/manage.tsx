@@ -8,6 +8,7 @@ import type {
   UserDetail,
 } from "../../routes/admin/read-model";
 import type { EmailStatus } from "../../services/email";
+import { Combobox } from "./combobox";
 import { COPY_SCRIPT, Post } from "./forms";
 import { AdminLayout, type Chrome } from "./layout";
 import { ARCHIVE_AUTOFILL_SCRIPT } from "./plist-extract";
@@ -181,16 +182,16 @@ export const UserManagePage: FC<{
         ) : availableBuilds.length > 0 ? (
           <form method="post" action={`/admin/clients/${client.id}/pin`} class="actions">
             <input type="hidden" name="return_to" value={here} />
-            <label class="field">
-              <span class="sr-only">Build to pin</span>
-              <select name="buildId">
-                {availableBuilds.map((b) => (
-                  <option value={b.id}>
-                    #{b.buildNumber} · v{b.shortVersion}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <Combobox
+              name="buildId"
+              label="Build to pin"
+              placeholder="Type a build number or version…"
+              required
+              options={availableBuilds.map((b) => ({
+                value: String(b.id),
+                label: `#${b.buildNumber} · v${b.shortVersion}`,
+              }))}
+            />
             <button type="submit">Pin to build</button>
           </form>
         ) : (
@@ -545,18 +546,21 @@ export const StreamManagePage: FC<{ detail: StreamDetail; now: string; chrome: C
           </ul>
         )}
         {unlinkedBuilds.length > 0 ? (
-          <LinkPicker
-            options={unlinkedBuilds.map((b) => ({
-              value: String(b.id),
-              label: `#${b.buildNumber} · v${b.shortVersion}`,
-            }))}
-            postPrefix="/admin/builds"
-            postSuffix="/streams/link"
-            fieldName="streamId"
-            fieldValue={String(stream.id)}
-            buttonLabel="Link build"
-            returnTo={here}
-          />
+          <form method="post" action={`/admin/streams/${stream.id}/link`} class="actions">
+            <input type="hidden" name="return_to" value={here} />
+            <Combobox
+              name="buildId"
+              label="Builds to link"
+              placeholder="Type a build number or version…"
+              multiple
+              required
+              options={unlinkedBuilds.map((b) => ({
+                value: String(b.id),
+                label: `#${b.buildNumber} · v${b.shortVersion}`,
+              }))}
+            />
+            <button type="submit">Link builds</button>
+          </form>
         ) : null}
       </section>
 
@@ -589,15 +593,18 @@ export const StreamManagePage: FC<{ detail: StreamDetail; now: string; chrome: C
           </ul>
         )}
         {unassignedUsers.length > 0 ? (
-          <LinkPicker
-            options={unassignedUsers.map((u) => ({ value: String(u.id), label: u.email }))}
-            postPrefix="/admin/clients"
-            postSuffix="/streams/assign"
-            fieldName="streamId"
-            fieldValue={String(stream.id)}
-            buttonLabel="Assign user"
-            returnTo={here}
-          />
+          <form method="post" action={`/admin/streams/${stream.id}/assign`} class="actions">
+            <input type="hidden" name="return_to" value={here} />
+            <Combobox
+              name="clientId"
+              label="Users to assign"
+              placeholder="Type an email…"
+              multiple
+              required
+              options={unassignedUsers.map((u) => ({ value: String(u.id), label: u.email }))}
+            />
+            <button type="submit">Assign users</button>
+          </form>
         ) : null}
       </section>
 
@@ -618,57 +625,9 @@ export const StreamManagePage: FC<{ detail: StreamDetail; now: string; chrome: C
           />
         </div>
       </section>
-      <script dangerouslySetInnerHTML={{ __html: LINK_PICKER_SCRIPT }} />
     </AdminLayout>
   );
 };
-
-/**
- * One select + one button for "act on the CHOSEN entity" (link build / assign user) where each
- * entity has its own POST route. Without JS the form posts to the FIRST option's route — still a
- * correct, working action; the tiny enhancement re-points the form as the selection changes.
- */
-const LinkPicker: FC<{
-  options: { value: string; label: string }[];
-  postPrefix: string;
-  postSuffix: string;
-  fieldName: string;
-  fieldValue: string;
-  buttonLabel: string;
-  returnTo: string;
-}> = ({ options, postPrefix, postSuffix, fieldName, fieldValue, buttonLabel, returnTo }) => (
-  <form
-    method="post"
-    action={`${postPrefix}/${options[0]?.value}${postSuffix}`}
-    class="actions"
-    data-linkpicker={`${postPrefix}|${postSuffix}`}
-  >
-    <input type="hidden" name={fieldName} value={fieldValue} />
-    <input type="hidden" name="return_to" value={returnTo} />
-    <label class="field">
-      <span class="sr-only">{buttonLabel}</span>
-      <select data-linkpicker-select>
-        {options.map((o) => (
-          <option value={o.value}>{o.label}</option>
-        ))}
-      </select>
-    </label>
-    <button type="submit">{buttonLabel}</button>
-  </form>
-);
-
-const LINK_PICKER_SCRIPT = `
-(function () {
-  document.querySelectorAll("[data-linkpicker]").forEach(function (form) {
-    var parts = form.getAttribute("data-linkpicker").split("|");
-    var select = form.querySelector("[data-linkpicker-select]");
-    if (!select) return;
-    function point() { form.setAttribute("action", parts[0] + "/" + select.value + parts[1]); }
-    select.addEventListener("change", point);
-    point();
-  });
-})();
-`;
 
 // ————————————————————————————— Upload —————————————————————————————
 

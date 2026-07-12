@@ -26,7 +26,7 @@ import {
 } from "./clients";
 import { adminAuth } from "./middleware";
 import { dismissPending, invitePending } from "./pending";
-import { createStream, deleteStream } from "./streams";
+import { assignUsersToStream, createStream, deleteStream, linkBuildsToStream } from "./streams";
 import { setTheme } from "./theme";
 import { registerBuild, uploadBuild } from "./upload";
 import {
@@ -76,9 +76,12 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   // UI preference (theme toggle) — human only, not audited (no domain change)
   app.post("/admin/theme", setTheme);
 
-  // Channel mutations (§13)
+  // Channel mutations (§13). The :id/link and :id/assign batch routes serve the channel page's
+  // multi-select pickers (repeated buildId/clientId fields); both are additive and never strand.
   app.post("/admin/streams", createStream);
   app.post("/admin/streams/:id/delete", deleteStream);
+  app.post("/admin/streams/:id/link", linkBuildsToStream);
+  app.post("/admin/streams/:id/assign", assignUsersToStream);
 
   // Pending access requests (§13 #10)
   app.post("/admin/pending/:id/invite", invitePending);

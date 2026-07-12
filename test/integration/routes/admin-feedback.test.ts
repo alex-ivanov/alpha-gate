@@ -268,6 +268,69 @@ describe("channel delete + request handling", () => {
     expect((await listInOrder(deps.db)).some((r) => r.action.startsWith("theme"))).toBe(false);
   });
 
+  it("batch link: several buildId fields link in one POST, skipping dups and ghosts", async () => {
+    const { stream, build } = await seedServableClient(deps); // build already linked to stable
+    const b2 = await builds.insert(deps.db, {
+      shortVersion: "1.5.0",
+      buildNumber: 1600,
+      objectKey: "build/1600/App.zip",
+      edSignature: "s",
+      length: 1,
+    });
+    const b3 = await builds.insert(deps.db, {
+      shortVersion: "1.6.0",
+      buildNumber: 1700,
+      objectKey: "build/1700/App.zip",
+      edSignature: "s",
+      length: 1,
+    });
+
+    const res = await adminWorker(access).request(`/admin/streams/${stream.id}/link`, {
+      method: "POST",
+      headers: {
+        "Cf-Access-Jwt-Assertion": await userToken(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      // two new builds + one already linked + one that doesn't exist
+      body: `buildId=${b2.id}&buildId=${b3.id}&buildId=${build.id}&buildId=999`,
+    });
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("done=channel.builds-linked");
+    expect(res.headers.get("location")).toContain("s=2+builds"); // honest count
+
+    const links = await builds.listBuildStreams(deps.db);
+    expect(links.filter((l) => l.streamId === stream.id)).toHaveLength(3); // 1 seeded + 2 new
+    const audits = (await listInOrder(deps.db)).filter((r) => r.action === "build.link");
+    expect(audits).toHaveLength(2); // no phantom rows for the dup or the ghost
+  });
+
+  it("batch assign: several clientId fields assign in one POST; empty selection is a no-op", async () => {
+    const { stream } = await seedServableClient(deps);
+    const u1 = await clients.insert(deps.db, { email: "u1@example.test", token: "A".repeat(32) });
+    const u2 = await clients.insert(deps.db, { email: "u2@example.test", token: "B".repeat(32) });
+
+    const res = await adminWorker(access).request(`/admin/streams/${stream.id}/assign`, {
+      method: "POST",
+      headers: {
+        "Cf-Access-Jwt-Assertion": await userToken(),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: `clientId=${u1.id}&clientId=${u2.id}`,
+    });
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("done=channel.users-assigned");
+    const memberships = await streams.listUserStreams(deps.db);
+    expect(memberships.filter((m) => m.streamId === stream.id)).toHaveLength(3); // seeded + 2
+
+    // Empty selection (no clientId at all) → flash no-op, not a 400 wall.
+    const empty = await postAdmin(`/admin/streams/${stream.id}/assign`, {});
+    expect(empty.status).toBe(303);
+    expect(empty.headers.get("location")).toContain("done=noop");
+
+    // Nonexistent channel → 404.
+    expect((await postAdmin("/admin/streams/999/assign", { clientId: "1" })).status).toBe(404);
+  });
+
   it("no-op re-withdraw of an already-withdrawn build writes no second audit row", async () => {
     const { build } = await seedServableClient(deps);
     await postAdmin(`/admin/builds/${build.id}/withdraw`, { confirm: "true" });

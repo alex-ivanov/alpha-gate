@@ -1,5 +1,7 @@
 import type { AdminAction } from "../../core/no-build";
-import { create, getById, getByName, remove } from "../../db/streams";
+import * as builds from "../../db/builds";
+import * as clients from "../../db/clients";
+import { assignUser, create, getById, getByName, listUserStreams, remove } from "../../db/streams";
 import { recordAudit } from "../../services/audit";
 import { ConfirmActionPage, ResultPage } from "../../views/admin/manage-pages";
 import { renderPage } from "../../views/layout";
@@ -7,12 +9,14 @@ import type { AdminContext } from "./admin-context";
 import { auditFields } from "./audit-fields";
 import { strandingPreview } from "./confirm";
 import { doneRedirect } from "./flash";
-import { field, returnTo, toId } from "./form";
+import { field, idList, returnTo, toId } from "./form";
 import { requireUser } from "./middleware";
 
-// §13 — channel (stream) create/delete. Human-only. Deleting a channel silently unassigns its users
-// and unlinks its builds — destructive even when nobody is stranded — so it is ALWAYS confirmed, with
-// the §11 stranded-users list embedded in the confirmation when there is one.
+// §13 — channel (stream) create/delete plus the channel page's batch attach routes (link several
+// builds / assign several users in one POST — the multi-select combobox posts repeated ids; the
+// no-JS fallback posts one). Both are purely additive, so they never strand and need no §11 gate.
+// Deleting a channel silently unassigns its users and unlinks its builds — destructive even when
+// nobody is stranded — so it is ALWAYS confirmed, with the §11 stranded-users list embedded.
 
 export async function createStream(c: AdminContext): Promise<Response> {
   if (requireUser(c) === null) return c.text("Forbidden", 403);
@@ -44,6 +48,98 @@ export async function createStream(c: AdminContext): Promise<Response> {
   const stream = await create(deps.db, name);
   await recordAudit(deps, auditFields(c, "stream.create", name, JSON.stringify({ id: stream.id })));
   return doneRedirect(c, body, "/admin/streams", "channel.created", name);
+}
+
+/** POST /admin/streams/:id/link — link the selected build(s) to this channel (additive, no §11). */
+export async function linkBuildsToStream(c: AdminContext): Promise<Response> {
+  if (requireUser(c) === null) return c.text("Forbidden", 403);
+  const deps = c.get("deps");
+  const id = toId(c.req.param("id"));
+  if (id === null) return c.text("Bad request", 400);
+  const stream = await getById(deps.db, id);
+  if (stream === null) return c.text("Not found", 404);
+
+  const body = await c.req.parseBody({ all: true });
+  const ids = idList(body, "buildId");
+  if (ids.length === 0) {
+    return doneRedirect(c, body, `/admin/streams/${id}`, "noop", "No builds were selected.");
+  }
+
+  const links = await builds.listBuildStreams(deps.db);
+  let linked = 0;
+  for (const buildId of ids) {
+    const build = await builds.getById(deps.db, buildId);
+    if (build === null) continue; // vanished under a stale form — skip, count honestly
+    if (links.some((l) => l.buildId === buildId && l.streamId === id)) continue; // already here
+    await builds.linkStream(deps.db, buildId, id);
+    await recordAudit(
+      deps,
+      auditFields(c, "build.link", String(build.buildNumber), JSON.stringify({ streamId: id })),
+    );
+    linked++;
+  }
+  if (linked === 0) {
+    return doneRedirect(
+      c,
+      body,
+      `/admin/streams/${id}`,
+      "noop",
+      "Nothing to link — already in the channel or no longer available.",
+    );
+  }
+  return doneRedirect(
+    c,
+    body,
+    `/admin/streams/${id}`,
+    "channel.builds-linked",
+    `${linked} ${linked === 1 ? "build" : "builds"} into ${stream.name}`,
+  );
+}
+
+/** POST /admin/streams/:id/assign — assign the selected user(s) to this channel (additive, no §11). */
+export async function assignUsersToStream(c: AdminContext): Promise<Response> {
+  if (requireUser(c) === null) return c.text("Forbidden", 403);
+  const deps = c.get("deps");
+  const id = toId(c.req.param("id"));
+  if (id === null) return c.text("Bad request", 400);
+  const stream = await getById(deps.db, id);
+  if (stream === null) return c.text("Not found", 404);
+
+  const body = await c.req.parseBody({ all: true });
+  const ids = idList(body, "clientId");
+  if (ids.length === 0) {
+    return doneRedirect(c, body, `/admin/streams/${id}`, "noop", "No users were selected.");
+  }
+
+  const memberships = await listUserStreams(deps.db);
+  let assigned = 0;
+  for (const clientId of ids) {
+    const client = await clients.getById(deps.db, clientId);
+    if (client === null) continue; // vanished under a stale form — skip, count honestly
+    if (memberships.some((m) => m.clientId === clientId && m.streamId === id)) continue;
+    await assignUser(deps.db, clientId, id);
+    await recordAudit(
+      deps,
+      auditFields(c, "stream.assign", client.email, JSON.stringify({ streamId: id })),
+    );
+    assigned++;
+  }
+  if (assigned === 0) {
+    return doneRedirect(
+      c,
+      body,
+      `/admin/streams/${id}`,
+      "noop",
+      "Nothing to assign — already in the channel or no longer exist.",
+    );
+  }
+  return doneRedirect(
+    c,
+    body,
+    `/admin/streams/${id}`,
+    "channel.users-assigned",
+    `${assigned} ${assigned === 1 ? "user" : "users"} to ${stream.name}`,
+  );
 }
 
 export async function deleteStream(c: AdminContext): Promise<Response> {

@@ -27,6 +27,8 @@ const MESSAGES: Record<string, (subject: string | null) => string> = {
   "build.linked": (s) => `Linked ${s ?? "the build"} to the channel.`,
   "build.unlinked": (s) => `Unlinked ${s ?? "the build"} from the channel.`,
   "channel.created": (s) => `Created the ${s ?? "new"} channel.`,
+  "channel.builds-linked": (s) => `Linked ${s ?? "the selected builds"}.`,
+  "channel.users-assigned": (s) => `Assigned ${s ?? "the selected users"}.`,
   "channel.deleted": (s) => `Deleted the ${s ?? ""} channel and its assignments.`,
   "request.dismissed": (s) => `Dismissed the request from ${s ?? "the requester"}.`,
   "bulk.withdrawn": (s) => `Withdrew ${s ?? "the selected builds"}.`,

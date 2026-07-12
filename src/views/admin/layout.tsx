@@ -1,4 +1,5 @@
 import type { Child, FC } from "hono/jsx";
+import { COMBOBOX_SCRIPT } from "./combobox";
 import { TABLE_ENHANCE_SCRIPT } from "./table-enhance";
 
 // The back-office chrome — "quiet instrument": one continuous sheet structured by hairlines and a
@@ -184,6 +185,25 @@ th.th-sort[aria-sort="descending"]::after{content:"↓";opacity:.9}
 .filters label{display:inline-flex;gap:5px;align-items:center;color:var(--ink2)}
 .filters a{color:var(--ink3)}
 form.inline{display:inline-flex;gap:6px;align-items:center}
+
+/* ————— combobox (searchable entity picker; see combobox.tsx) ————— */
+.cbx{position:relative;display:inline-flex;flex-direction:column;gap:6px;min-width:17rem}
+.cbx.on select{display:none}
+.cbx-input{font:12.5px var(--sans);color:var(--ink);background:var(--paper);
+  border:1px solid var(--line2);border-radius:5px;padding:5px 8px}
+.cbx-input::placeholder{color:var(--ink3)}
+.cbx-list{position:absolute;top:100%;left:0;right:0;margin-top:4px;list-style:none;
+  background:var(--paper);border:1px solid var(--line2);border-radius:5px;
+  max-height:220px;overflow-y:auto;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.10)}
+.cbx-list li{padding:6px 10px;font-size:12.5px;cursor:pointer;font-family:var(--mono)}
+.cbx-list li:hover,.cbx-list li.act{background:var(--inset)}
+.cbx-list li.none{color:var(--ink3);cursor:default;font-family:var(--sans)}
+.cbx-chips{display:flex;flex-wrap:wrap;gap:6px;max-width:24rem}
+.cbx-chip{font:500 11px var(--mono);border:1px solid var(--line2);border-radius:4px;
+  background:var(--inset);color:var(--ink2);padding:2px 8px;cursor:pointer}
+.cbx-chip:hover{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,var(--line2))}
+.cbx.err .cbx-input{border-color:var(--danger);
+  outline:2px solid color-mix(in srgb,var(--danger) 35%,transparent)}
 
 /* ————— controls ————— */
 input,select,textarea{font:12.5px var(--sans);color:var(--ink);background:var(--paper);
@@ -475,6 +495,7 @@ export const AdminLayout: FC<{
       </main>
       <script dangerouslySetInnerHTML={{ __html: activeNavScript }} />
       <script dangerouslySetInnerHTML={{ __html: TABLE_ENHANCE_SCRIPT }} />
+      <script dangerouslySetInnerHTML={{ __html: COMBOBOX_SCRIPT }} />
     </body>
   </html>
 );

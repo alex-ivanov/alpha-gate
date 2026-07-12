@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BRANDING, resolveBranding } from "../../../src/core/invite-template";
 import { AccessPage, NotFoundPage } from "../../../src/views/access-page";
+import { COMBOBOX_SCRIPT, Combobox } from "../../../src/views/admin/combobox";
 import { AdminLayout } from "../../../src/views/admin/layout";
 import { GetPage } from "../../../src/views/get-page";
 import { renderPage } from "../../../src/views/layout";
@@ -147,6 +148,58 @@ describe("AdminLayout (design-system chrome)", () => {
     expect(dark).toContain(":root[data-theme=light]{color-scheme:light}");
     // The pre-paint script covers chrome-less pages (confirmations, invite results).
     expect(dark).toContain("document.cookie.match");
+  });
+});
+
+describe("Combobox (searchable entity picker)", () => {
+  const options = [
+    { value: "1", label: "#1500 · v1.2.1" },
+    { value: "2", label: "#1600 · v1.5.0" },
+  ];
+
+  it("degrades to a working native select carrying the form name (JS-off contract)", () => {
+    const html = String(
+      <Combobox
+        name="buildId"
+        label="Build to pin"
+        placeholder="Type…"
+        required
+        options={options}
+      />,
+    );
+    expect(html).toContain("data-combobox");
+    expect(html).toContain('<select name="buildId">');
+    expect(html).toContain("#1500 · v1.2.1");
+    expect(html).toContain('class="sr-only"'); // accessible name without visual noise
+    expect(html).not.toContain('value=""'); // required → no empty option (first is preselected JS-off)
+    expect(html).toContain('data-required="1"'); // the enhancer blocks empty submits instead
+  });
+
+  it("multiple renders a native multi-select so repeated fields post JS-off too", () => {
+    const html = String(
+      <Combobox name="clientId" label="Users" placeholder="Type…" multiple options={options} />,
+    );
+    expect(html).toContain("multiple");
+    expect(html).not.toContain('value=""'); // no empty option in multi mode
+  });
+
+  it("optional single keeps an empty option so 'none' stays expressible", () => {
+    const html = String(
+      <Combobox name="streamId" label="Channel" placeholder="Type…" options={options} />,
+    );
+    expect(html).toContain('<option value="">');
+  });
+
+  it("the enhancer ships with the admin chrome and is self-contained", () => {
+    const page = renderPage(
+      <AdminLayout title="x">
+        <p>content</p>
+      </AdminLayout>,
+    );
+    expect(page).toContain("data-combobox"); // the script looks for opted-in pickers…
+    expect(page).toContain('role", "combobox'); // …and builds a real combobox
+    // Self-containment (PRINCIPLES client-side-scripts gotcha): no bundler helpers may leak in.
+    expect(COMBOBOX_SCRIPT).not.toMatch(/__(spreadValues|async|name)\(/);
   });
 });
 
