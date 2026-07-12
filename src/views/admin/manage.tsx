@@ -833,7 +833,8 @@ const EmailStatusCell: FC<{ email: EmailStatus }> = ({ email }) =>
 // and the exact deploy command to turn it on. Hidden once email is "active" — nothing to do.
 const EmailSetupPanel: FC<{ instance: string; email: EmailStatus }> = ({ instance, email }) => {
   if (email.mode === "active") return null;
-  const cmd = `./deploy/deploy.sh --instance ${instance} --email-provider cloudflare --email-from alpha@<your-sending-domain>`;
+  const flags = `--instance ${instance} --email-provider cloudflare --email-from alpha@<your-sending-domain>`;
+  const cmd = `./deploy/deploy.sh ${flags}       # from a clone\nnpx alpha-gate deploy ${flags}   # from npm`;
   return (
     <section aria-label="Email delivery">
       <div class="slab">

@@ -88,9 +88,19 @@ export const SetupPage: FC<{ info: SetupInfo; chrome?: Chrome }> = ({ info, chro
           <h2>4 · Publish</h2>
         </div>
         <p class="muted">
-          Build → sign → notarize → staple → <code>sign_update</code> on macOS, then upload via{" "}
-          <a href="/admin/upload">Upload</a> or <a href="/admin/ci">CI</a>. Each build's{" "}
-          <code>build_number</code> must increase.
+          Build → sign → notarize → staple on macOS, then publish with one command — it reads the
+          version from the app and signs with <code>sign_update</code> (the Worker never signs):
+        </p>
+        <pre>
+          <code>{`./publish.sh MyApp.dmg --channel <name>        # from a clone
+npx alpha-gate publish MyApp.dmg --channel <name>   # from npm`}</code>
+        </pre>
+        <p class="muted">
+          It takes a <code>.dmg</code> or a signed <code>.app</code> <code>.zip</code>, picks the
+          instance automatically when only one is deployed, and pre-checks the build number. Or use
+          the browser <a href="/admin/upload">Upload</a> page; headless CI is on{" "}
+          <a href="/admin/ci">CI publishing</a>. Each build's <code>build_number</code> must
+          increase.
         </p>
       </section>
     </AdminLayout>

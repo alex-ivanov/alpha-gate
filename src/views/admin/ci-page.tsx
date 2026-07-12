@@ -31,13 +31,17 @@ export const CiPage: FC<{ adminOrigin: string; chrome?: Chrome }> = ({ adminOrig
       </div>
       <p>
         On a macOS runner, build → sign Developer ID → notarize → staple → produce the signed
-        artifact, then run the same <code>publish.sh</code> you use locally. It reads the version
-        from the app, signs with <code>sign_update</code> (the Worker never signs), links the
-        channel by name, and handles the {">"} 90 MB register path itself:
+        artifact, then run the same publish command you use locally. It reads the version from the
+        app, signs with <code>sign_update</code> (the Worker never signs), links the channel by
+        name, and handles the {">"} 90 MB register path itself:
       </p>
       <pre>
         <code>{`export CF_ACCESS_CLIENT_ID=...  CF_ACCESS_CLIENT_SECRET=...
-./publish.sh dist/MyApp.zip --admin-url ${adminOrigin} --channel beta`}</code>
+
+# from a clone:
+./publish.sh dist/MyApp.zip --admin-url ${adminOrigin} --channel beta
+# or from npm (no clone):
+npx alpha-gate publish dist/MyApp.zip --admin-url ${adminOrigin} --channel beta`}</code>
       </pre>
       <p class="muted">
         A runner with no readable app bundle (a bare zip): pass <code>--build-number</code> /{" "}
