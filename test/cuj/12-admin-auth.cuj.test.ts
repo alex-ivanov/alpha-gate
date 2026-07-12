@@ -28,12 +28,18 @@ describe("CUJ-12 admin auth", () => {
     expect(res.status).toBe(200);
   });
 
-  it("admits a valid service token", async () => {
-    const res = await adminWorker(access).request(
-      "/admin",
-      withToken(await access.signValidService()),
-    );
-    expect(res.status).toBe(200);
+  it("scopes a valid service token to the publish surface (decision 0006)", async () => {
+    const service = await access.signValidService();
+    // Authenticated but NOT admitted to the back office (reads include live invite links).
+    const read = await adminWorker(access).request("/admin", withToken(service));
+    expect(read.status).toBe(403);
+    // The publish surface still accepts it — a bad POST gets a 4xx VALIDATION error, not the
+    // 403 scope rejection (proving the token passed both auth and the scope gate).
+    const publish = await adminWorker(access).request("/admin/builds/upload", {
+      ...withToken(service),
+      method: "POST",
+    });
+    expect(publish.status).toBe(400);
   });
 
   it("rejects an expired token", async () => {

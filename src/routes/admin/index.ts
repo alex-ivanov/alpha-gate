@@ -58,6 +58,22 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
   });
   app.use("*", adminAuth);
 
+  // Decision 0006 enforced globally, not just on mutations: a service token may reach ONLY the
+  // publish surface. Reads matter too — user pages render live invite links, so a leaked CI
+  // credential must not be able to browse the back office.
+  const serviceAllowed = new Set([
+    "/admin/builds/upload",
+    "/admin/builds/register",
+    "/admin/publish-info",
+  ]);
+  app.use("*", async (c, next) => {
+    const actor = c.get("actor");
+    if (actor.kind === "service" && !serviceAllowed.has(new URL(c.req.url).pathname)) {
+      return c.text("Forbidden — service tokens may only publish (decision 0006)", 403);
+    }
+    await next();
+  });
+
   app.get("/admin", dashboardView);
   app.get("/admin/users", usersView);
   app.get("/admin/users/:id", userManageView);

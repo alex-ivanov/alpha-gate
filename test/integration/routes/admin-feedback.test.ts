@@ -40,6 +40,26 @@ async function getAdmin(path: string): Promise<string> {
   return (await adminWorker(access).request(path, withToken(await userToken()))).text();
 }
 
+describe("service-token scope (decision 0006)", () => {
+  it("a service token cannot READ the back office — only the publish surface admits it", async () => {
+    const { client } = await seedServableClient(deps);
+    const service = await access.signValidService();
+    // Reads are forbidden: the users list and user pages (which render live invite links).
+    for (const path of ["/admin", "/admin/users", `/admin/users/${client.id}`, "/admin/audit"]) {
+      const res = await adminWorker(access).request(path, withToken(service));
+      expect(res.status).toBe(403);
+      expect(await res.text()).toContain("service tokens may only publish");
+    }
+    // Non-publish mutations are forbidden too (requireUser already covered this; the scope
+    // middleware now rejects before the handler).
+    const post = await adminWorker(access).request(
+      `/admin/clients/${client.id}/revoke`,
+      withTokenForm(service, { confirm: "true" }),
+    );
+    expect(post.status).toBe(403);
+  });
+});
+
 describe("return_to + flash", () => {
   it("a mutation 303s back to the page it was made from, carrying a flash the page renders", async () => {
     const { client } = await seedServableClient(deps);
