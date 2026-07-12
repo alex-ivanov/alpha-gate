@@ -996,9 +996,10 @@ export const ActivityPage: FC<{
             </tbody>
           </table>
         </div>
-        {truncated ? (
-          <p class="tfoot">Showing the latest 100 events — narrow with the filters above.</p>
-        ) : null}
+        <p class="tfoot">
+          {truncated ? "Showing the latest 100 events — narrow with the filters above. " : ""}
+          Checks, downloads and updates older than 90 days are pruned nightly.
+        </p>
       </section>
     )}
   </AdminLayout>

@@ -42,10 +42,12 @@ Keep I/O at the edges and logic pure. The resolver, the no-build computation, §
 npm test                                      # both suites: worker (vitest-pool-workers) + deploy CLI (node); offline
 npm run check                                 # the full gate: biome + typecheck (both tsconfigs) + test
 
-./deploy/dev.sh                               # §23 local surface: App Worker on Miniflare D1/R2, seeded, no account
+./deploy/dev.sh                               # §23 local surface: BOTH Workers on Miniflare (app :8787, admin :8788),
+                                              #   seeded, no account (--role app|admin for one)
 ./deploy/deploy.sh --instance <slug>          # provision D1 + R2, apply migrations, deploy both Workers (idempotent;
-                                              #   re-run to update an instance in place — data preserved)
+                                              #   re-run updates in place — data + remembered email/Access preserved)
 ./deploy/deploy.sh --instance <slug> --email-provider cloudflare --email-from alpha@<sending-domain>
+./deploy/backup.sh --instance <slug>          # D1 dump to .deploy/<slug>-<ts>.sql (recovery; contains live tokens)
 ./deploy/teardown.sh --instance <slug>        # destructive: archives D1 first, removes both Workers + D1 (R2/Access manual)
 
 ./publish.sh MyApp.dmg                        # macOS: ONE command — reads version from the app (dmg OR

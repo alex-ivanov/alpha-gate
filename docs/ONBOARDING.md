@@ -11,6 +11,7 @@ public app URL (the Sparkle feed) and a gated admin URL (the back office). To th
 - [5. (CI only) create a service token](#5-ci-only-create-a-service-token)
 - [6. Verify](#6-verify)
 - [7. Email (optional)](#7-email-optional)
+- [Backup & recovery](#backup--recovery)
 - [Multiple instances](#multiple-instances)
 - [Updating in place](#updating-in-place)
 - [Teardown](#teardown)
@@ -69,7 +70,12 @@ must match its Info.plist `CFBundleURLSchemes`), and optional blurb/accent. Flag
 ## 4. Lock the admin behind Cloudflare Access
 
 The admin URL is **public until you do this** — it's the one genuinely manual step (a Zero Trust
-dashboard action; there's no wrangler command for it):
+dashboard action; there's no wrangler command for it).
+
+> **First time in Zero Trust?** Cloudflare makes you pick a **team name** and, even on the **free**
+> Zero Trust plan, add a **payment method** before you can create Access applications (you are not
+> charged on the free plan, which covers up to 50 users). Do this once at dash.cloudflare.com → Zero
+> Trust before the steps below, so you're not stuck mid-deploy.
 
 1. Dashboard → **Workers & Pages** → the `alpha-gate-myalpha-admin` Worker → **Settings → Domains &
    Routes** → enable **Cloudflare Access**. Cloudflare creates a self-hosted Access application for the
@@ -139,6 +145,34 @@ applied, both Workers redeployed; tokens/clients/builds/logs are preserved. **Yo
 settings are remembered** — a bare re-run keeps them (pass the flags again only to change them). A
 daily cron checks for a newer Alpha Gate release (comparing against `release.json` in this checkout's
 git origin) and shows a dashboard banner + a "last checked" line on Settings when one exists.
+
+## Backup & recovery
+
+The irreplaceable state lives in **D1** (clients + their tokens, builds, channels, logs, the audit
+chain). R2 holds only archive bytes, which you can re-create by re-publishing. So a backup is a D1 dump:
+
+```bash
+./deploy/backup.sh --instance myalpha            # → .deploy/myalpha-<timestamp>.sql
+./deploy/backup.sh --instance myalpha --out ~/secure-backups
+```
+
+Run it before a risky change, or on a schedule (cron/launchd). The dump contains **live tokens** — keep
+it off the laptop (private storage) and prune old copies.
+
+**Restore** (into a freshly deployed instance, e.g. after losing the laptop or moving accounts):
+
+```bash
+./deploy/deploy.sh --instance myalpha            # provision + deploy a clean instance first
+npx wrangler d1 execute alpha-gate-myalpha --remote --file myalpha-<timestamp>.sql   # load the dump
+```
+
+**What deploy state you can lose safely.** Re-running `deploy.sh` regenerates the entire `.deploy/`
+directory (configs, resolved ids, URLs, remembered email/Access inputs are re-derived from live
+resources or re-prompted) — so losing `.deploy/` costs nothing but a re-run. The one thing NOT in D1
+or `.deploy/`: your **Sparkle private key** (in your login Keychain) and the **Access service token**
+(also Keychain). Export the Sparkle key now and store it off-machine — see the warning in
+[UPLOADING §1a](UPLOADING.md#1-wire-sparkle-into-your-app-once). The service token can be recreated in
+Cloudflare Zero Trust and re-entered with `./publish.sh … --reset-token`.
 
 ## Teardown
 

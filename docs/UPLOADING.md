@@ -34,6 +34,13 @@ notarization).
 The private key is what `sign_update` uses at publish time. **The Worker never holds it** — it only
 stores the signature string each build produces.
 
+> **⚠ The Sparkle private key is unrecoverable — back it up now.** It lives only in your login
+> Keychain. If you lose it (laptop dies, Keychain wiped), every already-installed app rejects all
+> future updates — Sparkle verifies each download against the public key baked into the app, and you
+> can't produce a matching signature without the private key. Run `./bin/generate_keys -x
+> sparkle_private.pem` and store that file somewhere safe and off the laptop (a password manager, an
+> encrypted backup). This is the single most important thing to back up in the whole system.
+
 **b. Info.plist keys** in your app:
 
 | Key | Value |
@@ -143,7 +150,8 @@ e.g. a non-integer `CFBundleVersion`), `--critical`, `--dry-run`.
 1. The build appears on the admin **Builds** page (with download/update counts).
 2. Invite yourself (§3), open the `/get?token=` link, install, activate, and let the app check for
    updates.
-3. The **Activity** log shows a `check` carrying your installed build, then a `download`/`update`.
+3. The **Activity** log shows a `check` carrying your installed build, then a `download`/`update`
+   (activity older than 90 days is pruned nightly; download/update counts on builds are permanent).
 4. Raw check (replace host + token):
    ```bash
    curl "https://<app_url-host>/appcast?token=<TOKEN>&installed=1"   # should list an <item> for your build
