@@ -21,6 +21,12 @@ async function getAdmin(path: string): Promise<Response> {
 }
 
 describe("admin read views", () => {
+  it("the bare origin redirects to /admin — the URL deploy prints is the origin", async () => {
+    const res = await getAdmin("/");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/admin");
+  });
+
   it("dashboard shows counts", async () => {
     await seedServableClient(deps);
     const html = await (await getAdmin("/admin")).text();

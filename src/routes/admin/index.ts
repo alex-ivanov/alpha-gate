@@ -75,6 +75,9 @@ export function createAdminApp(depsFor: (env: Env) => Deps = buildDeps) {
     await next();
   });
 
+  // The deploy output and onboarding hand out the bare admin origin — route it home instead of 404.
+  app.get("/", (c) => c.redirect("/admin", 302));
+
   app.get("/admin", dashboardView);
   app.get("/admin/users", usersView);
   app.get("/admin/users/:id", userManageView);
