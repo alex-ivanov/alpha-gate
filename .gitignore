@@ -14,4 +14,4 @@ yarn-error.log*
 
 .vscode/*
 .idea
-.idea/*
+.idea/**.tgz

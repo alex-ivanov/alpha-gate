@@ -2,8 +2,45 @@
   "name": "alpha-gate",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "Self-hosted Cloudflare distribution gate for a Sparkle-updated macOS app",
+  "keywords": [
+    "sparkle",
+    "macos",
+    "auto-update",
+    "cloudflare-workers",
+    "self-hosted",
+    "distribution"
+  ],
+  "homepage": "https://github.com/alex-ivanov/alpha-gate/blob/main/CHANGELOG.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alex-ivanov/alpha-gate.git"
+  },
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "alpha-gate": "bin/alpha-gate.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "migrations/",
+    "deploy/",
+    "publish.sh",
+    "templates/",
+    "tsconfig.json",
+    "VERSION",
+    "release.json",
+    "CHANGELOG.md",
+    "docs/"
+  ],
+  "alphaGate": {
+    "minSupported": "0.1.0",
+    "breaking": false
+  },
   "scripts": {
     "test": "vitest run --config test/vitest.config.ts && vitest run --config test/vitest.deploy.config.ts",
     "test:app": "vitest run --config test/vitest.config.ts",
@@ -15,29 +52,17 @@
     "format": "biome format --write .",
     "check": "biome check . && npm run typecheck && npm run test"
   },
-  "engines": {
-    "node": ">=20"
-  },
   "dependencies": {
-    "hono": "^4.12.25"
+    "hono": "^4.12.25",
+    "tsx": "^4.22.4",
+    "wrangler": "^4.100.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
     "@cloudflare/vitest-pool-workers": "^0.16.15",
     "@cloudflare/workers-types": "^4.20260613.1",
     "@types/node": "^25.9.3",
-    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8",
-    "wrangler": "^4.100.0"
-  },
-  "homepage": "https://github.com/alex-ivanov/alpha-gate/blob/main/CHANGELOG.md",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/alex-ivanov/alpha-gate.git"
-  },
-  "alphaGate": {
-    "minSupported": "0.1.0",
-    "breaking": false
+    "vitest": "^4.1.8"
   }
 }

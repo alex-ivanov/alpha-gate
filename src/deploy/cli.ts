@@ -62,7 +62,7 @@ function toolVersion(): string {
 
 const HELP: Record<string, string> = {
   deploy:
-    "usage: ./deploy/deploy.sh --instance <slug> [options]\n" +
+    "usage: deploy --instance <slug> [options]  (./deploy/deploy.sh or: alpha-gate deploy)\n" +
     "  Provision D1 + R2, apply migrations, deploy both Workers (idempotent — re-run to update).\n" +
     "  --instance <slug>            required; namespaces everything (lowercase, digits, hyphens)\n" +
     "  --app-name / --activate-scheme / --blurb / --accent   first-init branding (prompted if unset)\n" +
@@ -71,14 +71,14 @@ const HELP: Record<string, string> = {
     "  --dry-run                    rehearse with wrangler mocked (touches nothing)\n" +
     "  --yes                        skip the confirm prompt (for non-interactive runs)",
   dev:
-    "usage: ./deploy/dev.sh [options]\n" +
+    "usage: dev [options]  (./deploy/dev.sh or: alpha-gate dev)\n" +
     "  Run Alpha Gate locally on Miniflare (no Cloudflare account). Starts BOTH Workers by default.\n" +
     "  --role app|admin             start only one Worker (default: both)\n" +
     "  --port <n>                   app port (admin is port+1 when both run; default 8787)\n" +
     "  --no-seed                    skip seeding the demo client/build\n" +
     "  --reset                      wipe local D1/R2 state first",
   teardown:
-    "usage: ./deploy/teardown.sh --instance <slug> [options]\n" +
+    "usage: teardown --instance <slug> [options]  (./deploy/teardown.sh or: alpha-gate teardown)\n" +
     "  Archive D1, then destroy both Workers + D1 (R2 bucket + Access app are removed manually).\n" +
     "  --instance <slug>            required\n" +
     "  --no-archive                 skip the D1 backup dump\n" +
