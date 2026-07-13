@@ -1,6 +1,6 @@
 # Channels
 
-Release channels group users and builds: this page covers creating a channel, linking builds, assigning users, pinning a user to one build, and the guard against leaving anyone with no servable build.
+Release channels group users and builds: this page covers creating a channel, linking builds, assigning users, pinning a user to one build, and the guard against leaving any user with no servable build.
 
 ## The model
 
@@ -8,11 +8,11 @@ A channel serves its **highest available linked build** to every user assigned t
 
 Users and builds can be on several channels at once. A user on more than one channel is offered the highest available build across all of them — the user page's Channels section says so next to the list.
 
-Two states serve nothing. A build linked to no channel is offered to no one. A user assigned to no channel gets an empty feed, and their app reports up to date; the admin surfaces both with a "no channel" warning.
+Two states serve nothing. A build linked to no channel is offered to no one — unless a user is pinned to it, since a pin ignores channels. A user assigned to no channel (and not pinned) gets an empty feed, and their app reports up to date; the back office surfaces both: a "no channel" warning on the user, and "In no channel — offered to no one" on the build.
 
 ## Create a channel
 
-On the Channels page, the Add channel section takes a name — `stable` and `beta` are typical — and the Create channel button creates it. Names are unique; a duplicate is rejected with a clear error.
+On the Channels page, the Add channel section takes a name (`stable` and `beta` are typical) and the Create channel button creates it. Names are unique; a duplicate is rejected with a clear error.
 
 The Channels list shows what each channel is serving, with a **"serving nothing"** warning when no available build is linked.
 
@@ -35,11 +35,11 @@ A pin holds one user to one exact build. It lives on the user's page, in the Pin
 Sparkle cannot downgrade, which shapes two cases:
 
 - A pin below the build the user runs does not take effect through the updater. The feed still offers the pinned item; Sparkle discards anything lower than the installed version and reports up to date. A fresh install through the user's download link does serve the pinned build.
-- A pin to a withdrawn build serves nothing: the user gets an empty feed and does not fall back to their channels. The user page flags this ("Pinned to a build that no longer resolves") with an Unpin action.
+- A pin to a withdrawn build serves nothing: the user gets an empty feed and does not fall back to their channels. The user page flags this ("pin serves nothing" on the next-check verdict, with "pinned build is withdrawn — unpin or re-pin") and the Pin section keeps the Unpin action.
 
 ## The stranding guard
 
-Any change that could leave a user with no servable build — withdrawing a build, unlinking it from a channel, unassigning a user, pinning, unpinning — is never silently blocked. When someone would be stranded, you get a confirmation page first. It names the action in plain words and **lists exactly which users** would be left with no available build; their apps will report up to date and receive nothing until a higher build reaches them. Confirm to proceed, or Cancel to return to the page you acted from.
+Any change that could leave a user with no servable build (withdrawing a build, unlinking it from a channel, unassigning a user, pinning, unpinning) is confirmed, not blocked. When a user would be stranded, you get a confirmation page first. It names the action in plain words and **lists exactly which users** would be left with no available build; their apps will report up to date and receive nothing until a higher build reaches them. Confirm to proceed, or Cancel to return to the page you acted from.
 
 The remedy for a stranded user is one of: publish a higher build into their channel, assign a different channel, or adjust the pin.
 

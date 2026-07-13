@@ -3,7 +3,7 @@
 How to wire a Go macOS app to Alpha Gate. There are two routes: a pure-Go client that speaks the
 Sparkle wire format ([alex-ivanov/go-sparkle](https://github.com/alex-ivanov/go-sparkle) — no
 framework, works in any Go app), and cgo bindings around the real `Sparkle.framework`
-([abemedia/go-sparkle](https://github.com/abemedia/go-sparkle) — needs a Cocoa run loop). The
+([abemedia/go-sparkle](https://github.com/abemedia/go-sparkle), which needs a Cocoa run loop). The
 server side is identical either way.
 
 ## Route 1: pure Go (alex-ivanov/go-sparkle)
@@ -35,15 +35,17 @@ if rel != nil {
 ```
 
 The token is percent-encoded into the query (which is where Alpha Gate reads it) and also sent as
-an `Authorization: Bearer` header. `Apply` handles both `.zip` and `.dmg` artifacts, so whatever
+an `Authorization: Bearer` header, which Alpha Gate ignores — only the query parameter authenticates. `Apply` handles both `.zip` and `.dmg` artifacts, so whatever
 you [publish](../operate/publish.md) installs unchanged.
 
 Differences from framework Sparkle worth knowing with an Alpha Gate feed:
 
 - **Revocation is quiet.** Framework Sparkle shows revoked users the renewal notice
   ([activation](activation.md)); the pure-Go client filters that notice item out (it has no
-  enclosure), so a revoked app simply sees no more updates and its downloads fail. If you want a
-  visible "renew access" moment, surface it yourself when downloads start failing.
+  enclosure), so `Check` returns nil and a revoked app reads as up to date forever. No error is
+  raised and no download is attempted. If you want a visible "renew access" moment, detect it
+  yourself: treat the enclosure-less notice item in the fetched appcast as the signal (an active
+  token never receives one), or probe `/get?token=` and treat its 404 as revoked.
 - **`--critical` has no effect** on this client — critical updates are on its not-implemented
   list, so a critical build installs like any other.
 

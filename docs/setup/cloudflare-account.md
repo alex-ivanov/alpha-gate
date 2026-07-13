@@ -21,13 +21,13 @@ For CI, set `CLOUDFLARE_API_TOKEN` instead of an interactive login.
 Whoever can open this account's Cloudflare dashboard can read the D1 database and R2 bucket
 directly, and the database rows include every tester's access token — the secret behind their
 `/get` link and update feed. **A dashboard user could therefore impersonate any tester.** Testers
-themselves never touch the database; the tokens are generated server-side when you add a user, and
+themselves never touch the database; the tokens are generated server-side when you add a tester, and
 a tester's app only talks to the public Worker. If other people share your Cloudflare account, put
 Alpha Gate in its own account so dashboard access does not equal tester access.
 
 ## Set up Zero Trust now
 
-After deploy, you lock the admin behind Cloudflare Access, which lives in Cloudflare Zero Trust. The first time you open Zero Trust, Cloudflare makes you pick a **team name** and add a **payment method** before you can create Access applications — even on the free Zero Trust plan. You are not charged on the free plan, which covers up to 50 users.
+After deploy, you lock the admin behind Cloudflare Access, which lives in Cloudflare Zero Trust. The first time you open Zero Trust, Cloudflare makes you pick a **team name** and add a **payment method** before you can create Access applications — even on the free Zero Trust plan. You are not charged on the free plan, You are not charged on the free plan, whose 50-user limit counts only Zero Trust logins such as your admin email, not testers..
 
 Do this once now, at dash.cloudflare.com → Zero Trust, so the Access step after deploy does not stall on account setup.
 

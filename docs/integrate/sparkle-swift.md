@@ -4,7 +4,7 @@ How to wire Sparkle 2 into a native macOS app so its updates flow through your A
 
 ## What differs from stock Sparkle
 
-One thing: the update feed is per-user. Each user's token selects their channel, pin, and build, so there is no single appcast URL to bake into the app. You leave `SUFeedURL` unset and supply the feed URL at runtime through the updater delegate (below). Everything else — installing the framework, the updater controller, the check-for-updates menu item — is standard Sparkle 2; follow the [official setup guide](https://sparkle-project.org/documentation/) and come back here for the feed.
+One thing: the update feed is per-user. Each user's token selects their channel, pin, and build, so there is no single appcast URL to bake into the app. You leave `SUFeedURL` unset and supply the feed URL at runtime through the updater delegate (below). Everything else (installing the framework, the updater controller, the check-for-updates menu item) is standard Sparkle 2; follow the [official setup guide](https://sparkle-project.org/documentation/) and come back here for the feed.
 
 Keep two hosts straight. The app's feed points at the App Worker: the `app_url` in your deploy state (`.deploy/<slug>.state.json` in a clone, `~/.alpha-gate/<slug>.state.json` from npm). Publishing talks to the admin Worker, a different hostname.
 
@@ -44,7 +44,7 @@ Implement the updater delegate so each check carries the token and the installed
 
 ```swift
 func feedURLString(for updater: SPUUpdater) -> String? {
-    guard let token = Keychain.token else { return nil }   // no token yet → don't check
+    guard let token = Keychain.token else { return nil }   // no token yet → the check will fail; gate checks on activation (see below)
     return "https://<APP_WORKER_HOST>/appcast?token=\(token)"
 }
 func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[String: String]] {
@@ -53,7 +53,7 @@ func feedParameters(for updater: SPUUpdater, sendingSystemProfile: Bool) -> [[St
 }
 ```
 
-`<APP_WORKER_HOST>` is the `app_url` host from your deploy state. `Keychain.token` is illustrative — read the token from wherever your activation flow stored it. **Do not start update checks before a token exists**: with no feed, Sparkle errors. That is what the `return nil` guard is for.
+`<APP_WORKER_HOST>` is the `app_url` host from your deploy state. `Keychain.token` is illustrative — read the token from wherever your activation flow stored it. **Do not start update checks before a token exists**: with no feed, Sparkle errors. The guard does not skip the check — it only keeps a tokenless request from ever reaching the server; hold off enabling automatic checks (or calling checkForUpdates) until activation has stored the token.
 
 ## References
 

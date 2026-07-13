@@ -16,9 +16,9 @@ No clone; you run a pinned, versioned release:
 npx alpha-gate deploy --instance <slug>
 ```
 
-`npx alpha-gate <command>` runs the latest published version; `npx alpha-gate@0.1.0 <command>` pins one. You can also install globally with `npm i -g alpha-gate` and run `alpha-gate <command>`. The commands are `deploy`, `dev`, `publish`, `backup`, and `teardown`; run `alpha-gate <command> --help` for a command's options.
+The npm package is not published yet — install from a clone (below) until the first release ships. Once it does: `npx alpha-gate <command>` runs the latest release; `npx alpha-gate@0.1.0 <command>` pins one. You can also install globally with `npm i -g alpha-gate` and run `alpha-gate <command>`. The commands are `deploy`, `dev`, `publish`, `backup`, and `teardown`; run `alpha-gate <command> --help` for a command's options.
 
-State — per-instance records (`<slug>.state.json`) and the rendered wrangler configs — lives in `~/.alpha-gate`. Set `$ALPHA_GATE_HOME` to move it. The package files themselves sit in npm's versioned cache, so nothing durable is written there.
+State lives in `~/.alpha-gate`: per-instance records (`<slug>.state.json`) and the rendered wrangler configs. Set `$ALPHA_GATE_HOME` to move it. The package files themselves sit in npm's versioned cache, so nothing durable is written there.
 
 ## Install from a clone
 
@@ -44,12 +44,12 @@ Flags:
 
 | Flag | Effect |
 |---|---|
-| `--port <n>` | App port (default 8787); the admin runs on the next port up. |
+| `--port <n>` | App port (default 8787); when both Workers run, the admin takes the next port up. With `--role admin`, `--port` is the admin's port. |
 | `--no-seed` | Skip the demo user and build. |
 | `--reset` | Wipe the local D1/R2 state before starting. |
 | `--role app` or `--role admin` | Start one Worker instead of both. |
 
-The local admin runs behind a dev-only auth shim: there is no login, every request acts as the admin `dev@local`, and mutations are audited under that name. **The shim is localhost-only and cannot ship** — nothing in the deployed Worker references it, and it refuses to serve unless `DEV_ADMIN=1`, which only `dev.sh` sets. Production admin auth is unchanged.
+The local admin runs behind a dev-only auth shim: there is no login, every request acts as the admin `dev@local`, and mutations are audited under that name. **The shim is localhost-only and cannot ship** — nothing in the deployed Worker references it, and it refuses to serve unless `DEV_ADMIN=1`, which only the local `dev` command sets when it starts the admin. Production admin auth is unchanged.
 
 From an npm install, `alpha-gate dev` starts one Worker at a time: the app by default, or the admin with `--role admin`.
 
@@ -60,6 +60,6 @@ From an npm install, `alpha-gate dev` starts one Worker at a time: the app by de
 | npm (`npx alpha-gate`) | `~/.alpha-gate` |
 | git clone | `<repo>/.deploy` |
 
-`$ALPHA_GATE_HOME` overrides both. The directory holds per-instance deploy records and the rendered wrangler configs; the data itself — users, tokens, builds, channels — lives in your instance's D1 database (see [Backup](../maintain/backup.md)).
+`$ALPHA_GATE_HOME` overrides both. The directory holds per-instance deploy records and the rendered wrangler configs; the data itself (users, tokens, builds, channels) lives in your instance's D1 database (see [Backup](../maintain/backup.md)).
 
 Next: [Prepare your Cloudflare account](cloudflare-account.md)

@@ -71,13 +71,13 @@ Normally handled — `publish.sh` mounts the DMG at a random mount point. If you
 
 Check these in order:
 
-- **No channel anywhere.** A user with no channel receives nothing, and a build linked to no channel is served to no one. Attach both to a channel — see [Channels](../operate/channels.md).
-- **Pinned below what they run.** Sparkle cannot downgrade — an item below the installed version is never offered. A pin below the installed build takes effect only once a higher-numbered build exists in the channel.
+- **No channel anywhere.** A user with no channel receives nothing, and a build linked to no channel is served to no one through channel resolution (a pin can still serve it). Attach both to a channel — see [Channels](../operate/channels.md).
+- **Pinned below what they run.** Sparkle cannot downgrade — an item below the installed version is never offered. A pin below the installed build never lands — the pin overrides the channel, and Sparkle ignores the lower item. Roll forward: republish that code under a higher build number and re-pin, or unpin so channel resolution resumes.
 - **Revoked token.** The feed serves an informational "Access renewal" notice instead of an update. Once you reissue and the user re-activates, updates resume without a reinstall.
 
 ### `/get` returns 404
 
-An unknown or revoked token gets the same generic 404 as any other miss. **This is by design** — the response reveals nothing about whether a token exists. Compare the token against the link on the user's admin page; a revoked user needs a reissued link.
+An unknown or revoked token gets An unknown, malformed, or revoked token gets the identical generic 404.. **This is by design** — the response reveals nothing about whether a token exists. Compare the token against the link on that user's page in the admin; a revoked user needs a reissued link.
 
 ## Local dev
 

@@ -1,6 +1,6 @@
 # Removing users
 
-How to take access away — and how to give it back — using the actions on a user's page.
+How to take access away, and how to give it back, using the actions on a user's page.
 
 All four actions live in the **Access** section at the bottom of the user's page (Users → click the email). Every one records an audit entry.
 

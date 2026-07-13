@@ -18,7 +18,7 @@ Automated delivery uses Cloudflare Email Service through a `send_email` binding 
 1. The **Workers Paid** plan.
 2. A real, onboarded sending domain: in the Cloudflare dashboard, under Email → Email Routing, you add and verify SPF/DKIM DNS records for a zone you control.
 
-A `*.workers.dev` hostname cannot be the sending domain — you do not control its DNS. An instance without a custom domain stays on copy-paste.
+A `*.workers.dev` hostname cannot be the sending domain — you do not control its DNS. An account with no domain of its own stays on copy-paste. The sending domain does not need to serve the Workers — the instance can stay on `*.workers.dev`; the domain only needs to be onboarded for email in the same account.
 
 ## Enable it
 
@@ -30,7 +30,7 @@ Re-run deploy with the email flags:
 npx alpha-gate deploy --instance <slug> --email-provider cloudflare --email-from alpha@<your-sending-domain>
 ```
 
-`--email-from` is required when `--email-provider` is `cloudflare`. The deploy adds the `EMAIL` send_email binding to the admin Worker and sets the From address. The flags are remembered: a later bare re-run (`--instance <slug>` alone) keeps them, so you pass them again only to change them.
+`--email-from` is required when `--email-provider` is `cloudflare`. The deploy adds the `EMAIL` send_email binding to the admin Worker and sets the From address. The flags are remembered: a later bare re-run (`--instance <slug>` alone) keeps them, so you pass them again only when the address or provider changes. One asymmetry: there is currently no flag that turns email back off — `--email-provider none` reads as "not passed" and the remembered provider wins..
 
 After the deploy, reload Settings. The Email row should read "sending via Cloudflare" with your From address.
 
@@ -46,6 +46,6 @@ Misconfiguration behaves the same way. If the provider is set to Cloudflare but 
 
 ## The state-directory caveat
 
-The email flags live only in the local deploy state directory — `.deploy/` in a clone, `~/.alpha-gate` from npm — not in the database. If you lose that directory, a bare re-run of deploy regenerates everything else but quietly reverts invites to copy-paste. Pass `--email-provider cloudflare --email-from <address>` once more to restore delivery. The Email row on Settings is where you would notice the reversion.
+The email flags live only in the local deploy state directory (`.deploy/` in a clone, `~/.alpha-gate` from npm), not in the database. If you lose that directory, a bare re-run of deploy regenerates everything else but quietly reverts invites to copy-paste. Pass `--email-provider cloudflare --email-from <address>` once more to restore delivery. The Email row on Settings is where you would notice the reversion.
 
 Next: [Backup](../maintain/backup.md)

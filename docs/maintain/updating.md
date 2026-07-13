@@ -14,7 +14,7 @@ package's latest version (`registry.npmjs.org/<name>/latest`) and compares it ag
   current it reads *up to date* with a last-checked time instead. A fresh deploy shows
   *not checked yet* until the cron first fires, within 24 hours.
 
-If email is configured, the instance also emails you once per new version.
+If email is configured, the instance also sends one notice per new version to the `--email-from` address; route that mailbox to yourself to receive it.
 
 **The Worker only notifies — it never deploys itself.** Self-deployment would require a privileged
 Cloudflare API token on the edge, which the design forbids. Updating is always an operator-run
@@ -45,7 +45,7 @@ A re-deploy is idempotent. It reuses the existing D1 database and R2 bucket, app
 migrations, and redeploys both Workers. Preserved across updates:
 
 - all data: users and their tokens, builds, channels, logs, the audit chain;
-- your email settings and Access secrets — they are remembered, so a bare re-run keeps them. Pass
+- your email settings and Access secrets — they are remembered in the deploy state directory of the channel you deployed with (`.deploy/` in a clone, `~/.alpha-gate` for npm), so a bare re-run through that same channel keeps them. An update through the other channel finds no remembered flags and quietly reverts invites to copy-paste; pass `--email-provider`/`--email-from` (or `--access-team-domain`/`--access-aud`) again when you switch channels or want to change them. Pass
   `--email-provider`/`--email-from` or `--access-team-domain`/`--access-aud` again only to change
   them.
 
@@ -86,6 +86,7 @@ repo's `release.json`:
 
 Keep `latest` in sync with your `package.json` version on every release; set `breaking: true` when
 an upgrade needs manual steps. Until the manifest URL resolves, the check fails quietly and the
-banner stays silent.
+banner stays silent. Settings still shows a last-checked time — the timestamp records that the
+check ran, not that it found anything.
 
 Next: [Teardown](teardown.md)

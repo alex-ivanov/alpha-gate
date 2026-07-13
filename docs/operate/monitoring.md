@@ -4,7 +4,7 @@ This page explains how to read the back office: which build each user gets, what
 
 ## The Overview
 
-The **Serving now** map draws one row per channel: the channel, the build it serves (its highest available linked build), and the audience. The audience cell summarizes the users on that channel — `all up to date`, or counts like `2 will update · 1 pinned`, or `1 faulted` when something is wrong. A channel with users but no available build shows `serving nothing — no build linked` and its users get an `empty feed`. Below the channels sits the **off the map** row: users routed nowhere — no channel, no pin — whose tokens work but whose checks resolve to nothing. **The map is computed by the same resolver the public Worker runs, so what you see here is exactly what Sparkle receives.**
+The **Serving now** map draws one row per channel: the channel, the build it serves (its highest available linked build), and the audience. The audience cell summarizes the users on that channel — `all up to date`, or counts like `2 will update · 1 pinned`, or `1 faulted` when something is wrong. A channel with users but no available build shows `serving nothing — no build linked` and its users get an `empty feed`. Below the channels sits the **off the map** row: users routed nowhere (no channel, no pin) whose tokens work but whose checks resolve to nothing. **The map is computed from the same data and rules the public Worker resolves with, refined by each user's last-reported installed build — so what you see here is the effective outcome of their next check.**
 
 **Needs attention** lists every current fault as a cause in prose plus exactly one remedy link:
 
@@ -14,11 +14,11 @@ The **Serving now** map draws one row per channel: the channel, the build it ser
 - users with no channel → `Assign a channel →` (or `Review users →` for several)
 - access requests waiting → `Review requests →`
 - an audit chain mismatch → `Inspect audit →`
-- a newer Alpha Gate release → update and re-deploy the instance
+- a newer Alpha Gate release → `Details →` (update and re-deploy the instance)
 
 When nothing is wrong the section reads "Nothing needs attention — every active user is served."
 
-**Recent** merges tester activity and your own actions into one feed, newest first: lines like "mira@studio.dev checked — on **#1499**" sit next to "you withdrew build #1500". Under the feed, the audit chain status line reports `audit chain intact · N entries` (or a mismatch warning); it is the same judgment the Audit page shows.
+**Recent** merges tester activity and your own actions into one feed, newest first: lines like "mira@studio.dev checked — on **#1499**" sit next to "you withdrew build 1500". Under the feed, the audit chain status line reports `audit chain intact · N entries` (or a mismatch warning); it is the same judgment the Audit page shows.
 
 The page header carries the last-publish line: the newest build, the channels it went to (or "— in no channel"), and when. If that line does not match what you meant to ship, start there.
 
@@ -47,7 +47,7 @@ The Activity page lists every check, download, and update: when, which user, whi
 
 The Audit page lists every admin action: when, the actor, the action slug (for example `client.revoke`), the target, the request IP, and the Cloudflare Ray ID. Targets are emails and build numbers, not database row ids, so rows stay readable on their own. Filter by actor or action; the page shows the latest 200 actions.
 
-Each row is hash-chained to the one before it, and a daily job anchors the chain head to an append-only object in R2 (and emails it when email is configured). The status line above the table reports the live verdict: `chain intact · N entries · anchored`, `not yet anchored` before the first anchor has run, or `CHAIN MISMATCH — the log diverged from its last anchor`. **A mismatch means rows were edited, removed, or rebuilt.** Compare the log against the anchored copies in R2 and your Cloudflare account audit logs, which someone with admin access to this instance cannot rewrite.
+Each row is hash-chained to the one before it, and a daily job anchors the chain head to an append-only object in R2 (and emails it when email is configured). The status line above the table reports the live verdict: `chain intact · N entries · anchored`, `not yet anchored` before the first anchor has run, or `CHAIN MISMATCH — the log diverged from its last anchor`. **A mismatch means rows were edited, removed, or rebuilt.** Compare the log against the anchored copies in R2 and your Cloudflare account audit logs, Compare the log against the anchored copies in R2, the emailed anchors, and your Cloudflare account audit logs. The admin interface cannot rewrite any of them; overwriting the R2 copies would take Cloudflare account access, and even that cannot reach the emailed anchors or the account audit logs..
 
 ## Activity vs Audit
 

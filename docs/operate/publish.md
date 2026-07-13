@@ -50,7 +50,7 @@ It stores the Client ID and Secret in your login Keychain, keyed by instance; ev
 
 ## Browser upload
 
-The admin Upload page publishes without the script. Picking an archive autofills the version, build number, and minimum macOS from the app's `Info.plist`; the fields stay editable. **Autofill works only for a signed `.app` `.zip`** — a `.dmg` or `.tar` can't be read in the browser, so type those fields yourself.
+The admin Upload page publishes without the script, up to the 90 MB upload ceiling; a larger archive takes the register path, which only the one command handles for you. Picking an archive autofills the version, build number, and minimum macOS from the app's `Info.plist`; the fields stay editable. **Autofill works only for a signed `.app` `.zip`** — a `.dmg` or `.tar` can't be read in the browser, so type those fields yourself.
 
 The page has two modes: New release and Roll back. Roll back shows the current highest build number and enforces it as a floor: a build number at or below it is rejected.
 
@@ -65,7 +65,7 @@ export CF_ACCESS_CLIENT_SECRET=<client-secret>
   --admin-url https://alpha-gate-<slug>-admin.<account>.workers.dev --channel beta
 ```
 
-A runner without a readable app bundle (a bare zip) passes `--build-number` and `--short-version` and sets `ED_SIGNATURE` from its own `sign_update` step. `.github/workflows/publish.yml` in the repository is a ready sample.
+A runner without a readable app bundle (a bare zip) passes `--build-number` and `--short-version` and sets `ED_SIGNATURE` from its own `sign_update` step. `.github/workflows/publish.yml` in the repository is a template: the publish step is complete, the build step is a deliberate placeholder — replace it with your app's build, sign, and notarize, then enable the tag trigger.
 
 ## Rollback
 
@@ -82,7 +82,7 @@ Sparkle cannot downgrade: an update below the installed version is never offered
 4. Ask the feed directly:
 
    ```bash
-   curl "https://<app-host>/appcast?token=<TOKEN>&installed=1"
+   curl "https://<app-host>/appcast?token=<TOKEN>" — leave `installed` off (or pass your real installed build number): a made-up value is recorded as that user's installed build in the admin until the app's next real check.
    ```
 
    The response should list an `<item>` for your build.

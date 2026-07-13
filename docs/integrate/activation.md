@@ -4,13 +4,13 @@ How the per-user token reaches your app, and what to implement on the app side a
 
 ## Why the token is out-of-band
 
-The build is generic and signed once. **The token is never embedded in the binary** — embedding it would break the notarization seal and force a signing pass per user. Instead, every user installs the same artifact, and the token, the user's only credential, reaches the app at runtime through a deep link or a paste. Sparkle never sees the token either; your app holds it and builds the per-user feed URL from it at check time (see [Sparkle in Swift](sparkle-swift.md)).
+The build is generic and signed once. **The token is never embedded in the binary** — embedding it would break the notarization seal and force a signing pass per user. Instead, every user installs the same artifact, and the token, the user's only credential, reaches the app at runtime through a deep link or a paste. The token never sits in Sparkle's static configuration either: `SUFeedURL` stays unset, and your app holds the token and builds the per-user feed URL from it at check time (see [Sparkle in Swift](sparkle-swift.md)). (see [Sparkle in Swift](sparkle-swift.md)).
 
 ## What the token is
 
 A token is 32 characters of Crockford base32 (digits and letters, excluding I, L, O, U), carrying 160 bits of entropy. One token exists per user, and it gates the download, the appcast, and the `/get` page alike. Lookup is forgiving: case, whitespace, hyphens, and the confusable characters O (read as 0) and I/L (read as 1) are normalized, so a hand-typed paste still matches.
 
-The token travels in URLs (`/get?token=`, `/appcast?token=`, `/download?token=`), which means it appears in Cloudflare's own request logs. That is an accepted trade-off for a private alpha. Two mitigations apply: an unknown token receives the same generic 404 as a revoked one, so a response never confirms that a token exists, and the `/get` page sets `Referrer-Policy: no-referrer`, so the token never leaks through a Referer header.
+The token travels in URLs (`/get?token=`, `/appcast?token=`, `/download?token=`), which means it appears in Cloudflare's own request logs. That is an accepted trade-off for a private alpha. Two mitigations apply: an unknown token is indistinguishable from a revoked one (the same generic 404 on `/get` and `/download`, the same renewal notice on `/appcast`), so a response never confirms that a token exists, and the `/get` page sets `Referrer-Policy: no-referrer`, so the token never leaks through a Referer header.
 
 ## The activate URL scheme
 
@@ -46,7 +46,7 @@ Revoking a user cuts access at once: `/download` returns 404, and the next updat
 Because the token was never in the binary, the installed app recovers **without a reinstall**:
 
 - **Reactivate** restores access on the existing link and token; updates resume on the app's next check.
-- **Reissue** replaces both the link and the installed app's token. The old link stops working; the user opens the new `/get` link and activates again, by deep link or paste.
+- **Reissue** replaces the link and invalidates the token the installed app holds. The old link stops working; the user opens the new `/get` link and activates again, by deep link or paste. The old link stops working; the user opens the new `/get` link and activates again, by deep link or paste.
 
 ## Admin side: where the scheme is set
 

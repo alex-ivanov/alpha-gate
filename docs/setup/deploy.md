@@ -15,14 +15,14 @@ The `--instance` slug (lowercase letters, digits, hyphens) namespaces every reso
 
 A run proceeds in four stages: a read-only preflight (Node ≥ 20, wrangler auth; any failure prints a `→` fix line), an inspect pass that reports which resources already exist, a confirm prompt ("Apply these changes?") showing the exact commands, then apply: create the D1 database and R2 bucket, apply migrations, and deploy both Workers. The command is idempotent; re-running updates in place.
 
-The summary prints two URLs and a one-time checklist covering the Access step below:
+The run ends by printing two URLs; until Access is wired it also shows the dashboard checklist covering the Access step below.:
 
 - the app URL (`https://alpha-gate-myalpha.<account>.workers.dev`) — the public host your users and the Sparkle feed use;
 - the admin URL (`https://alpha-gate-myalpha-admin.<account>.workers.dev`) — the back office.
 
 ### Guided first init
 
-On the first deploy of an instance, anything you do not pass as a flag is prompted; press Enter to accept the default.
+On the first deploy of an instance, any branding value you do not pass as a flag is prompted (interactive runs only; `--yes` and `--dry-run` skip the prompts); press Enter to accept the default; press Enter to accept the default.
 
 - App name (`--app-name`).
 - Activate URL scheme (`--activate-scheme`) — **must match a `CFBundleURLSchemes` entry in your macOS app's Info.plist**, because the download page builds the activation deep link from it.
@@ -32,9 +32,9 @@ These seed the instance so `/get` is correct immediately. After first init the a
 
 ## Lock the admin behind Cloudflare Access
 
-**The admin URL is public until you complete this step.** It is the one manual dashboard action; there is no wrangler command for enabling Access.
+**The admin URL rejects every request until you complete this step** — the Worker fails closed while the Access secrets are unset. Enabling Access is what makes the admin usable. It is the one manual dashboard action; there is no wrangler command for enabling Access. It is the one manual dashboard action; there is no wrangler command for enabling Access.
 
-First time in Zero Trust? Cloudflare makes you pick a team name and, even on the free Zero Trust plan, add a payment method before you can create Access applications. You are not charged on the free plan, which covers up to 50 users.
+The first time you use Zero Trust, Cloudflare makes you pick a team name and, even on the free Zero Trust plan, add a payment method before you can create Access applications. Cloudflare makes you pick a team name and, even on the free Zero Trust plan, add a payment method before you can create Access applications. You are not charged on the free plan, which covers up to 50 seats — only the admin emails you allowlist into Access count against it, never your testers (they authenticate with tokens, not Access).
 
 1. Dashboard → Workers & Pages → the `alpha-gate-myalpha-admin` Worker → Settings → Domains & Routes → enable Cloudflare Access. Cloudflare creates a self-hosted Access application for the admin hostname.
 2. Edit that application's policy: action Allow, include Emails → your email, identity method One-time PIN. Cloudflare emails a login code; no external identity provider is needed.
