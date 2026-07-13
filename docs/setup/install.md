@@ -16,7 +16,7 @@ No clone; you run a pinned, versioned release:
 npx alpha-gate deploy --instance <slug>
 ```
 
-The npm package is not published yet — install from a clone (below) until the first release ships. Once it does: `npx alpha-gate <command>` runs the latest release; `npx alpha-gate@0.1.0 <command>` pins one. You can also install globally with `npm i -g alpha-gate` and run `alpha-gate <command>`. The commands are `deploy`, `dev`, `publish`, `backup`, and `teardown`; run `alpha-gate <command> --help` for a command's options.
+`npx alpha-gate <command>` runs the latest release; `npx alpha-gate@0.1.0 <command>` pins one. (Until the first release lands on npm, install from a clone, below.) You can also install globally with `npm i -g alpha-gate` and run `alpha-gate <command>`. The commands are `deploy`, `dev`, `publish`, `backup`, and `teardown`; run `alpha-gate <command> --help` for a command's options.
 
 State lives in `~/.alpha-gate`: per-instance records (`<slug>.state.json`) and the rendered wrangler configs. Set `$ALPHA_GATE_HOME` to move it. The package files themselves sit in npm's versioned cache, so nothing durable is written there.
 
