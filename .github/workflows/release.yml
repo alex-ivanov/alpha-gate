@@ -1,9 +1,10 @@
 name: Release
 
 # Publishes alpha-gate to npm when a version tag (v*) is pushed. The full gate runs first, and the
-# tag must match package.json's version. Auth: the NPM_TOKEN repository secret — a granular npm
-# automation token with read/write on this package (automation tokens bypass 2FA-on-publish).
-# --provenance links the published tarball to this workflow run (requires the repo to be public).
+# tag must match package.json's version. Auth: npm TRUSTED PUBLISHING (OIDC) — the package on
+# npmjs.com is configured to trust this repo + this workflow file, so no token or secret exists.
+# Provenance (linking the tarball to this run) is generated automatically; it requires the repo
+# to be public.
 
 on:
   push:
@@ -11,7 +12,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance
+  id-token: write # npm trusted publishing: OIDC auth + provenance
 
 jobs:
   release:
@@ -23,6 +24,7 @@ jobs:
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # OIDC trusted publishing needs a newer npm than node 22 bundles
       - run: npm ci
       - run: npx biome check .
       - run: npm run typecheck
@@ -35,6 +37,4 @@ jobs:
             echo "::error::tag v${TAG} does not match package.json version ${PKG}" >&2
             exit 1
           fi
-      - run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish # auth + provenance via OIDC trusted publishing; no token involved

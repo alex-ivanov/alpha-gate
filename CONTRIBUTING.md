@@ -129,8 +129,8 @@ cut a release:
    manual steps. (`release.json` mirrors these as `breaking` / `min_supported`.)
 3. Add a `## <version>` section to `CHANGELOG.md` — `homepage` points there, so it's the banner's notes.
 4. Commit, then **tag and push the tag** — `.github/workflows/release.yml` runs the full gate and
-   publishes to npm (the tag must match `package.json`'s version; auth is the `NPM_TOKEN` repo
-   secret, a granular npm automation token):
+   publishes to npm (the tag must match `package.json`'s version; auth is npm trusted
+   publishing — the package trusts this repo's `release.yml` via OIDC, no token anywhere):
    ```bash
    git tag -a v<version> -m "alpha-gate <version>"
    git push origin main v<version>
