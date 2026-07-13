@@ -30,7 +30,7 @@ export const SetupPage: FC<{ info: SetupInfo; chrome?: Chrome }> = ({ info, chro
     <AdminLayout title="App setup" chrome={chrome}>
       <p class="sub" style="margin-top:6px">
         How to wire <strong>{info.appName}</strong> to this instance. To publish builds see{" "}
-        <a href="/admin/ci">CI publishing</a>; full runbook in <code>docs/UPLOADING.md</code>.
+        <a href="/admin/ci">CI publishing</a>; full runbook in <code>docs/operate/publish.md</code>.
       </p>
 
       {info.publicKey === null ? (

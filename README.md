@@ -64,11 +64,12 @@ git clone <your-fork> alpha-gate && cd alpha-gate && npm install
 ```
 
 Then lock the admin behind Cloudflare Access and re-run deploy with your team domain + AUD. The full,
-step-by-step path — prepare the account, deploy, Access, CI service token, verify, email, teardown — is in
-**[docs/ONBOARDING.md](docs/ONBOARDING.md)**.
+step-by-step path — install, prepare the account, deploy, Access, verify — starts at
+**[docs/setup/install.md](docs/setup/install.md)**.
 
-To ship builds (wire Sparkle into your app, create a channel, invite a user, publish a `.dmg`/`.zip`):
-**[docs/UPLOADING.md](docs/UPLOADING.md)**. Once set up, publishing is one command:
+To ship builds: wire Sparkle into your app ([Swift](docs/integrate/sparkle-swift.md) or
+[Go](docs/integrate/sparkle-go.md)), [add users](docs/operate/add-users.md), and
+[publish](docs/operate/publish.md). Once set up, publishing is one command:
 
 ```bash
 ./publish.sh MyApp.dmg --channel beta
@@ -94,8 +95,7 @@ Conventions, architecture, and how to add a feature: [`CONTRIBUTING.md`](CONTRIB
 
 | Doc | What |
 |---|---|
-| [`docs/ONBOARDING.md`](docs/ONBOARDING.md) | Prepare a Cloudflare account, deploy, enable Access, run, teardown. |
-| [`docs/UPLOADING.md`](docs/UPLOADING.md) | Wire Sparkle into your app; create channels; invite users; publish DMGs/zips. |
+| [`docs/README.md`](docs/README.md) | The documentation index: setup, integrate, operate, maintain. |
 | [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md) | The durable architecture & product principles and hard constraints. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Developer guide: conventions, architecture, testing, adding a feature. |
 | [`CLAUDE.md`](CLAUDE.md) | Working guidance for AI assistants in this repo. |
@@ -118,7 +118,7 @@ deploy/              # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → t
 publish.sh           # ONE publish command (dmg | .app.zip | CI); .github/workflows/ has a sample
 bin/alpha-gate.mjs   # the npm entrypoint: npx alpha-gate deploy|dev|publish|backup|teardown
 test/                # unit/ integration/ cuj/ + support/ (offline vitest-pool-workers)
-docs/                # ONBOARDING, UPLOADING, PRINCIPLES
+docs/                # the docs: setup/ integrate/ operate/ maintain/ + PRINCIPLES (index: docs/README.md)
 site/                # the marketing page (static HTML + screenshots; see site/README.md)
 ```
 

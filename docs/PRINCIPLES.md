@@ -2,9 +2,8 @@
 
 The durable ideas behind Alpha Gate: the invariants that must keep holding, and the hard constraints
 that shaped the design. This replaces the original `design/` spec (now in git history). It is the
-reference to read before changing core behavior — operational how-to lives in
-[ONBOARDING](ONBOARDING.md) and [UPLOADING](UPLOADING.md); the developer workflow in
-[CONTRIBUTING](../CONTRIBUTING.md).
+reference to read before changing core behavior — operational how-to lives in the task pages
+(index: [README](README.md)); the developer workflow in [CONTRIBUTING](../CONTRIBUTING.md).
 
 > Legacy note: many code comments cite `§N` (e.g. `§8`, `§11`). Those referred to sections of the old
 > `design/DESIGN.md`; the durable content is distilled here. Treat the markers as historical anchors.

@@ -8,9 +8,9 @@ Alpha Gate is a self-hosted distribution gate for a notarized macOS app updated 
 
 ## Guidence
 
-- The durable principles & constraints are in ./docs/PRINCIPLES.md — use that as the main guidance. Operator how-to is in ./docs/ONBOARDING.md and ./docs/UPLOADING.md. When a decision is needed from the user which is not surfaced from the docs, gather all information and make the user decide. (The old ./design/ spec was removed; code comments still cite its §N section numbers and "decision NNNN" ADRs as historical anchors.)
+- The durable principles & constraints are in ./docs/PRINCIPLES.md — use that as the main guidance. Operator how-to is task pages under ./docs/{setup,integrate,operate,maintain}/ (index: ./docs/README.md). When a decision is needed from the user which is not surfaced from the docs, gather all information and make the user decide. (The old ./design/ spec was removed; code comments still cite its §N section numbers and "decision NNNN" ADRs as historical anchors.)
 - Create and use checklists and plan the work before commiting to do it. Cross validate the plan and check the work against the plan. Make sure plans are up to date. If a blocker of dead end discovered - update the plan with the new information and reassess.
-- Record notable decisions and durable invariants in ./docs/ (PRINCIPLES for invariants; ONBOARDING/UPLOADING for operator how-to). Treat documentation on the same level as code and keep it up to date and update often.
+- Record notable decisions and durable invariants in ./docs/ (PRINCIPLES for invariants; the setup/integrate/operate/maintain task pages for operator how-to). Treat documentation on the same level as code and keep it up to date and update often.
 - Split the work in small chunks, commit often. Run tests before the submission to make sure they are green. Add a line to commit message about test status.
 - Don't mention your name on the commit messages, just what has been done. 
 - Use defensive programming and TDD for the development. Use CUJ as the gates of the features.

@@ -24,6 +24,6 @@ Key facts:
 - [Website](https://alphagate.dev/)
 - Contact: hello@alphagate.dev
 - [Source code](https://github.com/alex-ivanov/alpha-gate)
-- [Onboarding guide](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/ONBOARDING.md)
-- [Publishing guide](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/UPLOADING.md)
+- [Documentation index](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/README.md)
+- [Publishing guide](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/operate/publish.md)
 - [Architecture and invariants](https://github.com/alex-ivanov/alpha-gate/blob/main/docs/PRINCIPLES.md)

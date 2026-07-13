@@ -113,8 +113,8 @@ assert time-dependent behavior with seeded timestamps (fake timers don't reach t
    mutations; run the no-build confirm gate (`guardStranding`) for anything that could strand a user.
 4. **Green + clean** — `npm run check` passes (tests + tsc + Biome).
 5. **Keep docs current** — if you change a durable invariant, update
-   [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md); operator-facing changes go in `docs/ONBOARDING.md` /
-   `docs/UPLOADING.md`.
+   [`docs/PRINCIPLES.md`](docs/PRINCIPLES.md); operator-facing changes go in the matching task page
+   under `docs/setup|integrate|operate|maintain/` (index: [`docs/README.md`](docs/README.md)).
 
 ## Releasing
 

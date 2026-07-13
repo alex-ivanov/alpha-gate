@@ -724,7 +724,7 @@ export const UploadPage: FC<{
             Pick the signed <code>.app</code> <code>.zip</code> and the version + build fields fill
             themselves from its Info.plist (editable). A <code>.dmg</code>/<code>.tar</code> can't
             be read in the browser — type them in. Archives over ~90 MB use the CI register path
-            (see docs/UPLOADING.md).
+            (see docs/operate/publish.md).
           </p>
           <p data-autofill-status hidden />
         </fieldset>

@@ -8,7 +8,7 @@
 #
 # The dump contains LIVE per-user tokens — store it somewhere private (NOT the repo) and delete old
 # copies. Restore into a fresh instance:  wrangler d1 execute <db> --remote --file <dump>.sql
-# (see docs/ONBOARDING.md → Backup & recovery).
+# (see docs/maintain/backup.md → Backup & recovery).
 set -euo pipefail
 
 INSTANCE=""; OUT=""

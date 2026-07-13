@@ -310,7 +310,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   let teamDomain = effective.accessTeamDomain;
   let aud = effective.accessAud;
   if (accessManualNeeded(effective, inspection)) {
-    // One instruction set, matching ONBOARDING §4 (the easy path — Cloudflare fills the hostname).
+    // One instruction set, matching docs/setup/deploy.md §4 (the easy path — Cloudflare fills the hostname).
     env.out(
       renderManualStep(
         "Enable Cloudflare Access on the admin Worker, then come back:",
