@@ -128,13 +128,16 @@ cut a release:
 2. In `package.json`'s `alphaGate`, set `breaking: true` and bump `minSupported` if the upgrade needs
    manual steps. (`release.json` mirrors these as `breaking` / `min_supported`.)
 3. Add a `## <version>` section to `CHANGELOG.md` — `homepage` points there, so it's the banner's notes.
-4. **Publish to npm** so the version becomes visible to the banner and to `npx alpha-gate@latest`:
+4. Commit, then **tag and push the tag** — `.github/workflows/release.yml` runs the full gate and
+   publishes to npm (the tag must match `package.json`'s version; auth is the `NPM_TOKEN` repo
+   secret, a granular npm automation token):
    ```bash
-   npm run check                       # gate must be green
-   npm publish                         # (npm pack --dry-run first to eyeball the tarball)
+   git tag -a v<version> -m "alpha-gate <version>"
+   git push origin main v<version>
    ```
-5. Tag and push. Operators see the banner within 24h; they update with `npx alpha-gate@latest deploy`
-   (npm) or `git pull && ./deploy/deploy.sh` (clone).
+   Manual fallback: `npm run check && npm publish` (needs an interactive OTP).
+5. Operators see the banner within 24h; they update with `npx alpha-gate@latest deploy` (npm) or
+   `git pull && ./deploy/deploy.sh` (clone).
 
 ## Commits
 

@@ -115,7 +115,7 @@ src/
   deploy/            # deploy/teardown/dev CLI: core/ (pure) + seams/ (wrangler,fs,io,clock) + commands/
 migrations/          # 0001–0010 D1 schema (SQL)
 deploy/              # thin bash wrappers (deploy.sh, teardown.sh, dev.sh) → the TS CLI; backup.sh (D1 dump)
-publish.sh           # ONE publish command (dmg | .app.zip | CI); .github/workflows/ has a sample
+publish.sh           # ONE publish command (dmg | .app.zip | CI)
 bin/alpha-gate.mjs   # the npm entrypoint: npx alpha-gate deploy|dev|publish|backup|teardown
 test/                # unit/ integration/ cuj/ + support/ (offline vitest-pool-workers)
 docs/                # the docs: setup/ integrate/ operate/ maintain/ + PRINCIPLES (index: docs/README.md)

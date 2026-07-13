@@ -1,0 +1,40 @@
+name: Release
+
+# Publishes alpha-gate to npm when a version tag (v*) is pushed. The full gate runs first, and the
+# tag must match package.json's version. Auth: the NPM_TOKEN repository secret — a granular npm
+# automation token with read/write on this package (automation tokens bypass 2FA-on-publish).
+# --provenance links the published tarball to this workflow run (requires the repo to be public).
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write # npm provenance
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npx biome check .
+      - run: npm run typecheck
+      - run: npm test
+      - name: Tag matches package.json version
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::tag v${TAG} does not match package.json version ${PKG}" >&2
+            exit 1
+          fi
+      - run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

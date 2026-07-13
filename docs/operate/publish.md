@@ -65,7 +65,7 @@ export CF_ACCESS_CLIENT_SECRET=<client-secret>
   --admin-url https://alpha-gate-<slug>-admin.<account>.workers.dev --channel beta
 ```
 
-A runner without a readable app bundle (a bare zip) passes `--build-number` and `--short-version` and sets `ED_SIGNATURE` from its own `sign_update` step. `.github/workflows/publish.yml` in the repository is a template: the publish step is complete, the build step is a deliberate placeholder — replace it with your app's build, sign, and notarize, then enable the tag trigger.
+A runner without a readable app bundle (a bare zip) passes `--build-number` and `--short-version` and sets `ED_SIGNATURE` from its own `sign_update` step. A typical workflow: build, sign, and notarize with your existing steps, then run the publish command above with the two service-token secrets in the environment.
 
 ## Rollback
 
