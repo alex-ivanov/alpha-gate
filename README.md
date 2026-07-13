@@ -13,8 +13,7 @@ one script, with many isolated instances per account.
 > Status: feature-complete and tested — 377 worker + 92 deploy-CLI tests, all offline; `tsc` (both
 > configs) and Biome clean.
 
-**Website: [alphagate.dev](https://alphagate.dev)** — the pitch, screenshots, and a live
-per-tester feed demo.
+**Website: [alphagate.dev](https://alphagate.dev)**
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="site/shots/overview-dark.png">
