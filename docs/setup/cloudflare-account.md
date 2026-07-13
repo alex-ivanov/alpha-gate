@@ -18,7 +18,7 @@ For CI, set `CLOUDFLARE_API_TOKEN` instead of an interactive login.
 
 ## Use a dedicated account (recommended)
 
-Anyone with dashboard access to the account can read D1 and R2 directly — **including live user tokens**. If other people share your Cloudflare account, put Alpha Gate in its own account so dashboard access does not equal token access.
+Anyone with dashboard access to the account can read D1 and R2 directly — **including your testers' live access tokens**, the credential behind every `/get` link and update feed. If other people share your Cloudflare account, put Alpha Gate in its own account so dashboard access does not equal token access.
 
 ## Set up Zero Trust now
 

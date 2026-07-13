@@ -18,7 +18,7 @@ Nothing below interrupts the old instance until the last step. Users keep updati
    ./deploy/backup.sh --instance <slug>     # → .deploy/<slug>-<timestamp>.sql
    ```
 
-   The dump contains live tokens — handle it like a secret.
+   The dump contains your testers' live access tokens — handle it like a secret.
 
 2. **Log wrangler into the new account and deploy a fresh instance there:**
 

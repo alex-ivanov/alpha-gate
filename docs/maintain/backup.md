@@ -26,7 +26,7 @@ Both forms export the remote D1 database to `<slug>-<timestamp>.sql` in the stat
 
 Run it before a risky change, or on a schedule with cron or launchd. The command prints the dump path on stdout, so a scheduled job can capture it. This is the same export `teardown.sh` takes before destroying an instance.
 
-**The dump contains live tokens.** Anyone who reads it can download your builds as any user. Keep it off the laptop, in private storage, and prune old copies.
+**The dump contains your testers' live access tokens.** Anyone who reads it can download your builds as any tester. Keep it off the laptop, in private storage, and prune old copies.
 
 ## Restore
 

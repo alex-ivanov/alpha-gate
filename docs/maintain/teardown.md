@@ -19,7 +19,7 @@ You need wrangler authentication (`npx wrangler login`, once per machine). The c
 
 The steps run in this order:
 
-1. Archives the database first, while it still exists, to `<state-dir>/<slug>-<timestamp>.sql`. The state directory is `.deploy/` in a git clone, `~/.alpha-gate` for the npm install. This is the same dump [backup](backup.md) produces and **it contains live tokens** — move it to private storage or shred it. If the export fails, teardown stops and nothing is destroyed; fix the error, or re-run with `--no-archive` to destroy without a backup.
+1. Archives the database first, while it still exists, to `<state-dir>/<slug>-<timestamp>.sql`. The state directory is `.deploy/` in a git clone, `~/.alpha-gate` for the npm install. This is the same dump [backup](backup.md) produces and **it contains your testers' live access tokens** — move it to private storage or shred it. If the export fails, teardown stops and nothing is destroyed; fix the error, or re-run with `--no-archive` to destroy without a backup.
 2. Deletes the app Worker (`alpha-gate-<slug>`) and the admin Worker (`alpha-gate-<slug>-admin`). Workers that are already gone are tolerated, so re-running after a partial teardown works.
 3. Deletes the R2 bucket, but only if it is already empty. A non-empty bucket is left in place and reported.
 4. Deletes the D1 database.
