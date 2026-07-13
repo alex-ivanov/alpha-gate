@@ -131,7 +131,6 @@ cut a release:
 4. **Publish to npm** so the version becomes visible to the banner and to `npx alpha-gate@latest`:
    ```bash
    npm run check                       # gate must be green
-   # first release only: remove "private": true from package.json, add a LICENSE + set "license"
    npm publish                         # (npm pack --dry-run first to eyeball the tarball)
    ```
 5. Tag and push. Operators see the banner within 24h; they update with `npx alpha-gate@latest deploy`

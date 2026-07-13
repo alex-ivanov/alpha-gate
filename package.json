@@ -1,7 +1,6 @@
 {
   "name": "alpha-gate",
   "version": "0.1.0",
-  "private": true,
   "description": "Self-hosted Cloudflare distribution gate for a Sparkle-updated macOS app",
   "keywords": [
     "sparkle",
@@ -16,7 +15,7 @@
     "type": "git",
     "url": "git+https://github.com/alex-ivanov/alpha-gate.git"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "alpha-gate": "bin/alpha-gate.mjs"
