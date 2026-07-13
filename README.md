@@ -1,13 +1,25 @@
 # Alpha Gate
 
+[![npm](https://img.shields.io/npm/v/alpha-gate)](https://www.npmjs.com/package/alpha-gate)
+[![CI](https://github.com/alex-ivanov/alpha-gate/actions/workflows/ci.yml/badge.svg)](https://github.com/alex-ivanov/alpha-gate/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A lightweight, self-hosted distribution gate for a notarized macOS app updated via **Sparkle**. It gates
 downloads and the per-user Sparkle update feed behind a token, manages clients / builds / release
 channels / pins / rollbacks from an admin back office behind **Cloudflare Access**, and runs entirely on
 **Cloudflare (Workers + D1 + R2)** within the free tier — no custom domain, deployable to any account from
 one script, with many isolated instances per account.
 
-> Status: feature-complete and tested — 376 worker + 93 deploy-CLI tests, all offline; `tsc` (both
+> Status: feature-complete and tested — 377 worker + 92 deploy-CLI tests, all offline; `tsc` (both
 > configs) and Biome clean.
+
+**Website: [alphagate.dev](https://alphagate.dev)** — the pitch, screenshots, and a live
+per-tester feed demo.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/shots/overview-dark.png">
+  <img alt="The back office overview: a serving map of channels, builds, and their audiences; a needs-attention panel with remedies; and a recent activity feed" src="site/shots/overview-light.png">
+</picture>
 
 ## Features
 
@@ -129,7 +141,7 @@ site/                # the marketing page (static HTML + screenshots; see site/R
 - The Sparkle feed is **not** signed (`SURequireSignedFeed` off) — incompatible with per-user dynamic
   feeds; the per-archive EdDSA signature still blocks tampered binaries.
 - The admin JWT verifier is **fail-closed** (RS256-pinned, `aud`/`iss` + expiry checked); service tokens
-  are accepted only on the upload/register routes.
+  are accepted only on the publish surface (upload/register plus the read-only publish-info pre-check).
 - Admin actions are recorded in a **hash-chained, daily-anchored** audit log; pair it with Cloudflare's
   Access and Audit logs for full who/when.
 - Account-level caveat: anyone with Cloudflare dashboard access to the account can read D1/R2 directly;
