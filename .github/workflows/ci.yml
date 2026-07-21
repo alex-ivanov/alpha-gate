@@ -20,4 +20,21 @@ jobs:
       - run: npm test
       - name: shellcheck
         # -x follows the sourced deploy/lib/statedir.sh (via the shellcheck source= directives)
-        run: shellcheck -x deploy/*.sh deploy/lib/*.sh ./*.sh
+        run: shellcheck -x deploy/*.sh deploy/lib/*.sh test/*.sh ./*.sh
+
+  # Everything the vitest suites structurally cannot see: they run against the checkout, users get the
+  # package under node_modules, and that difference alone has shipped a Worker that deployed clean and
+  # then threw "React is not defined" on its first request. This job packs the real tarball, installs
+  # it, and asserts on the JavaScript that comes out. Separate from `test` so a network hiccup here
+  # never masks a genuine unit failure. No Cloudflare account is touched — every wrangler call is
+  # --dry-run.
+  packaged-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: ./test/packaged-install.sh
