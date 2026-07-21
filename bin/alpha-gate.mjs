@@ -4,9 +4,12 @@
 //   publish | backup         → the bash scripts (publish.sh, deploy/backup.sh) — macOS publish tools.
 // Everything resolves from the package root (this file's dir), so it works from an npx cache install.
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const [command, ...rest] = process.argv.slice(2);
@@ -29,17 +32,39 @@ if (command === undefined || command === "--help" || command === "-h") {
   process.exit(command === undefined ? 1 : 0);
 }
 
-// tsx is a dependency; resolve its bin from the package's node_modules so we don't rely on `npx`.
+// tsx is a dependency, but WHERE it lands depends on the install. A git checkout has it in
+// `<ROOT>/node_modules/.bin`; npm/npx hoist it to the PARENT `node_modules/.bin`, next to us rather
+// than inside us — so a `<ROOT>/node_modules/.bin` probe misses, and the bare-name fallback only
+// works because npx happens to put the hoisted `.bin` on PATH. `npm i alpha-gate` followed by
+// `./node_modules/.bin/alpha-gate deploy` gets no such PATH and dies with `spawn tsx ENOENT`.
+//
+// So: ask Node's own resolver where tsx is (it walks up node_modules exactly like an import would,
+// hoisted or not), read the real entry out of its package.json, and run it with THIS node binary.
+// No PATH, no shell shim, no platform-specific .cmd.
+function resolveTsxEntry() {
+  try {
+    const pkgPath = require.resolve("tsx/package.json");
+    const { bin } = JSON.parse(readFileSync(pkgPath, "utf8"));
+    const rel = typeof bin === "string" ? bin : bin?.tsx;
+    if (typeof rel === "string") {
+      const entry = path.resolve(path.dirname(pkgPath), rel);
+      if (existsSync(entry)) return entry;
+    }
+  } catch {
+    // Fall through to the PATH-based shim below.
+  }
+  return null;
+}
+
 function runTsxCli(args) {
-  const tsxBin = path.join(
-    ROOT,
-    "node_modules",
-    ".bin",
-    process.platform === "win32" ? "tsx.cmd" : "tsx",
-  );
   const cli = path.join(ROOT, "src", "deploy", "cli.ts");
-  const bin = existsSync(tsxBin) ? tsxBin : "tsx";
-  return spawn(bin, [cli, ...args], { stdio: "inherit", cwd: ROOT });
+  const entry = resolveTsxEntry();
+  if (entry !== null) {
+    return spawn(process.execPath, [entry, cli, ...args], { stdio: "inherit", cwd: ROOT });
+  }
+  // Last resort: whatever `tsx` PATH offers (a global install, or npx's own bin dir).
+  const shim = process.platform === "win32" ? "tsx.cmd" : "tsx";
+  return spawn(shim, [cli, ...args], { stdio: "inherit", cwd: ROOT });
 }
 
 function runScript(scriptRelPath, args) {
