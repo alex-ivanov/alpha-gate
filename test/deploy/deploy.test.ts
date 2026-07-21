@@ -134,6 +134,47 @@ describe("runDeploy — idempotent re-run", () => {
   });
 });
 
+// Regression guard for the "ReferenceError: React is not defined" class of break.
+//
+// esbuild (inside wrangler) ignores a tsconfig.json that lives inside node_modules. An npm/npx install
+// puts the whole package there, so without an explicit --tsconfig the JSX transform silently degrades to
+// the classic one, every view compiles to `React.createElement`, and the Worker deploys clean but throws
+// on its first request. This is asserted as an INVARIANT over every recorded command rather than at each
+// known call site, so a deploy added later cannot quietly skip it.
+const BUNDLING = new Set(["deploy", "dev"]);
+function bundlingCallsMissingTsconfig(w: { calls: string[][] }, rootDir: string): string[][] {
+  return w.calls
+    .filter((c) => c[0] !== undefined && BUNDLING.has(c[0]))
+    .filter((c) => {
+      const i = c.indexOf("--tsconfig");
+      return i === -1 || c[i + 1] !== `${rootDir}/tsconfig.json`;
+    });
+}
+
+describe("runDeploy — the JSX transform survives an npm install", () => {
+  it("passes --tsconfig <packageRoot>/tsconfig.json on every command that bundles the Worker", async () => {
+    const w = fakeWrangler({});
+    const { env } = makeEnv(w);
+    const code = await runDeploy(
+      [
+        "--instance",
+        "x",
+        "--yes",
+        "--access-team-domain",
+        "t.cloudflareaccess.com",
+        "--access-aud",
+        "AUD",
+      ],
+      env,
+    );
+    expect(code).toBe(0);
+    // All three: the app Worker, the admin Worker, and the Access re-deploy — which is the LAST upload
+    // of the admin Worker and therefore decides what actually runs.
+    expect(w.calls.filter((c) => c[0] === "deploy")).toHaveLength(3);
+    expect(bundlingCallsMissingTsconfig(w, "/repo")).toEqual([]);
+  });
+});
+
 describe("runDeploy — guards", () => {
   it("fails loudly (exit 1) when a deploy produced no URL", async () => {
     const w = fakeWrangler({ deployUrls: false });

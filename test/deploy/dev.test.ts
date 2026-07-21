@@ -62,6 +62,18 @@ describe("runDev", () => {
     ).toBe(true);
   });
 
+  // Same guard as the deploy suite: `wrangler dev` bundles too, so an npx-installed `alpha-gate dev`
+  // would serve React.createElement views without an explicit --tsconfig (see core/config bundleFlags).
+  it("passes --tsconfig <packageRoot>/tsconfig.json to wrangler dev", async () => {
+    const w = createFakeWrangler();
+    const { env } = makeEnv(w);
+    await runDev([], env);
+    const dev = w.calls.find((c) => c[0] === "dev");
+    expect(dev).toBeDefined();
+    expect(dev).toContain("--tsconfig");
+    expect(dev?.[(dev?.indexOf("--tsconfig") ?? -1) + 1]).toBe("/repo/tsconfig.json");
+  });
+
   it("--no-seed skips the seed (no r2 put / d1 execute)", async () => {
     const w = createFakeWrangler();
     const { env } = makeEnv(w);

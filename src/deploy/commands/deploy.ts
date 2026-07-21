@@ -1,6 +1,6 @@
 import { normalizeTeamDomain, parseDeployArgs } from "../core/args";
 import type { Palette } from "../core/colors";
-import { type ConfigVars, renderConfig } from "../core/config";
+import { bundleFlags, type ConfigVars, renderConfig } from "../core/config";
 import { accessConfigured, extractDeployUrl, parseD1Id } from "../core/parse";
 import {
   accessManualNeeded,
@@ -275,7 +275,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
 
   // 6. Deploy both Workers; capture + validate each URL.
   startStep("deploy app Worker");
-  const appDeploy = await wr.run(["deploy", "--config", appCfg]);
+  const appDeploy = await wr.run(["deploy", "--config", appCfg, ...bundleFlags(env.rootDir)]);
   const appUrl = args.dryRun
     ? `https://${res}.<account>.workers.dev`
     : extractDeployUrl(appDeploy.stdout);
@@ -289,7 +289,7 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
   doneStep("app Worker", appUrl);
 
   startStep("deploy admin Worker");
-  const adminDeploy = await wr.run(["deploy", "--config", adminCfg]);
+  const adminDeploy = await wr.run(["deploy", "--config", adminCfg, ...bundleFlags(env.rootDir)]);
   const adminUrl = args.dryRun
     ? `https://${res}-admin.<account>.workers.dev`
     : extractDeployUrl(adminDeploy.stdout);
@@ -361,7 +361,16 @@ export async function runDeploy(argv: readonly string[], env: DeployEnv): Promis
         JSON.stringify({ ACCESS_TEAM_DOMAIN: teamDomain, ACCESS_AUD: aud }),
       );
     }
-    const wired = await wr.run(["deploy", "--config", adminCfg, "--secrets-file", secretsFile]);
+    // Re-bundles + re-uploads the admin Worker (it is the LAST deploy of it, so it decides what
+    // actually runs) — it needs the bundle flags every bit as much as step 6 did.
+    const wired = await wr.run([
+      "deploy",
+      "--config",
+      adminCfg,
+      "--secrets-file",
+      secretsFile,
+      ...bundleFlags(env.rootDir),
+    ]);
     if (!args.dryRun) await env.fs.remove(secretsFile);
     if (!args.dryRun && !wired.ok)
       return fail(env, "setting Access secrets failed", wired.stderr.trim());

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type ConfigVars, renderConfig } from "../../src/deploy/core/config";
+import { bundleFlags, type ConfigVars, renderConfig } from "../../src/deploy/core/config";
 
 const BASE: ConfigVars = {
   instance: "myalpha",
@@ -13,6 +13,14 @@ const BASE: ConfigVars = {
   main: "/pkg/src/worker.ts",
   migrationsDir: "/pkg/migrations",
 };
+
+describe("bundleFlags", () => {
+  it("points wrangler at the package's own tsconfig, absolutely", () => {
+    // Absolute + explicit: esbuild skips a tsconfig.json under node_modules, which is exactly where an
+    // npm/npx install lives — leaving the JSX transform to degrade to `React.createElement`.
+    expect(bundleFlags("/pkg")).toEqual(["--tsconfig", "/pkg/tsconfig.json"]);
+  });
+});
 
 describe("renderConfig", () => {
   it("renders the shared bindings, vars, absolute main + migrations_dir, and cron", () => {

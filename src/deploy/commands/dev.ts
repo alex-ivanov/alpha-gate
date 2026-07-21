@@ -1,6 +1,6 @@
 import { parseDevArgs } from "../core/args";
 import type { Palette } from "../core/colors";
-import { renderConfig } from "../core/config";
+import { bundleFlags, renderConfig } from "../core/config";
 import { resourceName } from "../core/plan";
 import { renderHeader } from "../core/ui";
 import type { FileSystem } from "../seams/files";
@@ -184,6 +184,7 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
     "--local",
     "--persist-to",
     stateDir,
+    ...bundleFlags(env.rootDir),
   ];
   if (args.role === "admin") devArgs.push("--var", "DEV_ADMIN:1");
   return wr.exec(devArgs);

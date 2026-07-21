@@ -5,6 +5,21 @@ import type { Role } from "./types";
 // "unsubstituted ${VAR}" failure mode, values are escaped, and the output is unit-tested. This function
 // is the single source of truth for the rendered wrangler config shape.
 
+// Flags every wrangler command that BUNDLES the Worker must carry (`deploy`, `dev` — not `d1`/`r2`/
+// `secret`, which never touch the source).
+//
+// Why this exists: esbuild (inside wrangler) finds a tsconfig by walking up from the entry file, but it
+// SKIPS any tsconfig.json that lives inside `node_modules`. From a git checkout that walk-up finds our
+// tsconfig and the JSX transform is right. From an npm/npx install the package sits under node_modules,
+// the tsconfig is ignored, esbuild silently falls back to the CLASSIC JSX transform, and every view
+// compiles to `React.createElement` — a Worker that deploys clean and then throws
+// "ReferenceError: React is not defined" on the first request. Passing the path explicitly makes the
+// transform independent of where the package happens to live. Also pinned: `main` in the rendered config
+// is absolute for the same reason (the config does not sit next to src/).
+export function bundleFlags(rootDir: string): string[] {
+  return ["--tsconfig", `${rootDir}/tsconfig.json`];
+}
+
 export interface ConfigVars {
   instance: string;
   d1Id: string;
