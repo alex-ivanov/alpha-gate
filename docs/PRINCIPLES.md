@@ -72,6 +72,20 @@ source of truth (`src/core/resolver.ts`) the runtime, the download target, and t
   blocked; they show which users would be affected and proceed on explicit confirmation. The remedy
   is roll-forward, reassignment, or unpin.
 
+- **The package under `node_modules` is a different world from the checkout — test it as one.** Two
+  install shapes ship the same CLI: a git clone (source at the repo root) and an npm/npx install
+  (everything under `node_modules`). Things that hold in the first silently stop holding in the second,
+  and the failure surfaces at *runtime on the deployed Worker*, long past every green test.
+  Two have bitten already: esbuild ignores a `tsconfig.json` under `node_modules`, so the hono/jsx
+  transform degraded to the classic one and every view compiled to `React.createElement` — hence
+  `bundleFlags()` pins `--tsconfig` on every wrangler command that bundles (both deploys, the Access
+  re-deploy, and `dev`); and npm hoists dependencies *beside* the package rather than inside it, so the
+  launcher must ask Node's resolver where `tsx` is instead of probing its own `node_modules/.bin`.
+  Anything the CLI reads from disk must be in `package.json`'s `files`, and reached by an absolute path
+  (`main`, `migrations_dir`) because the rendered config does not sit next to `src/`.
+  `test/packaged-install.sh` is the guard: it packs, installs, and asserts on the emitted bundle,
+  because no unit suite can see this class of bug.
+
 ## The artifact model
 
 The update enclosure is **format-agnostic**. Storage and the appcast assume nothing about the file: the
@@ -164,6 +178,11 @@ a seeded clock. The suites run **offline**: the Worker suite in the Workers runt
 (`@cloudflare/vitest-pool-workers` / Miniflare), the deploy-CLI suite in plain Node. What those can't
 simulate — the real Access JWT, Cloudflare email delivery, bucket-lock, an end-to-end Sparkle client —
 sits behind injectable seams and is the only thing needing a throwaway deploy.
+
+Both suites run against the **checkout**, which is structurally blind to how the package behaves once
+it is installed. `test/packaged-install.sh` (its own CI job, network-dependent, still no Cloudflare
+account) covers exactly that: pack the tarball, install it, run the CLI without PATH help, bundle the
+installed Worker, and assert on the emitted JavaScript.
 
 **Client-side scripts gotcha.** The admin's small browser scripts (table sort/filter, upload autofill)
 serialize **pure** functions into the page via `Function.prototype.toString()` so the browser runs the

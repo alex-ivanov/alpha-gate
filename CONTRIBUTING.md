@@ -18,9 +18,13 @@ npm run check      # the full gate: biome + tsc + vitest (all offline)
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm run lint` / `npm run format` | Biome check / write |
 | `npm run check` | lint + typecheck + test |
+| `npm run test:packaged` | packs the tarball, installs it, and asserts on the bundle the CLI actually produces — the only check that sees the package as users get it (**needs network**; no Cloudflare account) |
 | `./deploy/dev.sh` | run BOTH Workers locally — app `:8787`, admin `:8788` (Miniflare D1/R2, no account), seeded so `/get`/`/appcast`/`/download` and `/admin` work |
 
-`npm test` is the primary validation — it exercises the real handlers offline. `./deploy/dev.sh` is
+`npm test` is the primary validation — it exercises the real handlers offline. Both suites run against
+the **checkout** though, and users get the package under `node_modules`; that difference has shipped
+real bugs (a bundle full of `React.createElement`, a launcher that couldn't find `tsx`), so
+`npm run test:packaged` covers it and runs as its own CI job. `./deploy/dev.sh` is
 for poking the **live HTTP surface** in a browser/curl: it renders a local wrangler config, applies
 migrations to a local DB, seeds a demo client/build, and starts `wrangler dev` for both Workers.
 Flags: `--port`, `--no-seed`, `--reset`, `--role app|admin` (start just one; the default is both).

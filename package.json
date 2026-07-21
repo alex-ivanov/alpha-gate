@@ -43,6 +43,7 @@
     "test:app": "vitest run --config test/vitest.config.ts",
     "test:deploy": "vitest run --config test/vitest.deploy.config.ts",
     "test:watch": "vitest --config test/vitest.config.ts",
+    "test:packaged": "./test/packaged-install.sh",
     "ui:preview": "tsx src/deploy/ui-preview.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.deploy.json",
     "lint": "biome check .",
