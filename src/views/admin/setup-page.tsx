@@ -35,9 +35,9 @@ export const SetupPage: FC<{ info: SetupInfo; chrome?: Chrome }> = ({ info, chro
 
       {info.publicKey === null ? (
         <p class="callout warn">
-          No Sparkle public key saved yet — run <code>generate_keys</code> and paste{" "}
-          <code>SUPublicEDKey</code> on the <a href="/admin/settings">Settings</a> page; it then
-          fills in below.
+          No Sparkle public key saved yet — run <code>generate_keys</code> from Sparkle's{" "}
+          <code>bin/</code> (step 1) and paste <code>SUPublicEDKey</code> on the{" "}
+          <a href="/admin/settings">Settings</a> page; it then fills in below.
         </p>
       ) : null}
 
@@ -46,10 +46,17 @@ export const SetupPage: FC<{ info: SetupInfo; chrome?: Chrome }> = ({ info, chro
           <h2>1 · Sparkle EdDSA key (once)</h2>
         </div>
         <pre>
-          <code>./bin/generate_keys</code>
+          <code>
+            cd ~/Downloads/Sparkle-2.x{"\n"}
+            ./bin/generate_keys
+          </code>
         </pre>
         <p class="muted">
-          Prints the public key (save it in Settings). The private key stays in your Keychain —
+          <code>generate_keys</code> is <strong>Sparkle's</strong> tool, in the <code>bin/</code> of
+          the Sparkle 2 distribution you unpacked — not part of Alpha Gate, and not something{" "}
+          <code>npx alpha-gate</code> installs.{" "}
+          <a href="https://sparkle-project.org/documentation/publishing/">Sparkle's docs</a>. It
+          prints the public key (save it in Settings). The private key stays in your Keychain —{" "}
           <code>sign_update</code> uses it at publish time; the Worker never holds it.
         </p>
       </section>

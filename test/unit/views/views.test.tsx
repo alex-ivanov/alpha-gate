@@ -3,6 +3,7 @@ import { DEFAULT_BRANDING, resolveBranding } from "../../../src/core/invite-temp
 import { AccessPage, NotFoundPage } from "../../../src/views/access-page";
 import { COMBOBOX_SCRIPT, Combobox } from "../../../src/views/admin/combobox";
 import { AdminLayout } from "../../../src/views/admin/layout";
+import { SetupPage } from "../../../src/views/admin/setup-page";
 import { GetPage } from "../../../src/views/get-page";
 import { renderPage } from "../../../src/views/layout";
 
@@ -210,5 +211,40 @@ describe("NotFoundPage", () => {
     expect(html).not.toContain("Download");
     expect(html).not.toContain("Activate");
     expect(html).not.toContain("Access key");
+  });
+});
+
+describe("SetupPage — step 1 names Sparkle as the source of generate_keys", () => {
+  const info = {
+    appName: "Acme",
+    activateScheme: "acme",
+    publicKey: null,
+    appOrigin: "https://app.example.test",
+  };
+
+  // `generate_keys` ships with SPARKLE, not with Alpha Gate — but Alpha Gate has a `bin/` of its own
+  // (`bin/alpha-gate.mjs`), so a bare `./bin/generate_keys` in a command block reads as "run this in
+  // the Alpha Gate directory". An operator who installed via `npx alpha-gate` has no such directory at
+  // all. The page must say whose tool it is.
+  it("attributes generate_keys to Sparkle and says Alpha Gate does not ship it", () => {
+    const html = (<SetupPage info={info} />).toString();
+    expect(html).toContain("generate_keys");
+    expect(html).toMatch(/Sparkle['’]?s?<\/strong>|Sparkle 2 distribution/);
+    expect(html).toContain("npx alpha-gate");
+    expect(html).toContain("sparkle-project.org");
+  });
+
+  it("shows the cd into the Sparkle distribution, so ./bin/ is unambiguous", () => {
+    const html = (<SetupPage info={info} />).toString();
+    const pre = html.match(/<pre>[\s\S]*?<\/pre>/)?.[0] ?? "";
+    expect(pre).toContain("Sparkle-2");
+    expect(pre).toContain("./bin/generate_keys");
+    // The two commands must be on separate lines inside the <pre>, not run together.
+    expect(
+      pre
+        .replace(/<\/?(pre|code)>/g, "")
+        .trim()
+        .split("\n").length,
+    ).toBeGreaterThanOrEqual(2);
   });
 });
