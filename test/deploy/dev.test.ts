@@ -15,7 +15,8 @@ function makeEnv(w: Wrangler): { env: DevEnv; out: string[]; fs: FileSystem } {
       fs,
       palette: plainPalette,
       out: (line) => out.push(line),
-      rootDir: "/repo",
+      rootDir: "/pkg",
+      stateDir: "/state",
       toolVersion: "0.1.0",
       updateManifestUrl: "https://example.test/release.json",
     },
@@ -47,16 +48,14 @@ describe("runDev", () => {
         (x) => x.startsWith("dev --config") && x.includes("--port 9000") && x.includes("--local"),
       ),
     ).toBe(true);
-    expect(cfgOf(fs, "/repo/.deploy/local.app.toml")).toContain('main = "/repo/src/worker.ts"');
+    expect(cfgOf(fs, "/state/local.app.toml")).toContain('main = "/pkg/src/worker.ts"');
   });
 
   it("admin role: points main at the dev entry and passes DEV_ADMIN", async () => {
     const w = createFakeWrangler();
     const { env, fs } = makeEnv(w);
     await runDev(["--role", "admin"], env);
-    expect(cfgOf(fs, "/repo/.deploy/local.admin.toml")).toContain(
-      'main = "/repo/src/dev/admin-entry.ts"',
-    );
+    expect(cfgOf(fs, "/state/local.admin.toml")).toContain('main = "/pkg/src/dev/admin-entry.ts"');
     expect(
       cmds(w).some((x) => x.startsWith("dev --config") && x.includes("--var DEV_ADMIN:1")),
     ).toBe(true);
@@ -71,7 +70,29 @@ describe("runDev", () => {
     const dev = w.calls.find((c) => c[0] === "dev");
     expect(dev).toBeDefined();
     expect(dev).toContain("--tsconfig");
-    expect(dev?.[(dev?.indexOf("--tsconfig") ?? -1) + 1]).toBe("/repo/tsconfig.json");
+    expect(dev?.[(dev?.indexOf("--tsconfig") ?? -1) + 1]).toBe("/pkg/tsconfig.json");
+  });
+
+  // rootDir is the PACKAGE — under an npm install that is node_modules, and under npx a versioned
+  // cache directory that a later `npx alpha-gate@newer` abandons. Only three things may point there
+  // (the Worker entry, the migrations, the tsconfig); everything durable must land in stateDir, or the
+  // local D1/R2 silently disappears on the next version bump and a root-owned global install can't
+  // even create it. The suite keeps the two dirs distinct so this is actually observable.
+  it("writes nothing durable into the package directory", async () => {
+    const w = createFakeWrangler();
+    const { env, fs } = makeEnv(w);
+    await runDev(["--role", "admin"], env);
+
+    const written = [...(fs as ReturnType<typeof createFakeFileSystem>).files.keys()];
+    expect(written.length).toBeGreaterThan(0); // the config + the seed archive
+    expect(written.filter((p) => p.startsWith("/pkg"))).toEqual([]);
+    expect(written.every((p) => p.startsWith("/state"))).toBe(true);
+
+    // Miniflare's own D1/R2 too — it is handed over as --persist-to.
+    for (const call of w.calls) {
+      const i = call.indexOf("--persist-to");
+      if (i !== -1) expect(call[i + 1]).toBe("/state/local-state");
+    }
   });
 
   it("--no-seed skips the seed (no r2 put / d1 execute)", async () => {

@@ -26,7 +26,7 @@ for arg in "$@"; do
   esac
 done
 
-# Default: BOTH Workers. The app runs in the background (it shares Miniflare state via .wrangler/state),
+# Default: BOTH Workers. The app runs in the background (it shares Miniflare state via the state dir),
 # the admin in the foreground so Ctrl-C stops the session. Derive the admin port as app_port+1.
 APP_PORT=8787
 for ((i=1; i<=$#; i++)); do

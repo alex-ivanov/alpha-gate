@@ -51,6 +51,12 @@ done
 
 [ -n "${ARTIFACT}" ] || { echo "usage: ./publish.sh <MyApp.dmg|MyApp.zip> [--channel <name>] [--instance <slug>]" >&2; exit 1; }
 [ -f "${ARTIFACT}" ] || { echo "artifact not found: ${ARTIFACT}" >&2; exit 1; }
+# Absolutize immediately: the >90 MB path uploads from inside `( cd "${ROOT}" && … )` so the bundled
+# wrangler resolves, and a relative "MyApp.dmg" would be looked up there instead of in the operator's
+# directory. From a git clone ROOT happens to be the cwd and it worked by accident; from an npm/npx
+# install ROOT is node_modules, and every large publish failed with a bare "file not found" AFTER the
+# signature had already been produced.
+ARTIFACT="$(cd "$(dirname "${ARTIFACT}")" && pwd)/$(basename "${ARTIFACT}")"
 
 # ─── Resolve the instance + admin URL ──────────────────────────────────────────────────────────────
 # Default --instance when exactly one instance is deployed (its .deploy/<slug>.state.json). This makes

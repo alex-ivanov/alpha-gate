@@ -1,5 +1,6 @@
 import { parseTeardownArgs } from "../core/args";
 import type { Palette } from "../core/colors";
+import { resolveUserPath } from "../core/paths";
 import { resourceName } from "../core/plan";
 import type { ApplyStep } from "../core/types";
 import { renderDestroy, renderHeader } from "../core/ui";
@@ -21,6 +22,9 @@ export interface TeardownEnv {
   rootDir: string;
   /** Where this instance's state lives — must match deploy (see core/paths). */
   stateDir: string;
+  /** The directory the USER ran the command in — a relative --archive-dir is resolved against it,
+      never against the package root that wrangler is pinned to. */
+  cwd: string;
   nowStamp: () => string;
   interactive: boolean;
 }
@@ -37,7 +41,11 @@ export async function runTeardown(argv: readonly string[], env: TeardownEnv): Pr
   const args = parsed.value;
   const res = resourceName(args.instance);
   const deployDir = env.stateDir;
-  const archiveDir = args.archiveDir ?? deployDir;
+  // The archive is the ONLY thing standing between a mistyped teardown and permanent data loss, so it
+  // has to land where the operator asked. wrangler runs pinned to the package root, so a relative dir
+  // would otherwise be written inside node_modules while we printed the path they typed.
+  const archiveDir =
+    args.archiveDir === null ? deployDir : resolveUserPath(args.archiveDir, env.cwd);
   const archiveFile = `${archiveDir}/${args.instance}-${env.nowStamp()}.sql`;
   const wr = env.wrangler;
 

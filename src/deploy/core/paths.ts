@@ -19,6 +19,23 @@ export interface StateDirInputs {
   isGitCheckout: boolean;
 }
 
+/**
+ * Absolutize a path the USER typed, against the directory they typed it in.
+ *
+ * Every wrangler call runs with `cwd` pinned to the package root (so the bundled wrangler resolves
+ * from an npx install), which means a relative `--archive-dir ./backups` would land inside the
+ * package — i.e. inside npm's prunable cache — while the summary cheerfully printed `./backups`. For a
+ * pre-destroy database archive that is the difference between a backup and no backup.
+ *
+ * Pure string work on purpose (no `node:path`), so core stays runtime-free and testable.
+ */
+export function resolveUserPath(input: string, cwd: string): string {
+  if (input.startsWith("/")) return input;
+  const base = cwd.endsWith("/") ? cwd.slice(0, -1) : cwd;
+  const rel = input.startsWith("./") ? input.slice(2) : input;
+  return rel === "" ? base : `${base}/${rel}`;
+}
+
 export function resolveStateDir(inputs: StateDirInputs): string {
   if (inputs.home !== undefined && inputs.home !== "") return inputs.home;
   if (inputs.isGitCheckout) return `${inputs.packageRoot}/.deploy`;

@@ -16,7 +16,11 @@ export interface DevEnv {
   fs: FileSystem;
   palette: Palette;
   out: (line: string) => void;
+  /** The PACKAGE root — only for paths that must point INTO the package (`main`, migrations, tsconfig). */
   rootDir: string;
+  /** Where everything DURABLE goes (core/paths): `<repo>/.deploy` for a checkout, `~/.alpha-gate` for
+      an npm install. Never `rootDir` — under npx that is a versioned, prunable cache directory. */
+  stateDir: string;
   toolVersion: string;
   updateManifestUrl: string;
   /** Probe whether something already listens on a TCP port (injected; real net check in cli.ts). */
@@ -38,8 +42,14 @@ export async function runDev(argv: readonly string[], env: DevEnv): Promise<numb
   const args = parsed.value;
 
   const res = resourceName(INSTANCE); // alpha-gate-local
-  const deployDir = `${env.rootDir}/.deploy`;
-  const stateDir = `${env.rootDir}/.wrangler/state`; // gitignored; shared by both roles
+  // Durable local-dev state belongs in the resolved state dir, NOT in the package. `deploy` and
+  // `teardown` already do this; `dev` used to write into `rootDir`, which from an npm install is
+  // node_modules — so the local D1/R2 vanished the moment npx resolved a newer version into a
+  // different cache hash, and a root-owned global install couldn't even mkdir it. For a git checkout
+  // both resolve to `<repo>/.deploy`, so nothing moves for contributors except the Miniflare state,
+  // which is throwaway by design (`--reset` exists precisely because it is).
+  const deployDir = env.stateDir;
+  const stateDir = `${env.stateDir}/local-state`; // Miniflare's D1/R2; shared by both roles
   const cfg = `${deployDir}/${INSTANCE}.${args.role}.toml`;
   const wr = env.wrangler;
 

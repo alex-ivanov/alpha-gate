@@ -29,6 +29,11 @@ jobs:
       - run: npx biome check .
       - run: npm run typecheck
       - run: npm test
+      # The tarball guard, re-run at the moment of publish. CI runs it on main and PRs, but a tag can
+      # be pushed from any commit — and this is the one check that sees the package the way users get
+      # it. 0.1.0 shipped a Worker that deployed clean and then threw on its first request; nothing
+      # else in this job can catch that.
+      - run: ./test/packaged-install.sh
       - name: Tag matches package.json version
         run: |
           PKG="$(node -p "require('./package.json').version")"

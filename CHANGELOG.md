@@ -5,6 +5,26 @@ npm registry's `latest` for this package and compares it against its `TOOL_VERSI
 dashboard/Settings link here for notes. `release.json` is only the static-manifest fallback for
 `$UPDATE_MANIFEST_URL` overrides — keep its `latest` in sync with `package.json`'s `version`.
 
+## 0.1.1
+
+Fixes two bugs that only appear when the CLI runs from an **npm/npx install** — 0.1.0 worked from a
+git clone and was broken from the registry. If you deployed with `npx alpha-gate`, re-run
+`npx alpha-gate@0.1.1 deploy --instance <slug>`; your D1 data, R2 archives, and Access wiring are
+preserved.
+
+- **The deployed Worker answered every request with `Internal Server Error`** (`ReferenceError: React
+  is not defined` in the logs). esbuild ignores a `tsconfig.json` that lives under `node_modules`,
+  which is exactly where an npm install puts the package — so the hono/jsx transform silently fell
+  back to the classic one and every view compiled to `React.createElement`. The deploy itself
+  succeeded, which is why nothing caught it earlier. `--tsconfig` is now pinned on every wrangler
+  command that bundles.
+- **`alpha-gate` could fail to start with `spawn tsx ENOENT`** on a plain `npm install alpha-gate`
+  (npx was unaffected). The launcher looked for `tsx` inside the package; npm hoists it beside the
+  package. It now asks Node's resolver and runs it under the current node binary.
+- **New CI job**: `npm run test:packaged` packs the tarball, installs it, and asserts on the bundle
+  the CLI actually produces. Both bugs above were invisible to the existing suites, which run against
+  the checkout.
+
 ## 0.1.0
 
 - **Back office redesign** ("quiet instrument"): the serving map makes the resolver visible; the

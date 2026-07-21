@@ -42,6 +42,7 @@ function makeEnv(
       out: (line) => out.push(line),
       rootDir: "/repo",
       stateDir: "/repo/.deploy",
+      cwd: "/home/alex/work",
       nowStamp: () => "20260101T000000Z",
       interactive: opts.interactive ?? true,
     },
@@ -104,6 +105,32 @@ describe("runTeardown", () => {
     const { env } = makeEnv(w);
     expect(await runTeardown(["--instance", "x", "--yes"], env)).toBe(0);
     expect(cmds(w)).toContain("delete --name alpha-gate-x");
+  });
+
+  // The pre-destroy archive is the last line of defence before an instance is gone for good, so where
+  // it lands must be where the operator asked. wrangler runs pinned to the package root; a relative
+  // dir passed straight through would write it inside node_modules (npm's prunable cache, under npx)
+  // while the summary printed the path they typed.
+  it("writes a relative --archive-dir where the operator ran the command, not inside the package", async () => {
+    const w = fakeWrangler();
+    const { env, out } = makeEnv(w);
+    expect(await runTeardown(["--instance", "x", "--archive-dir", "./backups", "--yes"], env)).toBe(
+      0,
+    );
+    const exported = w.calls.find((c) => c[0] === "d1" && c[1] === "export");
+    const target = exported?.[exported.indexOf("--output") + 1];
+    expect(target).toBe("/home/alex/work/backups/x-20260101T000000Z.sql");
+    expect(out.join("\n")).toContain(target ?? "");
+  });
+
+  it("defaults the archive to the instance's own state dir", async () => {
+    const w = fakeWrangler();
+    const { env } = makeEnv(w);
+    await runTeardown(["--instance", "x", "--yes"], env);
+    const exported = w.calls.find((c) => c[0] === "d1" && c[1] === "export");
+    expect(exported?.[exported.indexOf("--output") + 1]).toBe(
+      "/repo/.deploy/x-20260101T000000Z.sql",
+    );
   });
 
   it("reports a surviving (non-empty) R2 bucket but still deletes the database", async () => {

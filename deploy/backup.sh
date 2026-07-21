@@ -27,13 +27,27 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=deploy/lib/statedir.sh
 . "${ROOT}/deploy/lib/statedir.sh"
 RES="alpha-gate-${INSTANCE}"
-OUT="${OUT:-$(alpha_gate_state_dir "${ROOT}")}"
+STATE_DIR="$(alpha_gate_state_dir "${ROOT}")"
+OUT="${OUT:-${STATE_DIR}}"
 mkdir -p "${OUT}"
+# Absolutize before the subshell below cds away, so `--out ./backups` means the operator's ./backups.
+OUT="$(cd "${OUT}" && pwd)"
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 FILE="${OUT}/${INSTANCE}-${STAMP}.sql"
 
+# Pin the instance's own config. Without it wrangler auto-discovers a wrangler.toml from the CURRENT
+# directory upward — so running this from inside another Workers project silently aims the export at
+# THAT project's account, and the operator gets an auth error to chase instead of a backup. Falling
+# back to the bare form keeps a state dir that predates the rendered configs working.
+CFG=("--config" "${STATE_DIR}/${INSTANCE}.app.toml")
+[ -f "${STATE_DIR}/${INSTANCE}.app.toml" ] || CFG=()
+# ${CFG[@]+…}: macOS ships bash 3.2, where `"${CFG[@]}"` on an EMPTY array is an unbound-variable
+# error under `set -u`. The guard expands to nothing instead of exploding.
+
 echo "Exporting ${RES} → ${FILE} (this reads the REMOTE database)…" >&2
-if npx wrangler d1 export "${RES}" --remote --output "${FILE}"; then
+# cd to the package root so the bundled wrangler resolves even when the operator's cwd has no
+# node_modules — the same guard every other wrangler call site already uses.
+if ( cd "${ROOT}" && npx wrangler d1 export "${RES}" ${CFG[@]+"${CFG[@]}"} --remote --output "${FILE}" ); then
   BYTES="$(wc -c < "${FILE}" | tr -d ' ')"
   echo "✓ backed up ${BYTES} bytes to ${FILE}" >&2
   echo "  This dump contains live tokens — keep it private and prune old copies." >&2

@@ -155,7 +155,9 @@ async function main(): Promise<number> {
   }
 
   if (command === "teardown") {
-    const env: TeardownEnv = { ...shared(rest), nowStamp };
+    // cwd is captured HERE, before anything pins wrangler to the package root, so a relative
+    // --archive-dir resolves against the directory the operator actually typed it in.
+    const env: TeardownEnv = { ...shared(rest), cwd: process.cwd(), nowStamp };
     return runTeardown(rest, env);
   }
 
