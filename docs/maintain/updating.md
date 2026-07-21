@@ -27,7 +27,7 @@ npx alpha-gate@latest deploy --instance <slug>
 ```
 
 `@latest` fetches the newest published version; the rest is an ordinary re-deploy. To pin a
-specific version, name it: `npx alpha-gate@0.1.0 deploy --instance <slug>`.
+specific version, name it: `npx alpha-gate@0.1.1 deploy --instance <slug>`.
 
 ## Update from a clone
 

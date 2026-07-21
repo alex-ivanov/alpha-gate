@@ -21,9 +21,22 @@ preserved.
 - **`alpha-gate` could fail to start with `spawn tsx ENOENT`** on a plain `npm install alpha-gate`
   (npx was unaffected). The launcher looked for `tsx` inside the package; npm hoists it beside the
   package. It now asks Node's resolver and runs it under the current node binary.
-- **New CI job**: `npm run test:packaged` packs the tarball, installs it, and asserts on the bundle
-  the CLI actually produces. Both bugs above were invisible to the existing suites, which run against
-  the checkout.
+- **`dev` wrote all local state into the package** — the rendered config, the seed archive, and the
+  whole Miniflare D1/R2. Under `npx` that is a versioned cache directory, so local data vanished
+  as soon as a newer version resolved to a different one, and `$ALPHA_GATE_HOME` was a no-op for
+  `dev`; a root-owned global install failed outright. It now uses the same state dir as every other
+  command (`~/.alpha-gate`, or `<repo>/.deploy` from a clone).
+- **`teardown --archive-dir <relative>` misplaced the pre-destroy database archive** into the package
+  directory while printing the path you typed — then destroyed the instance. Relative paths are now
+  anchored to the directory you ran the command in.
+- **`backup` could target the wrong Cloudflare account.** It ran wrangler in your current directory
+  with no config, so a `wrangler.toml` belonging to any nearby Workers project won. It is now pinned
+  to the instance's own config.
+- **`publish` failed on artifacts over 90 MB** given a relative path (`publish dist/MyApp.dmg`) — the
+  file was looked up inside the package. It failed *after* signing, with a bare "file not found".
+- **New CI job**: `npm run test:packaged` packs the tarball, installs it, runs the CLI without PATH
+  help, and asserts on the bundle actually produced — it also gates the release workflow. Every bug
+  above was invisible to the existing suites, which run against the checkout.
 
 ## 0.1.0
 
