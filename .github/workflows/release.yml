@@ -18,13 +18,20 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      # setup-node v7 specifically. Up to v6 it exported NODE_AUTH_TOKEN as the literal placeholder
+      # `XXXXX-XXXXX-XXXXX-XXXXX` whenever `registry-url` was set and no token secret existed, so the
+      # .npmrc it writes resolved to a garbage credential. Trusted publishing needs no token at all,
+      # and that placeholder is what turns a rejected OIDC exchange into a bare, misleading
+      # `E404 PUT .../alpha-gate` instead of a legible auth error. v7 (PR #1558) exports the variable
+      # only when the user actually supplies one. `registry-url` stays — both npm's and setup-node's
+      # own trusted-publishing examples keep it.
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24 # ships npm >= 11.5.1; also inside npm 12's engines range, unlike 22
           cache: npm
           registry-url: https://registry.npmjs.org
-      - run: npm install -g npm@latest # OIDC trusted publishing needs a newer npm than node 22 bundles
+      - run: npm install -g npm@latest # belt-and-braces: trusted publishing requires npm >= 11.5.1
       - run: npm ci
       - run: npx biome check .
       - run: npm run typecheck
@@ -42,4 +49,22 @@ jobs:
             echo "::error::tag v${TAG} does not match package.json version ${PKG}" >&2
             exit 1
           fi
-      - run: npm publish # auth + provenance via OIDC trusted publishing; no token involved
+      # Auth + provenance via OIDC trusted publishing; no token involved.
+      #
+      # --loglevel verbose is deliberate and permanent. npm decides whether to use OIDC inside
+      # lib/utils/oidc.js, and EVERY branch there logs at verbose/silly — including the one that
+      # matters ("Failed token exchange request with body message: …", which carries the registry's
+      # actual reason). At the default log level a misconfigured trusted publisher is indistinguishable
+      # from a network blip: you get one line of E404 and nothing else. This job runs a handful of times
+      # a year; the noise is worth never debugging that blind again. No secret is printed — the ID token
+      # is not logged, and the exchanged token is set in config, not echoed.
+      - name: Publish to npm (trusted publishing)
+        run: |
+          echo "npm $(npm --version) — trusted publishing needs >= 11.5.1"
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "OIDC: id-token request URL is present"
+          else
+            echo "::error::OIDC: no id-token request URL — the job lacks 'permissions: id-token: write'"
+            exit 1
+          fi
+          npm publish --loglevel verbose
