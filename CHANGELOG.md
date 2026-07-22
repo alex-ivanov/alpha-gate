@@ -5,7 +5,10 @@ npm registry's `latest` for this package and compares it against its `TOOL_VERSI
 dashboard/Settings link here for notes. `release.json` is only the static-manifest fallback for
 `$UPDATE_MANIFEST_URL` overrides — keep its `latest` in sync with `package.json`'s `version`.
 
-## Unreleased
+## 0.1.2
+
+A publish-path change only — the deployed Workers are untouched, so instances need no redeploy;
+update the CLI when convenient (`npx alpha-gate@0.1.2 …`, or `git pull` from a clone).
 
 - **Publishing can name the Sparkle signing key.** `sign_update` used to be invoked bare, which
   always signs with the `ed25519` account of the login Keychain. Three alternatives (exactly one at

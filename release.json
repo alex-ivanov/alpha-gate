@@ -1,6 +1,6 @@
 {
   "_comment": "\u00a722 self-update manifest FALLBACK. By default the deployed tool's daily cron polls registry.npmjs.org/<name>/latest; this file exists for forks that point $UPDATE_MANIFEST_URL at a static manifest instead. Keep `latest` in sync with package.json's `version` on every release; bump `min_supported` and set `breaking` when a deploy requires manual steps. Extra keys (like this one) are ignored by the parser.",
-  "latest": "0.1.1",
+  "latest": "0.1.2",
   "min_supported": "0.1.0",
   "notes_url": "https://github.com/alex-ivanov/alpha-gate/blob/main/CHANGELOG.md",
   "breaking": false
