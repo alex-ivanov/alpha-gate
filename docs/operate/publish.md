@@ -41,12 +41,30 @@ It stores the Client ID and Secret in your login Keychain, keyed by instance; ev
 | `--instance <slug>` | pick the instance when more than one is deployed |
 | `--admin-url <url>` | target an admin Worker directly (CI, or no local deploy state) |
 | `--sign-update <path>` | where `sign_update` lives (or set `$SIGN_UPDATE`); set `ED_SIGNATURE=<sig>` to skip signing entirely |
+| `--ed-key-account <name>` | sign with a named account in the login Keychain instead of the default `ed25519` (or `$SPARKLE_ED_KEY_ACCOUNT`) |
+| `--ed-key-file <path>` | sign with an exported private key file (or `$SPARKLE_ED_KEY_FILE`) |
 | `--build-number <n>` | override the `CFBundleVersion` read from the app |
 | `--short-version <s>` | override the `CFBundleShortVersionString` read from the app |
 | `--min-os <version>` | override the `LSMinimumSystemVersion` read from the app |
 | `--critical` | mark the build as a critical update |
 | `--reset-token` | forget the stored service token and prompt again |
 | `--dry-run` | read and validate the artifact, print what would be published, upload nothing |
+
+## Which signing key
+
+With no flags, `sign_update` uses the private key under the `ed25519` account of your login Keychain — the one `generate_keys` created. That is right for a single app on a single machine. Name a different key when you have more than one: several apps on one laptop, a key kept in a file rather than the Keychain, or a CI runner with no Keychain at all.
+
+```bash
+./publish.sh MyApp.dmg --ed-key-account myapp-alpha         # another account in the login Keychain
+./publish.sh MyApp.dmg --ed-key-file ~/keys/myapp.pem       # an exported key file (generate_keys -x)
+SPARKLE_ED_KEY="$MYAPP_SPARKLE_KEY" ./publish.sh MyApp.zip  # CI: the base64 key itself
+```
+
+`$SPARKLE_ED_KEY` is the CI form: the key is piped to `sign_update`'s standard input, so it never touches disk and never appears in the process list or your shell history. The other two have `$SPARKLE_ED_KEY_ACCOUNT` and `$SPARKLE_ED_KEY_FILE` as equivalents; a flag beats the environment.
+
+The three are alternatives, not layers — setting two is an error rather than a silent preference, because signing with the wrong key is invisible until the update ships and every installed app rejects it. Each build's signature must verify against the `SUPublicEDKey` baked into the *installed* app; changing which key you sign with is only safe if that app carries the matching public key.
+
+Cloudflare never sees any of this. The key stays on the signing machine and the Worker only stores the signature string each build produces.
 
 ## Browser upload
 
@@ -65,7 +83,7 @@ export CF_ACCESS_CLIENT_SECRET=<client-secret>
   --admin-url https://alpha-gate-<slug>-admin.<account>.workers.dev --channel beta
 ```
 
-A runner without a readable app bundle (a bare zip) passes `--build-number` and `--short-version` and sets `ED_SIGNATURE` from its own `sign_update` step. A typical workflow: build, sign, and notarize with your existing steps, then run the publish command above with the two service-token secrets in the environment.
+A macOS runner has no unlocked login Keychain, so give it the key directly: put the base64 private key in a secret and export it as `SPARKLE_ED_KEY` (see [Which signing key](#which-signing-key)). A runner without a readable app bundle (a bare zip) also passes `--build-number` and `--short-version`, and may set `ED_SIGNATURE` from its own `sign_update` step instead. A typical workflow: build, sign, and notarize with your existing steps, then run the publish command above with the two service-token secrets in the environment.
 
 ## Rollback
 

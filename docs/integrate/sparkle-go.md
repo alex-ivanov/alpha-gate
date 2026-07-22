@@ -63,7 +63,9 @@ go install github.com/alex-ivanov/go-sparkle/cmd/sign_update@latest
 You can also mint the keypair without installing Sparkle at all: `sparkle keygen` (from
 `cmd/sparkle`) prints the base64 public key to embed and writes the private key file — keys are
 interchangeable with Sparkle's. The [backup warning](../maintain/backup.md) applies to that key
-file exactly as it does to the Keychain copy.
+file exactly as it does to the Keychain copy. Point publishing at that file with `--ed-key-file
+<path>` — see [Which signing key](../operate/publish.md#which-signing-key). The key-selection flags
+map onto `sign_update`'s own `--account` / `--ed-key-file`, so they work with either implementation.
 
 ## Route 2: framework bindings (abemedia/go-sparkle)
 

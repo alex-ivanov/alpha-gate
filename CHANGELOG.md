@@ -5,6 +5,16 @@ npm registry's `latest` for this package and compares it against its `TOOL_VERSI
 dashboard/Settings link here for notes. `release.json` is only the static-manifest fallback for
 `$UPDATE_MANIFEST_URL` overrides — keep its `latest` in sync with `package.json`'s `version`.
 
+## Unreleased
+
+- **Publishing can name the Sparkle signing key.** `sign_update` used to be invoked bare, which
+  always signs with the `ed25519` account of the login Keychain. Three alternatives (exactly one at
+  a time): `--ed-key-account <name>` for another Keychain account, `--ed-key-file <path>` for an
+  exported key, and `$SPARKLE_ED_KEY` for CI — the key goes to `sign_update`'s stdin, so it stays
+  out of the process list and off disk. `$SPARKLE_ED_KEY_ACCOUNT` / `$SPARKLE_ED_KEY_FILE` mirror
+  the flags. With none of them set the behaviour is unchanged. See
+  [Which signing key](docs/operate/publish.md#which-signing-key).
+
 ## 0.1.1
 
 Fixes two bugs that only appear when the CLI runs from an **npm/npx install** — 0.1.0 worked from a

@@ -14,6 +14,10 @@
 # DerivedData, or pass --sign-update / $SIGN_UPDATE, or bypass with ED_SIGNATURE=<sig>). For a real
 # instance it needs a Cloudflare Access service token — entered once, then stored in your Keychain.
 #
+# Which signing key: by default sign_update uses the 'ed25519' account in your login Keychain. Name a
+# different one with --ed-key-account <name>, point at an exported key with --ed-key-file <path>, or
+# in CI put the base64 key in $SPARKLE_ED_KEY (piped to sign_update's stdin — never a file, never argv).
+#
 # CI / headless: set CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET and pass --admin-url; on a runner
 # with no app to read (already-built zip), pass --build-number/--short-version and ED_SIGNATURE.
 set -euo pipefail
@@ -26,6 +30,10 @@ STATE_DIR="$(alpha_gate_state_dir "${ROOT}")"
 ARTIFACT=""; INSTANCE=""; ADMIN_URL=""; CHANNEL=""; STREAM_ID=""; CRITICAL_FLAG=""
 DRY_RUN=0; RESET_TOKEN=0; BUILD_OVERRIDE=""; SHORT_OVERRIDE=""; MIN_OS_OVERRIDE=""
 SIGN_UPDATE="${SIGN_UPDATE:-}"
+# Which EdDSA key sign_update should use. All three are optional; with none set sign_update reads the
+# default 'ed25519' account from the login Keychain, exactly as before this flag existed.
+ED_KEY_FILE="${SPARKLE_ED_KEY_FILE:-}"
+ED_KEY_ACCOUNT="${SPARKLE_ED_KEY_ACCOUNT:-}"
 
 need() { [ "$#" -ge 2 ] || { echo "missing value for $1" >&2; exit 1; }; }
 while [ "$#" -gt 0 ]; do
@@ -35,6 +43,8 @@ while [ "$#" -gt 0 ]; do
     --channel)       need "$@"; CHANNEL="$2"; shift 2 ;;
     --stream-id)     need "$@"; STREAM_ID="$2"; shift 2 ;;    # legacy; --channel is preferred
     --sign-update)   need "$@"; SIGN_UPDATE="$2"; shift 2 ;;
+    --ed-key-file)    need "$@"; ED_KEY_FILE="$2"; shift 2 ;;
+    --ed-key-account) need "$@"; ED_KEY_ACCOUNT="$2"; shift 2 ;;
     --build-number)  need "$@"; BUILD_OVERRIDE="$2"; shift 2 ;;
     --short-version) need "$@"; SHORT_OVERRIDE="$2"; shift 2 ;;
     --min-os)        need "$@"; MIN_OS_OVERRIDE="$2"; shift 2 ;;
@@ -42,7 +52,7 @@ while [ "$#" -gt 0 ]; do
     --reset-token)   RESET_TOKEN=1; shift ;;
     --dry-run)       DRY_RUN=1; shift ;;
     -h|--help)
-      sed -n '2,18p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     -*) echo "unknown flag: $1" >&2; exit 1 ;;
     *)  ARTIFACT="$1"; shift ;;
@@ -251,11 +261,55 @@ find_sign_update() {
     -exec stat -f '%m %N' {} + 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-
 }
 
+# Pick the key. sign_update takes exactly one source, so we reject a combination up front rather than
+# let the tool silently prefer one — signing with the wrong key produces a signature every installed
+# app rejects, and you only find out after shipping. In precedence order the three sources are:
+#
+#   $SPARKLE_ED_KEY      the base64 key itself → piped to `--ed-key-file -` (CI; never on disk, never
+#                        in argv, so it stays out of `ps` and the shell history)
+#   --ed-key-file        an exported private key file (generate_keys -x) → `-f <path>`
+#   --ed-key-account     a named account in the login Keychain           → `--account <name>`
+#
+# With none of them set we invoke sign_update bare and it uses its own default: the 'ed25519' account.
+SIGN_KEY_ARGS=(); KEY_SOURCE="the default 'ed25519' Keychain account"; KEY_ON_STDIN=0
+sources=0
+[ -n "${SPARKLE_ED_KEY:-}" ] && sources=$((sources + 1))
+[ -n "${ED_KEY_FILE}" ]      && sources=$((sources + 1))
+[ -n "${ED_KEY_ACCOUNT}" ]   && sources=$((sources + 1))
+if [ "${sources}" -gt 1 ]; then
+  echo "error: name the signing key exactly once — \$SPARKLE_ED_KEY, --ed-key-file, and" >&2
+  echo "       --ed-key-account are alternatives, not layers. Currently set:" >&2
+  [ -n "${SPARKLE_ED_KEY:-}" ] && echo "         \$SPARKLE_ED_KEY (the key itself)" >&2
+  [ -n "${ED_KEY_FILE}" ]      && echo "         --ed-key-file ${ED_KEY_FILE}" >&2
+  [ -n "${ED_KEY_ACCOUNT}" ]   && echo "         --ed-key-account ${ED_KEY_ACCOUNT}" >&2
+  exit 1
+fi
+if [ -n "${SPARKLE_ED_KEY:-}" ]; then
+  SIGN_KEY_ARGS=(--ed-key-file -); KEY_ON_STDIN=1
+  KEY_SOURCE="the key in \$SPARKLE_ED_KEY"
+elif [ -n "${ED_KEY_FILE}" ]; then
+  [ -f "${ED_KEY_FILE}" ] || { echo "error: --ed-key-file ${ED_KEY_FILE}: no such file" >&2; exit 1; }
+  [ -r "${ED_KEY_FILE}" ] || { echo "error: --ed-key-file ${ED_KEY_FILE}: not readable" >&2; exit 1; }
+  SIGN_KEY_ARGS=(--ed-key-file "${ED_KEY_FILE}")
+  KEY_SOURCE="the key file ${ED_KEY_FILE}"
+elif [ -n "${ED_KEY_ACCOUNT}" ]; then
+  SIGN_KEY_ARGS=(--account "${ED_KEY_ACCOUNT}")
+  KEY_SOURCE="Keychain account '${ED_KEY_ACCOUNT}'"
+fi
+
+if [ -n "${ED_SIGNATURE:-}" ] && [ "${sources}" -gt 0 ]; then
+  echo "note: ED_SIGNATURE is set, so ${KEY_SOURCE} is unused — the signature is taken as given." >&2
+fi
+
 if [ -z "${ED_SIGNATURE:-}" ]; then
   SIGN_BIN="$(find_sign_update)"
   if [ -n "${SIGN_BIN}" ] && { [ "${SIGN_BIN}" = "sign_update" ] || [ -x "${SIGN_BIN}" ]; }; then
-    echo "signing with ${SIGN_BIN}" >&2
-    SU_OUT="$("${SIGN_BIN}" "${ARTIFACT}")"
+    echo "signing with ${SIGN_BIN} using ${KEY_SOURCE}" >&2
+    if [ "${KEY_ON_STDIN}" -eq 1 ]; then
+      SU_OUT="$(printf '%s\n' "${SPARKLE_ED_KEY}" | "${SIGN_BIN}" "${SIGN_KEY_ARGS[@]}" "${ARTIFACT}")"
+    else
+      SU_OUT="$("${SIGN_BIN}" ${SIGN_KEY_ARGS[@]+"${SIGN_KEY_ARGS[@]}"} "${ARTIFACT}")"
+    fi
     ED_SIGNATURE="$(printf '%s' "${SU_OUT}" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')"
     [ -n "${ED_SIGNATURE}" ] || ED_SIGNATURE="$(printf '%s' "${SU_OUT}" | tr -d '[:space:]')"
   elif [ "${DRY_RUN}" -eq 1 ]; then
@@ -283,7 +337,7 @@ common_fields=(
 [ -n "${STREAM_ID}" ]      && common_fields+=(--data-urlencode "stream_id=${STREAM_ID}")
 
 if [ "${DRY_RUN}" -eq 1 ]; then
-  echo "[dry-run] would publish build ${BUILD_NUMBER} (${SHORT_VERSION})${CHANNEL:+ → channel ${CHANNEL}} to ${ADMIN_URL}" >&2
+  echo "[dry-run] would publish build ${BUILD_NUMBER} (${SHORT_VERSION})${CHANNEL:+ → channel ${CHANNEL}} to ${ADMIN_URL}, signed with ${KEY_SOURCE}" >&2
   exit 0
 fi
 

@@ -19,9 +19,12 @@ Use `generate_keys` from Sparkle 2's `bin/` directory:
 ```bash
 ./bin/generate_keys                          # stores the PRIVATE key in your login Keychain; prints the PUBLIC key
 ./bin/generate_keys -x sparkle_private.pem   # export the private key (for backup, or CI secrets)
+./bin/generate_keys --account myapp-alpha    # a second, separately named key alongside the default
 ```
 
 The private key is what `sign_update` uses at publish time. The Worker never holds it; it only stores the signature string each build produces.
+
+A key generated under `--account <name>`, or kept in an exported file, has to be named at publish time too — `./publish.sh MyApp.dmg --ed-key-account myapp-alpha` or `--ed-key-file`. See [Which signing key](../operate/publish.md#which-signing-key). With no such flag, publishing signs with the default `ed25519` account.
 
 **The private key is unrecoverable — back it up now.** It lives only in your login Keychain. If you lose it (laptop dies, Keychain wiped), every already-installed app rejects all future updates: Sparkle verifies each download against the public key baked into the app, and you cannot produce a matching signature without the private key. Run `./bin/generate_keys -x sparkle_private.pem` and store that file somewhere safe and off the laptop, such as a password manager or an encrypted backup. This is the single most important thing to back up in the whole system.
 
